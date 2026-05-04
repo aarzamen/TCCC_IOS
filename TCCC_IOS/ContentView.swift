@@ -1,17 +1,27 @@
 import SwiftUI
 
 struct ContentView: View {
+    let state: AppState
+    @Environment(\.palette) private var palette
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        ZStack(alignment: .top) {
+            palette.bg
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                StatusStrip(state: state)
+                ScreenPager(state: state)
+                    .frame(maxHeight: .infinity)
+            }
         }
-        .padding()
+        .preferredColorScheme(state.theme.preferredColorScheme)
+        .environment(\.palette, state.theme.palette)
+        .ignoresSafeArea(.keyboard)
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(state: AppState())
+        .previewInterfaceOrientation(.landscapeLeft)
 }

@@ -13,29 +13,39 @@
 		1A7250023CAD5E01EC0C1B5A /* Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77292E524CA7F6BE07FFBF4A /* Layout.swift */; };
 		200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 966DDC69FD2BA6744149DD70 /* RFGhostBadge.swift */; };
 		2D32BE161689099A00EC6DBA /* TCCC_IOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */; };
+		49B7CE9FD6838E73E3EFC75B /* TCCCCardScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5199AF612A48F51F9282732A /* TCCCCardScreen.swift */; };
 		4A0F0CBCC1FA321587B4A2C5 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5228B58B0B7DEB4A7E25D6EB /* AppState.swift */; };
 		5E335E98466F27FE4BB04476 /* TCCCExtractor in Frameworks */ = {isa = PBXBuildFile; productRef = A15CAC0CB421F5287463F2D1 /* TCCCExtractor */; };
 		6CE528D3418D0AD8149078FE /* TCCCReports in Frameworks */ = {isa = PBXBuildFile; productRef = 1EBADE04B1405565EC85AC04 /* TCCCReports */; };
+		79899357C672ABAFD0A67D9B /* HandoffScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9D9A775A7C3BB84A0D9A2E /* HandoffScreen.swift */; };
 		86BA530C6C55B2B98D486750 /* FooterHints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2CCE67936451614B668080 /* FooterHints.swift */; };
 		89EF0B5DE8FDC850975E7017 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAA6C0033E6E1A9DB176C2E /* Theme.swift */; };
 		9959847700098A8A614CA581 /* TCCCDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 1E9168029DF6BAD8005DF319 /* TCCCDesign */; };
+		AF6A76D936D8A86571D11109 /* VitalsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56776AA19BDE9BE265F682AD /* VitalsScreen.swift */; };
 		BD117DBEF33C429693F8CDB9 /* TCCCDomain in Frameworks */ = {isa = PBXBuildFile; productRef = CC65DA259DE892E2BB91FEA0 /* TCCCDomain */; };
 		CF2A891275EF13C4AAD3F116 /* PageHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D59C15139886E7B8C11A614 /* PageHeader.swift */; };
+		D0E1D462FCB005800E7E6772 /* PlaceholderBody.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FE3B8D34AC99C28F9DB2B61 /* PlaceholderBody.swift */; };
 		D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904C678A5044C0CC41C1D43F /* ScreenPager.swift */; };
 		DA2F29FB92881C06599E8F2C /* Panel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60B4A039F88CD4EAF7BDEA64 /* Panel.swift */; };
 		E90C0A613B8EA36C543B92AD /* PageIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635AA31015FB0ED0FBA93821 /* PageIndicator.swift */; };
 		F6DE3AD575F34257585637E7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1EA433E85994D4343C0AF2D /* Assets.xcassets */; };
 		FB00759BDB3E3A0B862E33C3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB801690CCDCF2E1C0E6BBC3 /* ContentView.swift */; };
+		FF806D8C2DBF0764539D33EF /* MedevacScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B8FC6324D1C8E2E96EB894 /* MedevacScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1D9D9A775A7C3BB84A0D9A2E /* HandoffScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffScreen.swift; sourceTree = "<group>"; };
+		38B8FC6324D1C8E2E96EB894 /* MedevacScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedevacScreen.swift; sourceTree = "<group>"; };
 		44F2B33AA3BB5856ECC1D263 /* LiveCaptureScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCaptureScreen.swift; sourceTree = "<group>"; };
 		45432B79F663572BEAD08956 /* TCCC_IOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TCCC_IOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5199AF612A48F51F9282732A /* TCCCCardScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCCCardScreen.swift; sourceTree = "<group>"; };
 		5228B58B0B7DEB4A7E25D6EB /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		56776AA19BDE9BE265F682AD /* VitalsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsScreen.swift; sourceTree = "<group>"; };
 		5C2CCE67936451614B668080 /* FooterHints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FooterHints.swift; sourceTree = "<group>"; };
 		60B4A039F88CD4EAF7BDEA64 /* Panel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panel.swift; sourceTree = "<group>"; };
 		635AA31015FB0ED0FBA93821 /* PageIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageIndicator.swift; sourceTree = "<group>"; };
 		77292E524CA7F6BE07FFBF4A /* Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Layout.swift; sourceTree = "<group>"; };
+		7FE3B8D34AC99C28F9DB2B61 /* PlaceholderBody.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderBody.swift; sourceTree = "<group>"; };
 		904C678A5044C0CC41C1D43F /* ScreenPager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenPager.swift; sourceTree = "<group>"; };
 		9256329C7E3B8CDC74E1CA5F /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		966DDC69FD2BA6744149DD70 /* RFGhostBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RFGhostBadge.swift; sourceTree = "<group>"; };
@@ -66,7 +76,12 @@
 		1F593FCD09EBB28D17FCFA5E /* Screens */ = {
 			isa = PBXGroup;
 			children = (
+				1D9D9A775A7C3BB84A0D9A2E /* HandoffScreen.swift */,
 				44F2B33AA3BB5856ECC1D263 /* LiveCaptureScreen.swift */,
+				38B8FC6324D1C8E2E96EB894 /* MedevacScreen.swift */,
+				7FE3B8D34AC99C28F9DB2B61 /* PlaceholderBody.swift */,
+				5199AF612A48F51F9282732A /* TCCCCardScreen.swift */,
+				56776AA19BDE9BE265F682AD /* VitalsScreen.swift */,
 			);
 			path = Screens;
 			sourceTree = "<group>";
@@ -232,17 +247,22 @@
 				4A0F0CBCC1FA321587B4A2C5 /* AppState.swift in Sources */,
 				FB00759BDB3E3A0B862E33C3 /* ContentView.swift in Sources */,
 				86BA530C6C55B2B98D486750 /* FooterHints.swift in Sources */,
+				79899357C672ABAFD0A67D9B /* HandoffScreen.swift in Sources */,
 				1A7250023CAD5E01EC0C1B5A /* Layout.swift in Sources */,
 				053C6224571C815A36C1D8D1 /* LiveCaptureScreen.swift in Sources */,
+				FF806D8C2DBF0764539D33EF /* MedevacScreen.swift in Sources */,
 				CF2A891275EF13C4AAD3F116 /* PageHeader.swift in Sources */,
 				E90C0A613B8EA36C543B92AD /* PageIndicator.swift in Sources */,
 				DA2F29FB92881C06599E8F2C /* Panel.swift in Sources */,
+				D0E1D462FCB005800E7E6772 /* PlaceholderBody.swift in Sources */,
 				200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */,
 				D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */,
 				03E2E966AFCFB4A4EBB0399F /* StatusStrip.swift in Sources */,
+				49B7CE9FD6838E73E3EFC75B /* TCCCCardScreen.swift in Sources */,
 				2D32BE161689099A00EC6DBA /* TCCC_IOSApp.swift in Sources */,
 				89EF0B5DE8FDC850975E7017 /* Theme.swift in Sources */,
 				1780AEC6F9937ABC665E1778 /* Typography.swift in Sources */,
+				AF6A76D936D8A86571D11109 /* VitalsScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
