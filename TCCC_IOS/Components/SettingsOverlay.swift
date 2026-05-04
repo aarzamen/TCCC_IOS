@@ -255,7 +255,8 @@ struct SettingsOverlay: View {
                     systemImage: "person.crop.circle.badge.plus",
                     style: .standard
                 ) {
-                    state.appendSystem("NEW CASUALTY · ready")
+                    state.newPatient()
+                    state.settingsOpen = false
                 }
 
                 ZStack(alignment: .bottomLeading) {

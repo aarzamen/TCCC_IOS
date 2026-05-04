@@ -73,9 +73,11 @@ final class AppState {
     var casualtyAllergies: String = "NKDA"
 
     // TCCC engine — full 10-pass dispatch per state.py:515–524.
-    let engine = PatientStateEngine.standard()
+    // var (not let) so newPatient() / wipeSession() can rebuild a fresh engine.
+    var engine = PatientStateEngine.standard()
     var primaryPatient: PatientState?
     var allPatients: [String: PatientState] = [:]
+    var casualtyCounter: Int = 4
 
     func appendFinal(_ text: String, speaker: TranscriptLine.Speaker = .medic) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -159,9 +161,45 @@ final class AppState {
         allPatients.removeAll()
         sessionStart = Date()
         vitalsHistory = VitalsHistory()
-        // Engine retains previously-extracted state across calls; spawning a
-        // new engine would also do it, but processTranscript-on-empty plus
-        // clearing the snapshot is enough for the current single-casualty UI.
+        engine = PatientStateEngine.standard()
+        casualtyCounter = 4
+        casualtyId = "C-04"
+    }
+
+    /// Begin a new casualty. Increments the casualty counter, wipes
+    /// casualty-specific state, but preserves operator profile, theme, and
+    /// RF discipline settings. The previously-active casualty's transcript
+    /// and engine state are discarded — by this point the medic is expected
+    /// to have already exported via the Handoff screen.
+    func newPatient() {
+        let oldId = casualtyId
+        casualtyCounter += 1
+        casualtyId = String(format: "C-%02d", casualtyCounter)
+        transcript.removeAll()
+        partialTranscript = ""
+        recognitionError = nil
+        primaryPatient = nil
+        allPatients.removeAll()
+        sessionStart = Date()
+        vitalsHistory = VitalsHistory()
+        engine = PatientStateEngine.standard()
+        appendSystem("NEW CASUALTY · \(casualtyId) · \(oldId) archived")
+    }
+
+    /// Mark the current casualty's care as complete. Records the event,
+    /// then clears casualty-specific state so the screen is ready for the
+    /// next casualty (without incrementing the counter — the medic taps
+    /// NEW CASUALTY in Settings when they have a new patient assigned).
+    func endCurrentCare() {
+        let endedId = casualtyId
+        appendSystem("CARE ENDED · \(endedId) · handoff finalized")
+        // Snapshot the system line, then clear so the screen resets.
+        transcript.removeAll(where: { $0.speaker != .system || !$0.text.contains("CARE ENDED") })
+        partialTranscript = ""
+        primaryPatient = nil
+        allPatients.removeAll()
+        vitalsHistory = VitalsHistory()
+        engine = PatientStateEngine.standard()
     }
 
     // MARK: - Vitals trend (Screen 02) — rolling 15-min sample buffer

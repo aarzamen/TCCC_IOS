@@ -513,6 +513,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Swift TCCC";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device.";
@@ -537,6 +538,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Swift TCCC";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device.";

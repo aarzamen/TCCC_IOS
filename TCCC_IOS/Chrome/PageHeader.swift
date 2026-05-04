@@ -24,27 +24,34 @@ struct PageHeader: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
                 indexLabel
+                    .fixedSize(horizontal: true, vertical: false)
                 Text(screen.kicker)
                     .tccc(.labelSmall)
                     .foregroundStyle(palette.fg2)
+                    .lineLimit(1)
                 Text(screen.title)
                     .tccc(.h1)
                     .foregroundStyle(palette.fg)
                     .textCase(.uppercase)
+                    .lineLimit(1)
             }
+            .layoutPriority(1)
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 12)
 
             if let label = trailingKickerLabel, let value = trailingKickerValue {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(label)
                         .tccc(.label)
                         .foregroundStyle(palette.fg2)
+                        .lineLimit(1)
                     Text(value)
                         .font(.system(size: 16, weight: .semibold, design: .monospaced))
                         .monospacedDigit()
                         .foregroundStyle(palette.fg1)
+                        .lineLimit(1)
                 }
+                .fixedSize(horizontal: true, vertical: false)
             }
         }
         .padding(.horizontal, 24)

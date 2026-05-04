@@ -41,6 +41,7 @@ struct ScreenPager: View {
                     }
             )
         }
+        .clipped()
     }
 
     @ViewBuilder

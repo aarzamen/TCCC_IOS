@@ -35,18 +35,21 @@ struct HandoffScreen: View {
                 trailingKickerValue: state.selectedHandoffDestination.displayName
             )
 
-            HStack(spacing: Layout.gridGap) {
-                summaryColumn
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .layoutPriority(1.1)
-
-                timelineColumn
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .layoutPriority(1.0)
-
-                exportColumn
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .layoutPriority(0.9)
+            GeometryReader { geo in
+                let totalGap = Layout.gridGap * 2
+                let usable = geo.size.width - totalGap
+                // Spec proportions: 1.1 / 1.0 / 0.9 → out of 3.0
+                let w1 = usable * (1.1 / 3.0)
+                let w2 = usable * (1.0 / 3.0)
+                let w3 = usable - w1 - w2
+                HStack(spacing: Layout.gridGap) {
+                    summaryColumn
+                        .frame(width: w1, height: geo.size.height)
+                    timelineColumn
+                        .frame(width: w2, height: geo.size.height)
+                    exportColumn
+                        .frame(width: w3, height: geo.size.height)
+                }
             }
             .padding(Layout.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

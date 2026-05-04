@@ -100,9 +100,8 @@ struct QuickActionsSheet: View {
                 state.appendSystem("PHOTO · capture deferred")
                 state.quickActionsOpen = false
             }
-            actionButton(label: "Pause Rec", sub: "Hold 1s", icon: "pause.fill") {
-                state.appendSystem("PAUSE · transcript")
-                state.isRecording = false
+            actionButton(label: "End Care", sub: "Finalize \(state.casualtyId)", icon: "checkmark.shield.fill") {
+                state.endCurrentCare()
                 state.quickActionsOpen = false
             }
         }
