@@ -57,6 +57,28 @@ final class AppState {
     var gpsLatitude: Double = 34.5267
     var gpsLongitude: Double = 69.1729
 
+    var transcript: [TranscriptLine] = []
+    var partialTranscript: String = ""
+    var isRecording: Bool = false
+    var recognitionError: String?
+
+    let audioLevels = AudioLevels()
+
+    func appendFinal(_ text: String, speaker: TranscriptLine.Speaker = .medic) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        transcript.append(TranscriptLine(speaker: speaker, text: trimmed))
+        partialTranscript = ""
+    }
+
+    func appendSystem(_ text: String) {
+        transcript.append(TranscriptLine(speaker: .system, text: text))
+    }
+
+    func clearError() {
+        recognitionError = nil
+    }
+
     func nextScreen() {
         let last = Screen.allCases.count - 1
         if screen.rawValue < last {

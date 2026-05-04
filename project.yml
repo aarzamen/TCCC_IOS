@@ -38,4 +38,6 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device."
         GENERATE_INFOPLIST_FILE: YES
