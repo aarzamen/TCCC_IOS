@@ -30,6 +30,7 @@ let package = Package(
         ),
         .target(
             name: "TCCCReports",
+            dependencies: ["TCCCDomain"],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
                 .enableUpcomingFeature("StrictConcurrency"),
@@ -55,6 +56,13 @@ let package = Package(
             resources: [
                 .copy("Resources/scenarios"),
             ],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
+        .testTarget(
+            name: "TCCCReportsTests",
+            dependencies: ["TCCCReports", "TCCCDomain"],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ]
