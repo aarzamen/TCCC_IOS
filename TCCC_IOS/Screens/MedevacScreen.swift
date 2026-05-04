@@ -92,10 +92,11 @@ struct MedevacScreen: View {
     }
 
     private func handleTransmit() {
-        // Destination selection lives on Screen 05 (Handoff). On 9-Line transmit
-        // we record the action; the actual transport is hardware-deferred (RF
-        // Ghost forbids any radio call from this codebase).
-        state.appendSystem("TRANSMIT · 9-LINE · \(formattedTimestamp())")
+        // Destination selection is owned by Screen 05 (Handoff). The actual
+        // transport is hardware-deferred (RF Ghost forbids any radio call
+        // from this codebase) — we record the action only.
+        let dest = state.selectedHandoffDestination.displayName
+        state.appendSystem("TRANSMIT · 9-LINE · \(dest) · \(formattedTimestamp())")
     }
 
     private func formattedTimestamp() -> String {
