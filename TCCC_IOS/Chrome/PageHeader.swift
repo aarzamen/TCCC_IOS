@@ -32,7 +32,7 @@ struct PageHeader: View {
                 .fixedSize(horizontal: true, vertical: false)
 
             Text(screen.title)
-                .font(.system(size: 18, weight: .heavy))
+                .font(.system(size: 16, weight: .heavy))
                 .tracking(0.6)
                 .foregroundStyle(palette.fg)
                 .textCase(.uppercase)
@@ -58,7 +58,7 @@ struct PageHeader: View {
                         .textCase(.uppercase)
                         .lineLimit(1)
                     Text(value)
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .monospacedDigit()
                         .foregroundStyle(palette.fg1)
                         .lineLimit(1)
@@ -67,8 +67,8 @@ struct PageHeader: View {
             }
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, minHeight: 32)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, minHeight: Layout.pageHeaderHeight)
         .background(palette.bg)
         .overlay(alignment: .bottom) {
             Rectangle()
@@ -79,7 +79,7 @@ struct PageHeader: View {
 
     private var indexLabel: some View {
         Text(String(format: "%02d / %02d", screen.rawValue + 1, total))
-            .font(.system(size: 11, weight: .heavy, design: .monospaced))
+            .font(.system(size: 10, weight: .heavy, design: .monospaced))
             .tracking(0.8)
             .monospacedDigit()
             .foregroundStyle(palette.accent)

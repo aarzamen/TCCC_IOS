@@ -37,8 +37,8 @@ struct VitalsScreen: View {
             GeometryReader { geo in
                 let totalGap = Layout.gridGap
                 let usable = geo.size.width - totalGap
-                // 1.3 / 1.0 split → 1.3 / 2.3 = 56% left, 44% right
-                let wL = usable * (1.3 / 2.3)
+                // 1.10 / 1.00 split — set via layout playground.
+                let wL = usable * (1.10 / 2.10)
                 let wR = usable - wL
                 HStack(alignment: .top, spacing: totalGap) {
                     leftColumn
@@ -73,14 +73,14 @@ struct VitalsScreen: View {
     }
 
     private var bigVitalStrip: some View {
-        // 3-col grid 1.0 / 1.1 / 1.0 — explicit widths via GeometryReader so
-        // SwiftUI doesn't let BP eat HR's and SpO₂'s widths just because BP
-        // has a longer natural string ("80/40 mmHg · PAL").
+        // 3-col grid 1.00 / 1.50 / 1.00 — set via layout playground.
+        // BP is 1.5x wider than HR/SpO₂ to fit "80/40 mmHg · PAL" without
+        // forcing minimumScaleFactor on the value font.
         GeometryReader { geo in
             let gaps = Layout.gridGap * 2
             let usable = geo.size.width - gaps
-            let wHR = usable * (1.0 / 3.1)
-            let wBP = usable * (1.1 / 3.1)
+            let wHR = usable * (1.0 / 3.5)
+            let wBP = usable * (1.5 / 3.5)
             let wSP = usable - wHR - wBP
             HStack(spacing: Layout.gridGap) {
                 hrCard.frame(width: wHR, height: geo.size.height)
@@ -88,7 +88,7 @@ struct VitalsScreen: View {
                 spo2Card.frame(width: wSP, height: geo.size.height)
             }
         }
-        .frame(height: 112)
+        .frame(height: 137)
     }
 
     private var hrCard: some View {

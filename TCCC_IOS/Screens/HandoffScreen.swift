@@ -38,9 +38,10 @@ struct HandoffScreen: View {
             GeometryReader { geo in
                 let totalGap = Layout.gridGap * 2
                 let usable = geo.size.width - totalGap
-                // Spec proportions: 1.1 / 1.0 / 0.9 → out of 3.0
-                let w1 = usable * (1.1 / 3.0)
-                let w2 = usable * (1.0 / 3.0)
+                // Layout playground: summary / timeline / export = 2.00 / 1.00 / 1.10
+                let total: CGFloat = 4.10
+                let w1 = usable * (2.00 / total)
+                let w2 = usable * (1.00 / total)
                 let w3 = usable - w1 - w2
                 HStack(spacing: Layout.gridGap) {
                     summaryColumn

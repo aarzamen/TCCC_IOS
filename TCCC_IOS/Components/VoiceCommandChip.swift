@@ -20,7 +20,7 @@ struct VoiceCommandChip: View {
             }
             .padding(.vertical, 6)
             .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
             .background(palette.bg2)
             .overlay(
                 Rectangle()

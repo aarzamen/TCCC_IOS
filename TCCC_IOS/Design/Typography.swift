@@ -47,12 +47,12 @@ extension Text {
                 .monospacedDigit()
         case .bigVital:
             return self
-                .font(.system(size: 52, weight: .bold, design: .monospaced))
-                .tracking(-1.5)
+                .font(.system(size: 32, weight: .bold, design: .monospaced))
+                .tracking(-0.8)
                 .monospacedDigit()
         case .smallVital:
             return self
-                .font(.system(size: 26, weight: .bold, design: .monospaced))
+                .font(.system(size: 22, weight: .bold, design: .monospaced))
                 .monospacedDigit()
         case .h1:
             return self

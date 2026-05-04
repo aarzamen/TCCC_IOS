@@ -48,7 +48,7 @@ struct NineLineRow: View {
             .foregroundStyle(badgeColor)
             .frame(width: 70, alignment: .trailing)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
         .padding(.horizontal, 12)
     }
 

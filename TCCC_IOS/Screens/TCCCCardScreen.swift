@@ -74,7 +74,7 @@ struct TCCCCardScreen: View {
 
                 BodyMap(patient: patient)
                     .frame(maxWidth: .infinity)
-                    .frame(minHeight: 140, maxHeight: 200)
+                    .frame(minHeight: 140, maxHeight: 160)
 
                 bodyMapLegend
             }
