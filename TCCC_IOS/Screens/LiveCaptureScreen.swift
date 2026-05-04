@@ -7,12 +7,19 @@ struct LiveCaptureScreen: View {
 
     @State private var recognizer: SpeechRecognizer?
     @State private var streamingTask: Task<Void, Never>?
+    @State private var partialCommitTask: Task<Void, Never>?
     @State private var elapsedDisplay: String = "00:00:00"
     @State private var elapsedTickerTask: Task<Void, Never>?
 
     @State private var cleaner = TranscriptCleaner()
     @State private var isCleaningTranscript: Bool = false
     @State private var cleanError: String?
+
+    /// Seconds of partial-result stability before we commit it as a final
+    /// transcript line and run the extraction engine. SFSpeechRecognizer
+    /// won't always fire its own isFinal during continuous narration, so we
+    /// don't rely on it.
+    private let silenceDebounce: Double = 1.5
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,6 +66,7 @@ struct LiveCaptureScreen: View {
         }
         .onDisappear {
             streamingTask?.cancel()
+            partialCommitTask?.cancel()
             elapsedTickerTask?.cancel()
             Task {
                 await recognizer?.stopImmediate()
@@ -418,6 +426,7 @@ struct LiveCaptureScreen: View {
             // down. Flip the UI flag immediately so the user gets feedback,
             // but DON'T cancel the streaming task — final transcript lines
             // arrive during the tail and we want them appended.
+            partialCommitTask?.cancel()
             await recognizer?.stop()
             state.isRecording = false
             elapsedTickerTask?.cancel()
@@ -443,21 +452,46 @@ struct LiveCaptureScreen: View {
             state.lastRecordingURL = url
             startElapsedTicker()
             streamingTask?.cancel()
+            partialCommitTask?.cancel()
             streamingTask = Task { @MainActor in
                 for await update in stream {
                     if Task.isCancelled { break }
                     if update.isFinal {
+                        partialCommitTask?.cancel()
                         state.appendFinal(update.text)
                     } else {
                         state.partialTranscript = update.text
+                        scheduleSilenceCommit()
                     }
                 }
+                partialCommitTask?.cancel()
                 state.isRecording = false
                 state.partialTranscript = ""
             }
         } catch {
             state.recognitionError = error.localizedDescription
             state.isRecording = false
+        }
+    }
+
+    /// Restart the silence-debounce timer. If partial text stays stable for
+    /// `silenceDebounce` seconds, treat it as a finalised line — append to
+    /// the transcript, run the engine, then ask the recogniser to start a
+    /// fresh context so the next partials don't redundantly include this
+    /// text.
+    private func scheduleSilenceCommit() {
+        partialCommitTask?.cancel()
+        let pendingAtSchedule = state.partialTranscript
+        guard !pendingAtSchedule.isEmpty else { return }
+        partialCommitTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(silenceDebounce * 1_000_000_000))
+            if Task.isCancelled { return }
+            // Only commit if the partial hasn't changed since the timer was
+            // scheduled — otherwise speech is still flowing.
+            guard state.partialTranscript == pendingAtSchedule else { return }
+            guard !pendingAtSchedule.isEmpty else { return }
+            state.appendFinal(pendingAtSchedule)
+            await recognizer?.forceFinalize()
         }
     }
 

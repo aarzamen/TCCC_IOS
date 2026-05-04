@@ -210,6 +210,19 @@ actor SpeechRecognizer: TranscriptStream {
         await teardownRecognizer()
     }
 
+    /// Force the current recognition request to finalise and start a fresh
+    /// one. The UI calls this after committing a debounced partial — so the
+    /// next stream of partials starts from a clean context, not redundantly
+    /// repeating the already-committed prefix.
+    func forceFinalize() async {
+        guard isRecognizing else { return }
+        guard tailDeadline == nil else { return }
+        // End the current request — the existing task callback will fire
+        // isFinal=true, which in turn calls handleFinalResult, which starts a
+        // new request automatically.
+        request?.endAudio()
+    }
+
     // MARK: - Tap-callback path
 
     private func ingestBuffer(_ buffer: AVAudioPCMBuffer) {

@@ -53,29 +53,31 @@ public struct VitalsExtractor: ExtractorPass {
     private let rrRegex: NSRegularExpression
 
     public init() {
+        // Filler verbs accepted between a vital-sign keyword and the numeric
+        // value. Expanded beyond the Python source ("is" / "of") so natural
+        // medic phrasings like "BP was 120/80" or "heart rate around 110" or
+        // "sat reading 96" all match. Permissive on this axis can't add false
+        // positives — the keyword anchor still has to be present.
+        let filler = "(?:(?:is|was|of|at|around|reading|came)\\s*)?"
+
         // Heart rate. Group 1 = numeric value.
         let hrPattern =
-            "(?:heart\\s*rate|hr|pulse)\\s*(?:is\\s*|of\\s*)?(\\d+)"
+            "(?:heart\\s*rate|hr|pulse)\\s*\(filler)(\\d+)"
 
         // Blood pressure. Group 1 = systolic, group 2 = diastolic, group 3 =
-        // optional palpated marker. Python pattern:
-        //   r"(?:blood\s*pressure|bp)\s*(?:is\s*)?(\d+)\s*(?:over|/)\s*(\d+)"
-        // Swift extends with an optional palpated suffix (whitespace + "P" /
-        // "palp" / "palpated", case-insensitive). The marker is OUTSIDE the
-        // Python contract — it consumes characters Python would have left in
-        // the sentence — so the Python truth (sys/dia integers) is preserved.
+        // optional palpated marker.
         let bpPattern =
-            "(?:blood\\s*pressure|bp)\\s*(?:is\\s*)?" +
+            "(?:blood\\s*pressure|bp)\\s*\(filler)" +
             "(\\d+)\\s*(?:over|/)\\s*(\\d+)" +
             "(?:\\s*(?:/\\s*)?(p(?:alp(?:ated)?)?))?\\b"
 
         // SpO2 / pulse-ox / sat. Group 1 = numeric value (0–100).
         let spo2Pattern =
-            "(?:pulse\\s*ox|spo2|sat|o2\\s*sat)\\s*(?:is\\s*)?(\\d+)\\s*%?"
+            "(?:pulse\\s*ox|spo2|sat|o2\\s*sat)\\s*\(filler)(\\d+)\\s*%?"
 
         // Respiratory rate. Group 1 = numeric value.
         let rrPattern =
-            "(?:respiratory\\s*rate|rr)\\s*(?:is\\s*|looks?\\s*(?:about\\s*)?)?(\\d+)"
+            "(?:respiratory\\s*rate|rr)\\s*(?:\(filler)|looks?\\s*(?:about\\s*)?)?(\\d+)"
 
         // Force-unwraps are safe: these are static literals validated by the
         // test suite. A failure here is a programmer error.

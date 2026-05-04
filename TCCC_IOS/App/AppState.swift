@@ -99,6 +99,15 @@ final class AppState {
     func appendFinal(_ text: String, speaker: TranscriptLine.Speaker = .medic) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        // Dedupe: if the most recent line is the same speaker + text, swallow
+        // the duplicate. This happens when a UI debounce commits partial text,
+        // then SFSpeechRecognizer fires its own isFinal with the same string.
+        if let last = transcript.last,
+           last.speaker == speaker,
+           last.text == trimmed {
+            partialTranscript = ""
+            return
+        }
         transcript.append(TranscriptLine(speaker: speaker, text: trimmed))
         partialTranscript = ""
         Task { await processWithEngine(trimmed) }
