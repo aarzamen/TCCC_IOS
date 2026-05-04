@@ -1,0 +1,2321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Swift TCCC — Layout Playground</title>
+<style>
+:root {
+  --ui-bg: #0b0d10;
+  --ui-bg1: #14181d;
+  --ui-bg2: #1c2128;
+  --ui-line: #262d36;
+  --ui-fg: #e6e9ee;
+  --ui-fg2: #8b94a3;
+  --ui-fg3: #5b626d;
+  --ui-accent: #ff8a3d;
+  --ui-ok: #3fb950;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--ui-bg);
+  color: var(--ui-fg);
+  font-size: 13px;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ====================== CONTROLS ====================== */
+
+.controls {
+  background: var(--ui-bg1);
+  border-right: 1px solid var(--ui-line);
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+
+.controls h1 {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ui-accent);
+  margin: 0 0 16px 0;
+}
+
+.section {
+  margin-bottom: 18px;
+}
+.section h2 {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ui-fg2);
+  margin: 0 0 8px 0;
+  border-top: 1px solid var(--ui-line);
+  padding-top: 12px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 56px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.row label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--ui-fg);
+}
+.row label .name {
+  font-weight: 500;
+}
+.row label .desc {
+  font-size: 9px;
+  color: var(--ui-fg3);
+  letter-spacing: 0.06em;
+}
+
+.row input[type="range"] {
+  width: 100%;
+  accent-color: var(--ui-accent);
+  background: transparent;
+}
+
+.row input[type="number"] {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-bg);
+  color: var(--ui-fg);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  border-radius: 2px;
+  text-align: right;
+}
+.row input[type="number"]:focus {
+  outline: 1px solid var(--ui-accent);
+  border-color: var(--ui-accent);
+}
+
+.theme-radio {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.theme-radio button {
+  flex: 1;
+  padding: 6px 4px;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-bg);
+  color: var(--ui-fg);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.theme-radio button.active {
+  border-color: var(--ui-accent);
+  background: var(--ui-bg2);
+  color: var(--ui-accent);
+}
+
+.preset-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.preset-row button {
+  padding: 6px 4px;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-bg);
+  color: var(--ui-fg);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.preset-row button:hover {
+  border-color: var(--ui-accent);
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.action-row button {
+  padding: 8px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+#resetBtn {
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-line);
+  color: var(--ui-fg);
+}
+#resetBtn:hover { border-color: var(--ui-fg2); }
+#copyBtn {
+  background: var(--ui-accent);
+  border: 1px solid var(--ui-accent);
+  color: #1a1209;
+}
+#copyBtn.copied {
+  background: var(--ui-ok);
+  border-color: var(--ui-ok);
+}
+
+/* ====================== PREVIEW ====================== */
+
+.preview {
+  display: grid;
+  grid-template-rows: 44px 1fr auto;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--ui-line);
+  background: var(--ui-bg1);
+  font-size: 11px;
+}
+.toolbar .label {
+  color: var(--ui-fg2);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.toolbar button.screen-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-bg);
+  color: var(--ui-fg2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  font-family: ui-monospace, monospace;
+}
+.toolbar button.screen-btn.active {
+  border-color: var(--ui-accent);
+  color: var(--ui-accent);
+  background: var(--ui-bg2);
+}
+.toolbar select {
+  padding: 4px 6px;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-bg);
+  color: var(--ui-fg);
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+}
+.toolbar .spacer { flex: 1; }
+.toolbar .pt-display {
+  color: var(--ui-fg3);
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+}
+
+.canvas-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  background: #06080a;
+  background-image:
+    linear-gradient(45deg, #0a0d10 25%, transparent 25%),
+    linear-gradient(-45deg, #0a0d10 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #0a0d10 75%),
+    linear-gradient(-45deg, transparent 75%, #0a0d10 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+.canvas {
+  /* iPhone 17 Pro landscape: 874 × 402 pt (per actual AXFrame) */
+  width: 874px;
+  height: 402px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border: 1px solid var(--ui-line);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro", system-ui, sans-serif;
+  transform-origin: center center;
+  transition: transform 80ms ease-out;
+  flex-shrink: 0;
+}
+
+/* Theme palettes — applied via [data-theme="..."] on .canvas */
+
+.canvas[data-theme="tactical"] {
+  --c-bg:#080302; --c-bg1:#110604; --c-bg2:#1a0907; --c-bg3:#240d0a;
+  --c-line:#3a1108; --c-lineStrong:#5a1a0e;
+  --c-fg:#e8c4bc; --c-fg1:#c89890; --c-fg2:#8a564f; --c-fg3:#5a3530;
+  --c-accent:#d63a1f; --c-accentDim:#8a2412; --c-accentHot:#ff4a26;
+  --c-crit:#ff4a26; --c-warn:#d4870f; --c-ok:#6a8a3a; --c-rec:#ff2d12;
+  --c-grid:#1a0805;
+}
+.canvas[data-theme="dark"] {
+  --c-bg:#0a0b0d; --c-bg1:#111317; --c-bg2:#181b21; --c-bg3:#20242c;
+  --c-line:#2a2f38; --c-lineStrong:#3a4150;
+  --c-fg:#f0f2f5; --c-fg1:#b8bdc7; --c-fg2:#7a818d; --c-fg3:#4a505a;
+  --c-accent:#ff8a3d; --c-accentDim:#8a4a1f; --c-accentHot:#ffa566;
+  --c-crit:#ff3b2f; --c-warn:#ffb020; --c-ok:#3fb950; --c-rec:#ff3b2f;
+  --c-grid:#15181d;
+}
+.canvas[data-theme="light"] {
+  --c-bg:#e8e6e0; --c-bg1:#ddd9d0; --c-bg2:#cfcabe; --c-bg3:#b8b2a2;
+  --c-line:#6a6356; --c-lineStrong:#2a2620;
+  --c-fg:#0a0807; --c-fg1:#3a342c; --c-fg2:#6a6356; --c-fg3:#8a8278;
+  --c-accent:#b8341a; --c-accentDim:#7a1f10; --c-accentHot:#d63a1f;
+  --c-crit:#b8341a; --c-warn:#8a5510; --c-ok:#3a6a1a; --c-rec:#b8341a;
+  --c-grid:#d0ccc0;
+}
+
+.canvas { background: var(--c-bg); color: var(--c-fg); }
+
+/* ====================== STATUS STRIP ====================== */
+
+.status-strip {
+  display: flex;
+  align-items: stretch;
+  background: var(--c-bg);
+  border-bottom: var(--hairline,1px) solid var(--c-line);
+  flex-shrink: 0;
+}
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-right: var(--hairline,1px) solid var(--c-line);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+.status-cell:last-child { border-right: none; }
+.status-cell .icon { color: var(--c-fg2); font-size: 10px; }
+.rec-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--c-rec); }
+
+.rf-ghost {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-right: var(--hairline,1px) solid var(--c-line);
+}
+.rf-ghost .label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--c-accent);
+}
+.rf-ghost .icons {
+  display: flex;
+  gap: 3px;
+}
+.rf-ghost .icons span {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  background: linear-gradient(135deg, transparent 45%, var(--c-fg3) 45%, var(--c-fg3) 55%, transparent 55%);
+}
+.page-indicator {
+  display: flex;
+  gap: 6px;
+  padding: 0 12px;
+}
+.page-indicator div {
+  width: 8px;
+  height: 3px;
+  background: var(--c-fg3);
+  border-radius: 1.5px;
+}
+.page-indicator div.active {
+  width: 18px;
+  background: var(--c-accent);
+}
+
+.battery {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.battery-shape {
+  width: 22px;
+  height: 11px;
+  border: 1px solid var(--c-fg2);
+  border-radius: 1px;
+  position: relative;
+}
+.battery-shape::after {
+  content: '';
+  position: absolute;
+  right: -3px;
+  top: 3px;
+  width: 1.5px;
+  height: 4px;
+  background: var(--c-fg2);
+}
+.battery-shape::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  bottom: 1px;
+  width: 14px;
+  background: var(--c-fg);
+}
+
+/* ====================== PAGE HEADER ====================== */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  background: var(--c-bg);
+  border-bottom: var(--hairline,1px) solid var(--c-line);
+  flex-shrink: 0;
+}
+.page-header .index {
+  font-family: ui-monospace, monospace;
+  font-weight: 800;
+  color: var(--c-accent);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.page-header .title {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.page-header .kicker {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--c-fg3);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.page-header .spacer { flex: 1; }
+.page-header .trailing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.page-header .trailing .label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+}
+.page-header .trailing .value {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  color: var(--c-fg1);
+}
+
+/* ====================== SCREEN BODY ====================== */
+
+.screen-body {
+  flex: 1;
+  display: flex;
+  gap: var(--gridGap, 8px);
+  background: var(--c-bg);
+  overflow: hidden;
+}
+
+/* ====================== PANELS ====================== */
+
+.panel {
+  background: var(--c-bg1);
+  border: var(--hairline,1px) solid var(--c-line);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  background: var(--c-bg);
+  border-bottom: var(--hairline,1px) solid var(--c-line);
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+.panel-header .title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--c-fg);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.panel-header .action {
+  margin-left: auto;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--c-accent);
+  text-transform: uppercase;
+}
+.panel-body {
+  flex: 1;
+  overflow: hidden;
+}
+.panel-body.padded { padding: var(--panelPadding, 12px); }
+
+/* ====================== ATOMS ====================== */
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-fg2);
+}
+.label-tiny {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-fg2);
+}
+.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-feature-settings: "tnum";
+}
+
+/* ====================== TRANSCRIPT ROWS (Live Capture) ====================== */
+
+.transcript-row {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  padding: 10px 14px;
+  border-bottom: var(--hairline,1px) solid var(--c-line);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.transcript-row .col-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.transcript-row .speaker {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+.speaker-medic { color: var(--c-fg1); }
+.speaker-casualty { color: var(--c-fg2); }
+.speaker-system { color: var(--c-accent); font-style: italic; }
+.transcript-row .timestamp {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--c-fg3);
+}
+.transcript-row.system { font-style: italic; color: var(--c-accent); }
+
+/* ====================== CAPTURE ATOMS ====================== */
+
+.rec-capsule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--c-bg);
+  border: var(--hairline,1px) solid var(--c-line);
+}
+.rec-capsule .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--c-rec);
+}
+.rec-capsule .timer {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  font-size: 13px;
+}
+.rec-capsule .specs {
+  margin-left: auto;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--c-fg2);
+  letter-spacing: 0.05em;
+}
+
+.audio-meter {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 8px 0;
+}
+.audio-meter .slot {
+  width: 3px;
+  background: var(--c-bg2);
+  position: relative;
+}
+.audio-meter .fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: var(--c-accent);
+}
+.audio-meter .slot:nth-last-child(-n+4) .fill {
+  background: var(--c-accentHot);
+}
+
+.voice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.voice-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--c-bg2);
+  border: var(--hairline,1px) solid var(--c-line);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--c-fg1);
+}
+.voice-chip .icon { color: var(--c-accent); font-size: 12px; }
+
+.big-btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.big-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--c-bg1);
+  border: var(--hairline,1px) solid var(--c-line);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-fg);
+}
+.big-btn .icon { color: var(--c-fg1); font-size: 18px; }
+.big-btn.accent { background: var(--c-accentDim); border-color: var(--c-accent); }
+.big-btn.accent .icon { color: var(--c-accent); }
+
+/* ====================== EXTRACTED FACTS ====================== */
+
+.fact-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 12px;
+  border-bottom: var(--hairline,1px) solid var(--c-line);
+}
+.fact-row.hot { background: var(--c-bg2); }
+.fact-row .icon { color: var(--c-fg2); font-size: 14px; padding-top: 2px; }
+.fact-row.hot .icon { color: var(--c-accent); }
+.fact-row .meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.fact-row .label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+}
+.fact-row .value {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-fg);
+}
+.fact-row .ts {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--c-fg3);
+}
+
+/* ====================== VITALS ====================== */
+
+.big-vital {
+  background: var(--c-bg1);
+  border: var(--hairline,1px) solid var(--c-line);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.big-vital::before {
+  content: '';
+  display: block;
+  height: 2px;
+}
+.big-vital.crit::before { background: var(--c-crit); }
+.big-vital.warn::before { background: var(--c-warn); }
+.big-vital.normal::before { background: var(--c-lineStrong); }
+
+.big-vital .body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px 12px;
+  flex: 1;
+  justify-content: space-between;
+}
+.big-vital .header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.big-vital .header .name {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+}
+.big-vital .header .pip {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+.big-vital.crit .pip { color: var(--c-crit); }
+.big-vital.warn .pip { color: var(--c-warn); }
+.big-vital .pip .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.big-vital .value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.big-vital .value {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-feature-settings: "tnum";
+}
+.big-vital.crit .value { color: var(--c-crit); }
+.big-vital.warn .value { color: var(--c-warn); }
+.big-vital.normal .value { color: var(--c-fg); }
+.big-vital .unit {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.big-vital .sub {
+  font-size: 12px;
+  color: var(--c-fg2);
+}
+
+.small-vital {
+  background: var(--c-bg1);
+  border: var(--hairline,1px) solid var(--c-line);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: center;
+}
+.small-vital .label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--c-fg2);
+}
+.small-vital .value {
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+}
+.small-vital.warn .value { color: var(--c-warn); }
+.small-vital .unit {
+  font-size: 10px;
+  color: var(--c-fg2);
+  letter-spacing: 0.06em;
+  font-family: ui-monospace, monospace;
+}
+
+.ecg-canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+.ecg-canvas svg { display: block; width: 100%; height: 100%; }
+
+.trend-canvas {
+  flex: 1;
+  position: relative;
+}
+.trend-canvas svg { display: block; width: 100%; height: 100%; }
+
+.intervention-row {
+  display: grid;
+  grid-template-columns: 54px 18px 60px 1fr;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: var(--hairline,1px) solid var(--c-line);
+  font-size: 11px;
+}
+.intervention-row.hot { background: var(--c-bg2); }
+.intervention-row .ts { font-family: ui-monospace, monospace; color: var(--c-fg2); }
+.intervention-row.hot .ts { color: var(--c-accent); }
+.intervention-row .kind {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+}
+.intervention-row .desc {
+  font-family: ui-monospace, monospace;
+  color: var(--c-fg);
+}
+
+/* ====================== TCCC CARD ====================== */
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.field {
+  border: var(--hairline,1px) solid var(--c-line);
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.field .label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+}
+.field .value {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-fg);
+}
+
+.body-map {
+  width: 100%;
+  background: var(--c-bg);
+  position: relative;
+}
+.body-map svg { display: block; width: 100%; height: 100%; }
+
+.march-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 22px;
+  gap: 0;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: var(--hairline,1px) solid var(--c-line);
+}
+.march-row .letter {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.march-row.crit { border-left: 3px solid var(--c-crit); }
+.march-row.warn { border-left: 3px solid var(--c-warn); }
+.march-row.done { border-left: 3px solid var(--c-fg1); }
+.march-row.open { border-left: 3px solid var(--c-accent); }
+.march-row.crit .letter { color: var(--c-crit); }
+.march-row.warn .letter { color: var(--c-warn); }
+.march-row.done .letter { color: var(--c-fg1); }
+.march-row.open .letter { color: var(--c-accent); }
+.march-row .info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.march-row .info .label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+}
+.march-row .info .detail {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-fg);
+}
+.march-row .status {
+  text-align: center;
+  font-size: 14px;
+}
+.march-row.crit .status { color: var(--c-crit); }
+.march-row.warn .status { color: var(--c-warn); }
+.march-row.done .status { color: var(--c-fg1); }
+
+.med-row {
+  display: grid;
+  grid-template-columns: 52px auto 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 12px;
+  border-bottom: var(--hairline,1px) solid var(--c-line);
+  font-size: 11px;
+}
+.med-row .ts { font-family: ui-monospace, monospace; color: var(--c-fg2); }
+.med-row .icon { color: var(--c-accent); }
+.med-row .meta { display: flex; flex-direction: column; gap: 1px; }
+.med-row .meta .name {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+}
+.med-row .meta .desc {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--c-fg);
+}
+
+/* ====================== MEDEVAC ====================== */
+
+.nine-line-row {
+  display: grid;
+  grid-template-columns: 28px 18px 1fr 70px;
+  gap: 0;
+  align-items: flex-start;
+  padding: var(--nineLinePadding, 8px) 12px;
+  border-bottom: var(--hairline,1px) solid var(--c-line);
+}
+.nine-line-row .number {
+  font-family: ui-monospace, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--c-accent);
+  text-align: center;
+}
+.nine-line-row .icon { font-size: 12px; padding-top: 2px; color: var(--c-fg); }
+.nine-line-row.crit .icon { color: var(--c-crit); }
+.nine-line-row.warn .icon { color: var(--c-warn); }
+.nine-line-row .meta { padding-left: 4px; }
+.nine-line-row .meta .label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+}
+.nine-line-row .meta .value {
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--c-fg);
+}
+.nine-line-row.crit .meta .value { color: var(--c-crit); }
+.nine-line-row.warn .meta .value { color: var(--c-warn); }
+.nine-line-row .badge {
+  text-align: right;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--c-fg3);
+}
+.nine-line-row .badge.auto { color: var(--c-accent); }
+
+.map-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.transmit-script {
+  background: var(--c-bg);
+  border: var(--hairline,1px) solid var(--c-line);
+  padding: 8px 10px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.transmit-script .accent { color: var(--c-accent); font-weight: 700; }
+
+/* ====================== HANDOFF ====================== */
+
+.sum-line {
+  display: grid;
+  grid-template-columns: 14px 90px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 12px;
+  border-bottom: var(--hairline,1px) solid var(--c-line);
+  font-size: 13px;
+}
+.sum-line.hot { background: var(--c-bg2); color: var(--c-accent); font-weight: 600; }
+.sum-line .icon { color: var(--c-fg2); font-size: 12px; }
+.sum-line.hot .icon { color: var(--c-accent); }
+.sum-line .label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+}
+.sum-line .value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-fg);
+}
+.sum-line.hot .value { color: var(--c-accent); font-weight: 600; }
+
+.timeline-row {
+  display: grid;
+  grid-template-columns: 54px 16px 1fr;
+  gap: 8px;
+  padding: 6px 12px;
+  position: relative;
+}
+.timeline-row .ts {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--c-fg2);
+}
+.timeline-row .rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.timeline-row .rail::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--c-line);
+  transform: translateX(-0.5px);
+}
+.timeline-row .rail .node {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--c-fg2);
+  background: var(--c-bg);
+  z-index: 1;
+}
+.timeline-row.hot .rail .node {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+}
+.timeline-row .body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-top: 1px;
+}
+.timeline-row .body .kind {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--c-fg2);
+  text-transform: uppercase;
+}
+.timeline-row.hot .body .kind { color: var(--c-accent); }
+.timeline-row .body .desc {
+  font-size: 12px;
+  color: var(--c-fg);
+}
+
+.export-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--c-bg);
+  border: var(--hairline,1px) solid var(--c-line);
+  margin-bottom: 6px;
+}
+.export-card .icon { width: 18px; text-align: center; font-size: 14px; }
+.export-card.ready .icon { color: var(--c-fg); }
+.export-card:not(.ready) .icon { color: var(--c-fg2); }
+.export-card .meta { flex: 1; min-width: 0; }
+.export-card .meta .name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--c-fg);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.export-card .meta .detail {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--c-fg2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.export-card .pill {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  border: var(--hairline,1px) solid currentColor;
+  white-space: nowrap;
+}
+.export-card.ready .pill { color: var(--c-ok); }
+.export-card:not(.ready) .pill { color: var(--c-fg2); border-color: var(--c-fg3); }
+
+.dest-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.dest-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  background: var(--c-bg);
+  border: var(--hairline,1px) solid var(--c-line);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--c-fg);
+  text-transform: uppercase;
+}
+.dest-card.active {
+  background: var(--c-bg2);
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+.dest-card .icon { font-size: 16px; }
+
+/* ====================== FOOTER ====================== */
+
+.footer-hints {
+  display: flex;
+  align-items: center;
+  background: var(--c-bg);
+  border-top: var(--hairline,1px) solid var(--c-line);
+  padding: 0 24px 0 24px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--c-fg2);
+}
+.footer-hints .leading,
+.footer-hints .trailing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.footer-hints .trailing { color: var(--c-accent); margin-left: auto; }
+.footer-hints .center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--c-fg2);
+}
+
+/* ====================== OUTPUT ====================== */
+
+.output {
+  background: var(--ui-bg1);
+  border-top: 1px solid var(--ui-line);
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+  max-height: 240px;
+  overflow: hidden;
+}
+
+.output pre {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 2px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ui-fg);
+  overflow: auto;
+  max-height: 200px;
+}
+
+.output .actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.output .actions button {
+  padding: 8px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-bg);
+  color: var(--ui-fg);
+}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="controls">
+  <h1>Swift TCCC · Layout</h1>
+
+  <div class="action-row">
+    <button id="resetBtn">Reset all</button>
+    <button id="copyBtn">Copy Swift</button>
+  </div>
+
+  <div class="section">
+    <h2>Theme</h2>
+    <div class="theme-radio" id="themeRadio">
+      <button data-theme="tactical" class="active">Tactical</button>
+      <button data-theme="dark">Dark</button>
+      <button data-theme="light">Light</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Presets</h2>
+    <div class="preset-row">
+      <button data-preset="design">Design spec</button>
+      <button data-preset="compact">Compact</button>
+      <button data-preset="airy">Airy</button>
+      <button data-preset="current">Current build</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Status strip</h2>
+    <div class="row" data-key="statusStripHeight" data-min="24" data-max="48" data-step="1"><label><span class="name">Height</span><span class="desc">pt</span></label></div>
+    <div class="row" data-key="dynamicIslandClearance" data-min="40" data-max="80" data-step="1"><label><span class="name">DI clearance</span><span class="desc">left padding</span></label></div>
+  </div>
+
+  <div class="section">
+    <h2>Page header</h2>
+    <div class="row" data-key="pageHeaderHeight" data-min="24" data-max="80" data-step="1"><label><span class="name">Height</span><span class="desc">pt</span></label></div>
+    <div class="row" data-key="pageHeaderTitleSize" data-min="12" data-max="28" data-step="1"><label><span class="name">Title size</span><span class="desc">pt</span></label></div>
+    <div class="row" data-key="pageHeaderIndexSize" data-min="8" data-max="16" data-step="1"><label><span class="name">Index size</span><span class="desc">pt</span></label></div>
+    <div class="row" data-key="pageHeaderValueSize" data-min="10" data-max="18" data-step="1"><label><span class="name">Trailing value</span><span class="desc">pt</span></label></div>
+  </div>
+
+  <div class="section">
+    <h2>Footer</h2>
+    <div class="row" data-key="footerHintsHeight" data-min="24" data-max="60" data-step="1"><label><span class="name">Hints height</span><span class="desc">pt</span></label></div>
+  </div>
+
+  <div class="section">
+    <h2>Spacing</h2>
+    <div class="row" data-key="outerPadding" data-min="4" data-max="24" data-step="1"><label><span class="name">Outer padding</span><span class="desc">screen body</span></label></div>
+    <div class="row" data-key="panelPadding" data-min="4" data-max="24" data-step="1"><label><span class="name">Panel padding</span><span class="desc">interior</span></label></div>
+    <div class="row" data-key="panelHeaderHeight" data-min="20" data-max="40" data-step="1"><label><span class="name">Panel header</span><span class="desc">pt</span></label></div>
+    <div class="row" data-key="gridGap" data-min="4" data-max="16" data-step="1"><label><span class="name">Grid gap</span><span class="desc">columns</span></label></div>
+    <div class="row" data-key="hairline" data-min="0.5" data-max="2" data-step="0.25"><label><span class="name">Hairline</span><span class="desc">pt</span></label></div>
+  </div>
+
+  <div class="section">
+    <h2>Buttons + atoms</h2>
+    <div class="row" data-key="bigButtonHeight" data-min="32" data-max="72" data-step="1"><label><span class="name">Big button</span><span class="desc">min height</span></label></div>
+    <div class="row" data-key="chipMinHeight" data-min="24" data-max="56" data-step="1"><label><span class="name">Voice chip</span><span class="desc">min height</span></label></div>
+    <div class="row" data-key="audioBarMaxHeight" data-min="16" data-max="48" data-step="1"><label><span class="name">Audio bar</span><span class="desc">max height</span></label></div>
+  </div>
+
+  <div class="section">
+    <h2>Vitals</h2>
+    <div class="row" data-key="bigVitalValueSize" data-min="32" data-max="72" data-step="1"><label><span class="name">BigVital value</span><span class="desc">pt mono</span></label></div>
+    <div class="row" data-key="bigVitalCardHeight" data-min="80" data-max="140" data-step="1"><label><span class="name">BigVital card</span><span class="desc">strip height</span></label></div>
+    <div class="row" data-key="smallVitalValueSize" data-min="16" data-max="36" data-step="1"><label><span class="name">SmallVital value</span><span class="desc">pt mono</span></label></div>
+  </div>
+
+  <div class="section">
+    <h2>MEDEVAC + TCCC</h2>
+    <div class="row" data-key="nineLineRowPadding" data-min="4" data-max="14" data-step="1"><label><span class="name">9-Line row pad</span><span class="desc">vertical</span></label></div>
+    <div class="row" data-key="bodyMapHeight" data-min="100" data-max="240" data-step="2"><label><span class="name">Body map</span><span class="desc">max height</span></label></div>
+  </div>
+
+  <div class="section">
+    <h2>Column ratios</h2>
+    <div class="row" data-key="vitalsLeftRatio" data-min="0.8" data-max="2.0" data-step="0.05"><label><span class="name">Vitals L</span><span class="desc">vs R 1.0</span></label></div>
+    <div class="row" data-key="vitalsBPRatio" data-min="0.8" data-max="1.5" data-step="0.05"><label><span class="name">BigVital BP</span><span class="desc">vs HR/SP 1.0</span></label></div>
+    <div class="row" data-key="handoffSummaryRatio" data-min="0.8" data-max="2.0" data-step="0.05"><label><span class="name">Handoff sum</span><span class="desc">summary col</span></label></div>
+    <div class="row" data-key="handoffExportRatio" data-min="0.5" data-max="1.5" data-step="0.05"><label><span class="name">Handoff exp</span><span class="desc">export col</span></label></div>
+  </div>
+</aside>
+
+<main class="preview">
+  <div class="toolbar">
+    <span class="label">Screen</span>
+    <button class="screen-btn active" data-screen="liveCapture">01 Live</button>
+    <button class="screen-btn" data-screen="vitals">02 Vitals</button>
+    <button class="screen-btn" data-screen="tcccCard">03 Card</button>
+    <button class="screen-btn" data-screen="medevac">04 MEDEVAC</button>
+    <button class="screen-btn" data-screen="handoff">05 Handoff</button>
+    <span class="spacer"></span>
+    <span class="label">Zoom</span>
+    <select id="zoom">
+      <option value="0.5">50%</option>
+      <option value="0.75">75%</option>
+      <option value="1" selected>100%</option>
+      <option value="1.25">125%</option>
+      <option value="1.5">150%</option>
+    </select>
+    <span class="pt-display">874 × 402 pt</span>
+  </div>
+
+  <div class="canvas-wrapper">
+    <div class="canvas" id="canvas" data-theme="tactical">
+      <div class="status-strip" id="statusStrip"></div>
+      <div class="page-header" id="pageHeader"></div>
+      <div class="screen-body" id="screenBody"></div>
+      <div class="footer-hints" id="footerHints"></div>
+    </div>
+  </div>
+
+  <div class="output">
+    <pre id="snippet"></pre>
+    <div class="actions">
+      <button id="copyBtn2">Copy Swift</button>
+    </div>
+  </div>
+</main>
+</div>
+
+<script>
+const DEFAULTS = {
+  theme: 'tactical',
+  zoom: 1,
+  screen: 'liveCapture',
+
+  statusStripHeight: 36,
+  dynamicIslandClearance: 56,
+
+  pageHeaderHeight: 32,
+  pageHeaderTitleSize: 18,
+  pageHeaderIndexSize: 11,
+  pageHeaderValueSize: 13,
+
+  footerHintsHeight: 38,
+
+  outerPadding: 8,
+  panelPadding: 12,
+  panelHeaderHeight: 30,
+  gridGap: 8,
+  hairline: 1,
+
+  bigButtonHeight: 48,
+  chipMinHeight: 32,
+  audioBarMaxHeight: 24,
+
+  bigVitalValueSize: 52,
+  bigVitalCardHeight: 112,
+  smallVitalValueSize: 26,
+
+  nineLineRowPadding: 8,
+  bodyMapHeight: 200,
+
+  vitalsLeftRatio: 1.3,
+  vitalsBPRatio: 1.1,
+  handoffSummaryRatio: 1.1,
+  handoffExportRatio: 0.9,
+};
+
+const PRESETS = {
+  design: {
+    statusStripHeight: 36, dynamicIslandClearance: 56,
+    pageHeaderHeight: 54, pageHeaderTitleSize: 26, pageHeaderIndexSize: 13, pageHeaderValueSize: 16,
+    footerHintsHeight: 30, outerPadding: 8, panelPadding: 12, panelHeaderHeight: 30,
+    gridGap: 8, hairline: 1,
+    bigButtonHeight: 56, chipMinHeight: 44, audioBarMaxHeight: 24,
+    bigVitalValueSize: 52, bigVitalCardHeight: 120, smallVitalValueSize: 26,
+    nineLineRowPadding: 8, bodyMapHeight: 200,
+    vitalsLeftRatio: 1.3, vitalsBPRatio: 1.1,
+    handoffSummaryRatio: 1.1, handoffExportRatio: 0.9,
+  },
+  compact: {
+    statusStripHeight: 28, dynamicIslandClearance: 56,
+    pageHeaderHeight: 26, pageHeaderTitleSize: 16, pageHeaderIndexSize: 10, pageHeaderValueSize: 12,
+    footerHintsHeight: 28, outerPadding: 6, panelPadding: 8, panelHeaderHeight: 24,
+    gridGap: 6, hairline: 1,
+    bigButtonHeight: 40, chipMinHeight: 28, audioBarMaxHeight: 20,
+    bigVitalValueSize: 42, bigVitalCardHeight: 96, smallVitalValueSize: 22,
+    nineLineRowPadding: 6, bodyMapHeight: 160,
+    vitalsLeftRatio: 1.3, vitalsBPRatio: 1.1,
+    handoffSummaryRatio: 1.1, handoffExportRatio: 0.9,
+  },
+  airy: {
+    statusStripHeight: 42, dynamicIslandClearance: 64,
+    pageHeaderHeight: 48, pageHeaderTitleSize: 22, pageHeaderIndexSize: 12, pageHeaderValueSize: 14,
+    footerHintsHeight: 44, outerPadding: 12, panelPadding: 16, panelHeaderHeight: 36,
+    gridGap: 12, hairline: 1,
+    bigButtonHeight: 56, chipMinHeight: 40, audioBarMaxHeight: 28,
+    bigVitalValueSize: 56, bigVitalCardHeight: 124, smallVitalValueSize: 28,
+    nineLineRowPadding: 10, bodyMapHeight: 220,
+    vitalsLeftRatio: 1.3, vitalsBPRatio: 1.1,
+    handoffSummaryRatio: 1.1, handoffExportRatio: 0.9,
+  },
+  current: {
+    statusStripHeight: 36, dynamicIslandClearance: 56,
+    pageHeaderHeight: 32, pageHeaderTitleSize: 18, pageHeaderIndexSize: 11, pageHeaderValueSize: 13,
+    footerHintsHeight: 38, outerPadding: 8, panelPadding: 12, panelHeaderHeight: 30,
+    gridGap: 8, hairline: 1,
+    bigButtonHeight: 48, chipMinHeight: 32, audioBarMaxHeight: 24,
+    bigVitalValueSize: 52, bigVitalCardHeight: 112, smallVitalValueSize: 26,
+    nineLineRowPadding: 8, bodyMapHeight: 200,
+    vitalsLeftRatio: 1.3, vitalsBPRatio: 1.1,
+    handoffSummaryRatio: 1.1, handoffExportRatio: 0.9,
+  },
+};
+
+const state = { ...DEFAULTS };
+
+const SCREENS = {
+  liveCapture: { idx: 1, title: 'Live Capture', kicker: 'Voice intake', trailingLabel: 'Standby', trailingValue: '00:01:13' },
+  vitals: { idx: 2, title: 'Vitals', kicker: 'Physiology · live', trailingLabel: 'Last update', trailingValue: '12:48' },
+  tcccCard: { idx: 3, title: 'TCCC Card', kicker: 'DD-1380 · casualty card', trailingLabel: 'Status', trailingValue: 'Draft' },
+  medevac: { idx: 4, title: 'MEDEVAC', kicker: 'Dustoff · 9-line request', trailingLabel: 'Form', trailingValue: '8 / 9' },
+  handoff: { idx: 5, title: 'Handoff', kicker: 'Role-1 → Role-2 · encrypted export', trailingLabel: 'Destination', trailingValue: 'QR · OFFLINE' },
+};
+
+// ============================================================
+// Control wiring
+// ============================================================
+
+function wireControls() {
+  document.querySelectorAll('.row[data-key]').forEach(row => {
+    const key = row.dataset.key;
+    const min = parseFloat(row.dataset.min);
+    const max = parseFloat(row.dataset.max);
+    const step = parseFloat(row.dataset.step);
+    const label = row.querySelector('label');
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = min;
+    slider.max = max;
+    slider.step = step;
+    slider.value = state[key];
+    slider.style.gridColumn = '1';
+
+    const num = document.createElement('input');
+    num.type = 'number';
+    num.min = min;
+    num.max = max;
+    num.step = step;
+    num.value = state[key];
+
+    row.appendChild(slider);
+    row.appendChild(num);
+
+    slider.addEventListener('input', () => {
+      state[key] = parseFloat(slider.value);
+      num.value = slider.value;
+      updateAll();
+    });
+    num.addEventListener('input', () => {
+      const v = parseFloat(num.value);
+      if (!isNaN(v)) {
+        state[key] = v;
+        slider.value = v;
+        updateAll();
+      }
+    });
+
+    row._slider = slider;
+    row._num = num;
+  });
+
+  document.querySelectorAll('#themeRadio button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.theme = btn.dataset.theme;
+      document.querySelectorAll('#themeRadio button').forEach(b => b.classList.toggle('active', b === btn));
+      updateAll();
+    });
+  });
+
+  document.querySelectorAll('.screen-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.screen = btn.dataset.screen;
+      document.querySelectorAll('.screen-btn').forEach(b => b.classList.toggle('active', b === btn));
+      updateAll();
+    });
+  });
+
+  document.getElementById('zoom').addEventListener('change', e => {
+    state.zoom = parseFloat(e.target.value);
+    updateAll();
+  });
+
+  document.querySelectorAll('.preset-row button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyPreset(btn.dataset.preset);
+    });
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    Object.assign(state, DEFAULTS);
+    syncControlsFromState();
+    updateAll();
+  });
+
+  function copyOut(targetBtn) {
+    navigator.clipboard.writeText(buildSnippet()).then(() => {
+      const orig = targetBtn.textContent;
+      targetBtn.textContent = 'Copied!';
+      targetBtn.classList.add('copied');
+      setTimeout(() => {
+        targetBtn.textContent = orig;
+        targetBtn.classList.remove('copied');
+      }, 1100);
+    });
+  }
+  document.getElementById('copyBtn').addEventListener('click', e => copyOut(e.currentTarget));
+  document.getElementById('copyBtn2').addEventListener('click', e => copyOut(e.currentTarget));
+}
+
+function applyPreset(name) {
+  const preset = PRESETS[name];
+  if (!preset) return;
+  Object.assign(state, preset);
+  syncControlsFromState();
+  updateAll();
+}
+
+function syncControlsFromState() {
+  document.querySelectorAll('.row[data-key]').forEach(row => {
+    const k = row.dataset.key;
+    if (row._slider) row._slider.value = state[k];
+    if (row._num) row._num.value = state[k];
+  });
+}
+
+// ============================================================
+// Render
+// ============================================================
+
+function updateAll() {
+  renderCanvas();
+  updatePrompt();
+}
+
+function renderCanvas() {
+  const canvas = document.getElementById('canvas');
+  canvas.dataset.theme = state.theme;
+  canvas.style.transform = `scale(${state.zoom})`;
+  canvas.style.setProperty('--gridGap', state.gridGap + 'px');
+  canvas.style.setProperty('--panelPadding', state.panelPadding + 'px');
+  canvas.style.setProperty('--hairline', state.hairline + 'px');
+  canvas.style.setProperty('--nineLinePadding', state.nineLineRowPadding + 'px');
+
+  renderStatusStrip();
+  renderPageHeader();
+  renderScreenBody();
+  renderFooter();
+}
+
+function renderStatusStrip() {
+  const el = document.getElementById('statusStrip');
+  el.style.height = state.statusStripHeight + 'px';
+  el.style.paddingLeft = state.dynamicIslandClearance + 'px';
+  el.innerHTML = `
+    <div class="status-cell" style="min-width:96px;gap:6px">
+      <span class="rec-dot"></span>
+      <span class="mono">00:01:13</span>
+    </div>
+    <div class="rf-ghost">
+      <span class="label">GHOST</span>
+      <span class="icons"><span></span><span></span><span></span><span></span><span></span></span>
+    </div>
+    <div class="status-cell" style="min-width:78px">
+      <span class="icon">●</span>
+      <span class="mono">${SCREENS[state.screen].idx === 5 ? 'C-04' : 'C-04'}</span>
+    </div>
+    <div class="status-cell" style="flex:1;justify-content:flex-start">
+      <span class="icon">⌖</span>
+      <span class="mono" style="font-size:11px">34.5267° N  69.1729° E</span>
+    </div>
+    <div class="status-cell page-indicator-cell">
+      <div class="page-indicator">
+        ${[1,2,3,4,5].map(i => `<div class="${i === SCREENS[state.screen].idx ? 'active' : ''}"></div>`).join('')}
+      </div>
+    </div>
+    <div class="status-cell battery" style="min-width:84px">
+      <span class="battery-shape"></span>
+      <span class="mono">78%</span>
+    </div>
+  `;
+}
+
+function renderPageHeader() {
+  const el = document.getElementById('pageHeader');
+  const s = SCREENS[state.screen];
+  el.style.height = state.pageHeaderHeight + 'px';
+  el.innerHTML = `
+    <span class="index" style="font-size:${state.pageHeaderIndexSize}px">
+      ${String(s.idx).padStart(2,'0')} / 05
+    </span>
+    <span class="title" style="font-size:${state.pageHeaderTitleSize}px">
+      ${s.title}
+    </span>
+    <span class="kicker">${s.kicker}</span>
+    <span class="spacer"></span>
+    <span class="trailing">
+      <span class="label">${s.trailingLabel}</span>
+      <span class="value" style="font-size:${state.pageHeaderValueSize}px">${s.trailingValue}</span>
+    </span>
+  `;
+}
+
+function renderFooter() {
+  const el = document.getElementById('footerHints');
+  el.style.height = state.footerHintsHeight + 'px';
+  const map = {
+    liveCapture: { left: 'HANDOFF', right: 'VITALS' },
+    vitals:      { left: 'CAPTURE', right: 'TCCC CARD' },
+    tcccCard:    { left: 'VITALS', right: 'MEDEVAC' },
+    medevac:     { left: 'TCCC CARD', right: 'HANDOFF' },
+    handoff:     { left: 'MEDEVAC', right: '' },
+  }[state.screen];
+  el.innerHTML = `
+    <span class="leading"><span>←</span><span>${map.left}</span></span>
+    <span class="center"><span>↑</span><span>⚙</span><span>▢</span><span>↓</span><span>+</span></span>
+    <span class="trailing">${map.right ? '<span>'+map.right+'</span><span>→</span>' : ''}</span>
+  `;
+}
+
+function renderScreenBody() {
+  const el = document.getElementById('screenBody');
+  el.style.padding = state.outerPadding + 'px';
+  el.style.gap = state.gridGap + 'px';
+  switch (state.screen) {
+    case 'liveCapture': renderLiveCapture(el); break;
+    case 'vitals':      renderVitals(el); break;
+    case 'tcccCard':    renderTCCCCard(el); break;
+    case 'medevac':     renderMedevac(el); break;
+    case 'handoff':     renderHandoff(el); break;
+  }
+}
+
+// ============================================================
+// Screens
+// ============================================================
+
+function panelHeaderHTML(title, action, icon) {
+  return `<div class="panel-header" style="height:${state.panelHeaderHeight}px">
+    <span class="title">${icon ? icon + '&nbsp;' : ''}${title}</span>
+    ${action ? `<span class="action">${action}</span>` : ''}
+  </div>`;
+}
+
+function renderLiveCapture(el) {
+  const transcriptRows = [
+    { speaker: 'medic', text: 'GSW upper right thigh. TQ applied 14:24, high and tight.', ts: '14:28', cls: '' },
+    { speaker: 'medic', text: 'Airway patent. Breathing labored, no JVD. Pulse weak rapid.', ts: '14:30', cls: '' },
+    { speaker: 'casualty', text: '...can\'t feel my leg—', ts: '14:31', cls: '' },
+    { speaker: 'medic', text: 'Pushing TXA 1g IV now. Rechecking TQ.', ts: '14:31', cls: '' },
+    { speaker: 'system', text: 'TXA 1g → logged', ts: '14:32', cls: 'system' },
+    { speaker: 'medic', text: 'BP 80/40 palp. Mark.', ts: '14:32', cls: '' },
+  ];
+  const transcript = transcriptRows.map(r => `
+    <div class="transcript-row ${r.cls}">
+      <div class="col-meta">
+        <span class="speaker speaker-${r.speaker}">${r.speaker.toUpperCase()}</span>
+        <span class="timestamp">${r.ts}</span>
+      </div>
+      <div class="text">${r.text}</div>
+    </div>
+  `).join('');
+
+  // 32 audio bars with random heights
+  const bars = Array.from({length: 32}, (_,i) => {
+    const h = (Math.random() * 0.7 + 0.1) * state.audioBarMaxHeight;
+    return `<div class="slot" style="height:${state.audioBarMaxHeight}px"><div class="fill" style="height:${h}px"></div></div>`;
+  }).join('');
+
+  const facts = [
+    { kind: 'crit', label: 'MOI', value: 'GSW', ts: '14:24', hot: '' },
+    { kind: 'cas', label: 'LOC', value: 'R THIGH', ts: '14:24', hot: '' },
+    { kind: 'tq', label: 'TQ', value: 'HIGH & TIGHT', ts: '14:24', hot: 'hot' },
+    { kind: 'syringe', label: 'MED', value: 'TXA 1g IV', ts: '14:31', hot: 'hot' },
+    { kind: 'bp', label: 'BP', value: '80 / 40 P', ts: '14:32', hot: '' },
+    { kind: 'heart', label: 'HR', value: '138', ts: '14:32', hot: '' },
+  ];
+  const factHTML = facts.map(f => `
+    <div class="fact-row ${f.hot}">
+      <div class="icon">▪</div>
+      <div class="meta">
+        <div class="label">${f.label}</div>
+        <div class="value">${f.value}</div>
+      </div>
+      <div class="ts">${f.ts}</div>
+    </div>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="panel" style="flex:1.45;min-width:0">
+      ${panelHeaderHTML('Transcript', '● LIVE', '◉')}
+      <div class="panel-body" style="overflow:auto">${transcript}</div>
+    </div>
+    <div class="panel" style="flex:1;min-width:0">
+      ${panelHeaderHTML('Capture', '', '⏺')}
+      <div class="panel-body padded" style="display:flex;flex-direction:column;gap:10px">
+        <div class="rec-capsule">
+          <span class="dot"></span>
+          <span class="timer">00:01:13</span>
+          <span class="specs">48k · 16b</span>
+        </div>
+        <div class="audio-meter">${bars}</div>
+        <div>
+          <div class="label" style="margin-bottom:6px">Voice</div>
+          <div class="voice-grid">
+            <div class="voice-chip" style="min-height:${state.chipMinHeight}px"><span class="icon">⌘</span>MARK</div>
+            <div class="voice-chip" style="min-height:${state.chipMinHeight}px"><span class="icon">💉</span>MED GIVEN</div>
+            <div class="voice-chip" style="min-height:${state.chipMinHeight}px"><span class="icon">♥</span>VITALS</div>
+            <div class="voice-chip" style="min-height:${state.chipMinHeight}px"><span class="icon">→</span>NEXT</div>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <div class="big-btn-row">
+          <div class="big-btn" style="min-height:${state.bigButtonHeight}px">
+            <span class="icon">●</span>
+            <span>Record</span>
+          </div>
+          <div class="big-btn accent" style="min-height:${state.bigButtonHeight}px">
+            <span class="icon">⌘</span>
+            <span>Mark</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="flex:0.85;min-width:0">
+      ${panelHeaderHTML('Extracted', '6')}
+      <div class="panel-body" style="overflow:auto">${factHTML}</div>
+    </div>
+  `;
+}
+
+function renderVitals(el) {
+  const totalGap = state.gridGap;
+  const wL = `calc((100% - ${totalGap}px) * ${(state.vitalsLeftRatio / (state.vitalsLeftRatio + 1.0)).toFixed(4)})`;
+  const wR = `calc((100% - ${totalGap}px) * ${(1.0 / (state.vitalsLeftRatio + 1.0)).toFixed(4)})`;
+
+  // BigVital strip widths
+  const bpRatio = state.vitalsBPRatio;
+  const sum = 1.0 + bpRatio + 1.0;
+  const wHR = `calc((100% - ${state.gridGap * 2}px) * ${(1.0 / sum).toFixed(4)})`;
+  const wBP = `calc((100% - ${state.gridGap * 2}px) * ${(bpRatio / sum).toFixed(4)})`;
+  const wSP = `calc((100% - ${state.gridGap * 2}px) * ${(1.0 / sum).toFixed(4)})`;
+
+  const ecgPath = makeECGPath(800, 100);
+
+  el.innerHTML = `
+    <div style="width:${wL};display:flex;flex-direction:column;gap:${state.gridGap}px;min-width:0">
+      <div style="display:flex;gap:${state.gridGap}px;height:${state.bigVitalCardHeight}px;flex-shrink:0">
+        <div class="big-vital crit" style="width:${wHR}">
+          ${bigVitalBody('Heart rate', '138', 'BPM', '↑ Tachycardia', 'crit', '♥')}
+        </div>
+        <div class="big-vital crit" style="width:${wBP}">
+          ${bigVitalBody('Blood pressure', '80/40', 'mmHg · PAL', '↓ Hypotension', 'crit', '⚊')}
+        </div>
+        <div class="big-vital warn" style="width:${wSP}">
+          ${bigVitalBody('SpO₂', '92', '%', 'Room air', 'warn', '◉')}
+        </div>
+      </div>
+      <div class="panel" style="flex:1;min-height:90px">
+        ${panelHeaderHTML('ECG · Lead II', 'SIM', '♥')}
+        <div class="panel-body padded" style="position:relative">
+          <div class="ecg-canvas">
+            <svg viewBox="0 0 800 100" preserveAspectRatio="none">
+              <g stroke="var(--c-grid)" stroke-width="0.5">
+                ${gridLines(800, 100, 20)}
+              </g>
+              <path d="${ecgPath}" fill="none" stroke="var(--c-accent)" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div style="position:absolute;top:6px;right:8px;font-family:ui-monospace,monospace;font-size:10px;color:var(--c-fg3);text-align:right;line-height:1.3">
+            <div>25 mm/s</div><div>10 mm/mV</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:${state.gridGap}px;flex-shrink:0">
+        ${smallVital('Resp', '28', '/min', true)}
+        ${smallVital('GCS', '13', 'E3 V4 M6', true)}
+        ${smallVital('Temp', '36.4', '°C', false)}
+        ${smallVital('Cap re', '3.5', 'sec', true)}
+      </div>
+    </div>
+    <div style="width:${wR};display:flex;flex-direction:column;gap:${state.gridGap}px;min-width:0">
+      <div class="panel" style="flex:1.2;min-height:120px">
+        ${panelHeaderHTML('Trend · Last 15 min', 'HR · BP · SpO₂', '⌃')}
+        <div class="panel-body padded" style="display:flex;flex-direction:column">
+          <div class="trend-canvas">
+            <svg viewBox="0 0 360 140" preserveAspectRatio="none">
+              <g stroke="var(--c-line)" stroke-width="0.5" stroke-dasharray="3,3">
+                <line x1="0" y1="35" x2="360" y2="35"/>
+                <line x1="0" y1="70" x2="360" y2="70"/>
+                <line x1="0" y1="105" x2="360" y2="105"/>
+              </g>
+              ${trendLine([130,134,128,132,136,138,140,138,136], 'crit')}
+              ${trendLine([100,98,95,92,90,86,84,82,80], 'warn')}
+              ${trendLine([97,96,95,94,93,93,92,92,92], 'fg1')}
+            </svg>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:9px;color:var(--c-fg3);padding-top:4px">
+            <span>−15m</span><span>NOW</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel" style="flex:1;min-height:80px">
+        ${panelHeaderHTML('Interventions', '4 logged', '✚')}
+        <div class="panel-body" style="overflow:auto">
+          <div class="intervention-row hot"><span class="ts">14:24</span><span>▪</span><span class="kind">TQ</span><span class="desc">R LEG · HIGH &amp; TIGHT</span></div>
+          <div class="intervention-row"><span class="ts">14:27</span><span>+</span><span class="kind">WND</span><span class="desc">PRESSURE DRESSING · R THIGH</span></div>
+          <div class="intervention-row hot"><span class="ts">14:31</span><span>💉</span><span class="kind">MED</span><span class="desc">TXA 1g IV — slow push</span></div>
+          <div class="intervention-row"><span class="ts">14:31</span><span>◐</span><span class="kind">IV</span><span class="desc">18g L AC · LR @ TKO</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bigVitalBody(label, value, unit, sub, status, icon) {
+  return `
+    <div class="body">
+      <div class="header">
+        <span style="color:var(--c-fg2);font-size:11px">${icon}</span>
+        <span class="name">${label}</span>
+        ${status === 'crit' ? '<span class="pip"><span class="dot"></span>CRIT</span>' :
+          status === 'warn' ? '<span class="pip"><span class="dot"></span>WARN</span>' : ''}
+      </div>
+      <div class="value-row">
+        <span class="value" style="font-size:${state.bigVitalValueSize}px">${value}</span>
+        <span class="unit">${unit}</span>
+      </div>
+      <div class="sub">${sub}</div>
+    </div>
+  `;
+}
+
+function smallVital(label, value, unit, warn) {
+  return `
+    <div class="small-vital ${warn ? 'warn' : ''}">
+      <div class="label">${label.toUpperCase()}</div>
+      <div class="value" style="font-size:${state.smallVitalValueSize}px">${value}</div>
+      <div class="unit">${unit}</div>
+    </div>
+  `;
+}
+
+function gridLines(w, h, step) {
+  const out = [];
+  for (let x = 0; x <= w; x += step) out.push(`<line x1="${x}" y1="0" x2="${x}" y2="${h}"/>`);
+  for (let y = 0; y <= h; y += step) out.push(`<line x1="0" y1="${y}" x2="${w}" y2="${y}"/>`);
+  return out.join('');
+}
+
+function makeECGPath(w, h) {
+  // Stylized PQRST repeated across width
+  const cycle = 80;
+  const cycles = Math.ceil(w / cycle);
+  const baseline = h * 0.55;
+  let d = `M 0 ${baseline}`;
+  for (let i = 0; i < cycles; i++) {
+    const x0 = i * cycle;
+    // P wave (small bump up)
+    d += ` L ${x0 + 12} ${baseline}`;
+    d += ` Q ${x0 + 16} ${baseline - 8} ${x0 + 20} ${baseline}`;
+    // PR flat
+    d += ` L ${x0 + 28} ${baseline}`;
+    // QRS
+    d += ` L ${x0 + 32} ${baseline + 6}`;
+    d += ` L ${x0 + 36} ${baseline - h * 0.45}`;
+    d += ` L ${x0 + 40} ${baseline + 10}`;
+    d += ` L ${x0 + 44} ${baseline}`;
+    // ST
+    d += ` L ${x0 + 56} ${baseline}`;
+    // T wave
+    d += ` Q ${x0 + 64} ${baseline - 14} ${x0 + 72} ${baseline}`;
+    d += ` L ${x0 + cycle} ${baseline}`;
+  }
+  return d;
+}
+
+function trendLine(values, colorVar) {
+  const w = 360, h = 140;
+  const max = Math.max(...values), min = Math.min(...values);
+  const range = max - min;
+  const xstep = w / (values.length - 1);
+  const points = values.map((v, i) => {
+    const x = i * xstep;
+    const y = h - ((v - min) / range) * (h - 20) - 10;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return `<polyline points="${points}" fill="none" stroke="var(--c-${colorVar})" stroke-width="1.4"/>`;
+}
+
+function renderTCCCCard(el) {
+  // BodyMap silhouette as inline SVG
+  const bodyMap = `
+    <svg viewBox="0 0 120 200" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">
+      <ellipse cx="60" cy="17" rx="10" ry="11" fill="none" stroke="var(--c-lineStrong)" stroke-width="1.2"/>
+      <line x1="56" y1="28" x2="56" y2="36" stroke="var(--c-lineStrong)" stroke-width="1.2"/>
+      <line x1="64" y1="28" x2="64" y2="36" stroke="var(--c-lineStrong)" stroke-width="1.2"/>
+      <path d="M 50 36 L 70 36 L 78 50 L 76 100 L 60 110 L 44 100 L 42 50 Z"
+        fill="none" stroke="var(--c-lineStrong)" stroke-width="1.2"/>
+      <path d="M 42 50 L 28 90 L 30 110 M 78 50 L 92 90 L 90 110"
+        fill="none" stroke="var(--c-lineStrong)" stroke-width="1.2"/>
+      <path d="M 50 110 L 46 175 L 48 195 M 70 110 L 74 175 L 72 195"
+        fill="none" stroke="var(--c-lineStrong)" stroke-width="1.2"/>
+      <!-- Wound + TQ markers on R thigh -->
+      <circle cx="74" cy="135" r="6" fill="var(--c-crit)" opacity="0.25"/>
+      <circle cx="74" cy="135" r="3" fill="var(--c-crit)"/>
+      <rect x="65" y="115" width="18" height="3.5" fill="var(--c-accent)"/>
+      <text x="60" y="6" fill="var(--c-fg3)" font-family="ui-monospace,monospace" font-size="6">ANT</text>
+    </svg>
+  `;
+
+  el.innerHTML = `
+    <div class="panel" style="flex:0.85;min-width:0">
+      ${panelHeaderHTML('Casualty · C-04', 'GSW · CAT A')}
+      <div class="panel-body padded" style="display:flex;flex-direction:column;gap:10px">
+        <div class="field-grid">
+          <div class="field"><div class="label">Name</div><div class="value">DOE, J.</div></div>
+          <div class="field"><div class="label">Unit</div><div class="value">2/75 RGR</div></div>
+          <div class="field"><div class="label">Svc #</div><div class="value">••• 4471</div></div>
+          <div class="field"><div class="label">Allrg</div><div class="value">NKDA</div></div>
+        </div>
+        <div style="height:${state.hairline}px;background:var(--c-line)"></div>
+        <div class="body-map" style="height:${state.bodyMapHeight}px">
+          ${bodyMap}
+        </div>
+        <div style="display:flex;gap:14px;font-size:9px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--c-fg2)">
+          <span>● Wound</span>
+          <span>▬ TQ</span>
+          <span>+ Dressing</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="flex:1;min-width:0">
+      ${panelHeaderHTML('M.A.R.C.H.', 'Assessment')}
+      <div class="panel-body" style="overflow:auto">
+        ${marchRow('M', 'Massive hemo', 'TQ R thigh · 14:24', 'done', '✓')}
+        ${marchRow('A', 'Airway', 'Patent · NPA not required', 'done', '✓')}
+        ${marchRow('R', 'Respirations', '28/min · labored · no JVD', 'warn', '⚠')}
+        ${marchRow('C', 'Circulation', '80/40 P · HR 138 · cap refill 3.5s', 'crit', '!')}
+        ${marchRow('H', 'Head / hypothermia', 'GCS 13 · blanket pending', 'open', '○')}
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:${state.gridGap}px;min-width:0">
+      <div class="panel" style="flex:1">
+        ${panelHeaderHTML('P.A.W.S.')}
+        <div class="panel-body" style="overflow:auto">
+          ${marchRow('P', 'Pain', '—', 'open', '○', true)}
+          ${marchRow('A', 'Antibiotics', 'ERTAPENEM 1g IV pending', 'open', '○', true)}
+          ${marchRow('W', 'Wounds', 'R thigh · pressure', 'done', '✓', true)}
+          ${marchRow('S', 'Splinting', 'N/A', 'done', '—', true)}
+        </div>
+      </div>
+      <div class="panel" style="flex:1">
+        ${panelHeaderHTML('Meds log', '', '💉')}
+        <div class="panel-body" style="overflow:auto">
+          <div class="med-row"><span class="ts">14:31</span><span class="icon">💉</span><div class="meta"><span class="name">TXA</span><span class="desc">1g IV · slow push</span></div></div>
+          <div class="med-row"><span class="ts">—</span><span class="icon">◐</span><div class="meta"><span class="name">ERTAPENEM</span><span class="desc">1g IV · pending</span></div></div>
+          <div class="med-row"><span class="ts">—</span><span class="icon">💉</span><div class="meta"><span class="name">MORPHINE</span><span class="desc">— · not given</span></div></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function marchRow(letter, title, detail, status, icon, compact = false) {
+  const padding = compact ? '6px 12px' : '10px 12px';
+  const letterSize = compact ? '18px' : '22px';
+  return `
+    <div class="march-row ${status}" style="padding:${padding}">
+      <span class="letter" style="font-size:${letterSize}">${letter}</span>
+      <div class="info">
+        <span class="label">${title}</span>
+        <span class="detail">${detail}</span>
+      </div>
+      <span class="status">${icon}</span>
+    </div>
+  `;
+}
+
+function renderMedevac(el) {
+  const lines = [
+    { num: 1, label: 'Location', value: 'MGRS  42S WD 8721 4356', icon: '⌖', cls: 'auto', badge: '● GPS' },
+    { num: 2, label: 'Freq / call', value: '38.65 FM · DUSTOFF 6', icon: '⌬', cls: '', badge: 'EDIT' },
+    { num: 3, label: 'Patients by precedence', value: '1× URGENT (A)', icon: '●', cls: 'crit', badge: 'EDIT' },
+    { num: 4, label: 'Special equipment', value: 'B · VENTILATOR', icon: '◉', cls: '', badge: 'EDIT' },
+    { num: 5, label: 'Patients by type', value: 'L1  ·  1 LITTER', icon: '●', cls: '', badge: 'EDIT' },
+    { num: 6, label: 'Security (war)', value: 'P · POSSIBLE ENEMY', icon: '⚠', cls: 'warn', badge: 'EDIT' },
+    { num: 7, label: 'Marking method', value: 'C · SMOKE — VS-17 BACKUP', icon: '☁', cls: '', badge: 'EDIT' },
+    { num: 8, label: 'Pt nationality', value: 'A · US MIL', icon: '✓', cls: '', badge: 'EDIT' },
+    { num: 9, label: 'CBRN contamination', value: 'N · NONE', icon: '⚛', cls: '', badge: 'EDIT' },
+  ];
+  const linesHTML = lines.map(l => `
+    <div class="nine-line-row ${l.cls}">
+      <span class="number">${l.num}</span>
+      <span class="icon">${l.icon}</span>
+      <div class="meta">
+        <div class="label">${l.label.toUpperCase()}</div>
+        <div class="value">${l.value}</div>
+      </div>
+      <div class="badge ${l.cls === 'auto' || l.badge.startsWith('●') ? 'auto' : ''}">${l.badge}</div>
+    </div>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="panel" style="flex:1.4;min-width:0">
+      ${panelHeaderHTML('9-Line format', '9 / 9 complete')}
+      <div class="panel-body" style="overflow:auto">${linesHTML}</div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:${state.gridGap}px;min-width:0">
+      <div class="panel" style="flex:1">
+        ${panelHeaderHTML('Grid · LZ', 'Updating', '⌖')}
+        <div class="panel-body padded" style="position:relative">
+          <svg class="map-svg" viewBox="0 0 320 140" preserveAspectRatio="xMidYMid meet">
+            <g stroke="var(--c-grid)" stroke-width="0.5">${gridLines(320, 140, 20)}</g>
+            <g stroke="var(--c-lineStrong)" stroke-width="0.8" fill="none" opacity="0.6">
+              <path d="M 0 70 Q 80 60 160 75 T 320 75"/>
+              <path d="M 0 50 Q 80 40 160 55 T 320 55"/>
+              <path d="M 0 90 Q 80 100 160 95 T 320 95"/>
+            </g>
+            <line x1="128" y1="84" x2="220" y2="40" stroke="var(--c-accent)" stroke-width="1.4" stroke-dasharray="4,3"/>
+            <circle cx="128" cy="84" r="14" fill="none" stroke="var(--c-accent)" stroke-width="1" stroke-dasharray="3,3"/>
+            <circle cx="128" cy="84" r="4" fill="var(--c-accent)"/>
+            <text x="112" y="106" fill="var(--c-accent)" font-family="ui-monospace,monospace" font-size="9" font-weight="800">CCP</text>
+            <rect x="210" y="30" width="20" height="20" fill="none" stroke="var(--c-accentHot)" stroke-width="1.2"/>
+            <line x1="206" y1="40" x2="210" y2="40" stroke="var(--c-accentHot)" stroke-width="1.2"/>
+            <line x1="230" y1="40" x2="234" y2="40" stroke="var(--c-accentHot)" stroke-width="1.2"/>
+            <line x1="220" y1="26" x2="220" y2="30" stroke="var(--c-accentHot)" stroke-width="1.2"/>
+            <line x1="220" y1="50" x2="220" y2="54" stroke="var(--c-accentHot)" stroke-width="1.2"/>
+            <text x="234" y="36" fill="var(--c-accentHot)" font-family="ui-monospace,monospace" font-size="9" font-weight="800">LZ ALPHA</text>
+            <polygon points="60,108 67,118 53,118" fill="none" stroke="var(--c-warn)" stroke-width="1.2"/>
+            <text x="60" y="130" text-anchor="middle" fill="var(--c-warn)" font-family="ui-monospace,monospace" font-size="8" font-weight="600">SUSP</text>
+            <line x1="14" y1="128" x2="54" y2="128" stroke="var(--c-fg3)" stroke-width="0.8"/>
+            <text x="70" y="130" fill="var(--c-fg3)" font-family="ui-monospace,monospace" font-size="8">500 m</text>
+            <text x="6" y="12" fill="var(--c-fg3)" font-family="ui-monospace,monospace" font-size="9">42S WD</text>
+          </svg>
+        </div>
+      </div>
+      <div class="panel" style="flex:0.9">
+        ${panelHeaderHTML('Voice ready-transmit', '', '⌬')}
+        <div class="panel-body padded" style="display:flex;flex-direction:column;gap:8px">
+          <div class="transmit-script">
+            <span class="accent">DUSTOFF SIX, DUSTOFF SIX,</span><br>
+            THIS IS HAVOC TWO ACTUAL,<br>
+            LINE 1: 42S WD 8721 4356<br>
+            LINE 2: 38.65 FM · DUSTOFF 6<br>
+            LINE 3: ONE URGENT, ALPHA…
+          </div>
+          <div class="big-btn-row">
+            <div class="big-btn" style="min-height:${state.bigButtonHeight}px"><span class="icon">⚙</span><span>Review</span></div>
+            <div class="big-btn accent" style="min-height:${state.bigButtonHeight}px"><span class="icon">↗</span><span>Transmit</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderHandoff(el) {
+  const sumR = state.handoffSummaryRatio;
+  const expR = state.handoffExportRatio;
+  const tlR = 1.0;
+  const sum = sumR + tlR + expR;
+  const wSum = `calc((100% - ${state.gridGap * 2}px) * ${(sumR / sum).toFixed(4)})`;
+  const wTL  = `calc((100% - ${state.gridGap * 2}px) * ${(tlR / sum).toFixed(4)})`;
+  const wExp = `calc((100% - ${state.gridGap * 2}px) * ${(expR / sum).toFixed(4)})`;
+
+  el.innerHTML = `
+    <div class="panel" style="width:${wSum};min-width:0">
+      ${panelHeaderHTML('Encounter summary', 'C-04', '◫')}
+      <div class="panel-body" style="overflow:auto">
+        ${sumLine('!', 'MOI', 'GSW · R upper thigh · 14:22 LOC', false)}
+        ${sumLine('⚠', 'CRITICAL', 'Hemorrhagic shock · class III', true)}
+        ${sumLine('▬', 'CONTROL', 'TQ high & tight @ 14:24 (08m)', false)}
+        ${sumLine('♥', 'LAST VITALS', 'HR 138 / BP 80–40 P / SpO₂ 92% / RR 28 / GCS 13', false)}
+        ${sumLine('💉', 'MEDS', 'TXA 1g IV @ 14:31 · ERTA pending', false)}
+        ${sumLine('◐', 'FLUIDS', 'LR 250mL @ 14:33 · 18g L AC', false)}
+        ${sumLine('↗', 'PRIORITY', 'URGENT · LITTER · DUSTOFF requested 14:34', true)}
+        ${sumLine('⌖', 'ETA TO LZ', '00:09:00 · LZ ALPHA · 42S WD 8840 4420', false)}
+        <div style="padding:8px 12px;font-family:ui-monospace,monospace;font-size:11px;color:var(--c-fg3);text-align:center;letter-spacing:0.14em;text-transform:uppercase">
+          AI-generated · medic to verify before transmit
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="width:${wTL};min-width:0">
+      ${panelHeaderHTML('Timeline', '00:14:32', '⏱')}
+      <div class="panel-body" style="overflow:auto;padding:6px 0">
+        ${tlRow('14:22', 'POI', 'Casualty contact', false)}
+        ${tlRow('14:24', 'TQ', 'R thigh · high & tight', true)}
+        ${tlRow('14:27', 'WND', 'Pressure dressing', false)}
+        ${tlRow('14:28', 'REC', 'Voice intake started', false)}
+        ${tlRow('14:30', 'ASS', 'MARCH initial pass', false)}
+        ${tlRow('14:31', 'MED', 'TXA 1g IV slow push', true)}
+        ${tlRow('14:33', 'IV', 'LR 250mL · 18g L AC', false)}
+        ${tlRow('14:34', '9L', 'MEDEVAC requested', true)}
+      </div>
+    </div>
+    <div class="panel" style="width:${wExp};min-width:0">
+      ${panelHeaderHTML('Export · transmit', '', '↗')}
+      <div class="panel-body padded" style="display:flex;flex-direction:column;gap:6px">
+        <div class="export-card ready">
+          <span class="icon">📄</span>
+          <div class="meta">
+            <div class="name">DD-1380 PDF</div>
+            <div class="detail">48 KB</div>
+          </div>
+          <div class="pill">✓ Ready</div>
+        </div>
+        <div class="export-card ready">
+          <span class="icon">{ }</span>
+          <div class="meta">
+            <div class="name">JSON encounter</div>
+            <div class="detail">22 KB</div>
+          </div>
+          <div class="pill">✓ Ready</div>
+        </div>
+        <div class="export-card">
+          <span class="icon">∿</span>
+          <div class="meta">
+            <div class="name">Audio + transcript</div>
+            <div class="detail">68 KB · pending</div>
+          </div>
+          <div class="pill">Pend</div>
+        </div>
+        <div class="export-card ready">
+          <span class="icon">▦</span>
+          <div class="meta">
+            <div class="name">Vitals CSV</div>
+            <div class="detail">4 KB</div>
+          </div>
+          <div class="pill">✓ Ready</div>
+        </div>
+        <div style="height:${state.hairline}px;background:var(--c-line);margin:4px 0"></div>
+        <div class="label" style="font-size:10px">Destination</div>
+        <div class="dest-grid">
+          <div class="dest-card"><span class="icon">⌘</span><span>ATAK</span></div>
+          <div class="dest-card"><span class="icon">↗</span><span>MEDHUB</span></div>
+          <div class="dest-card active"><span class="icon">▦</span><span>QR · OFFLINE</span></div>
+          <div class="dest-card"><span class="icon">))</span><span>NFC TAP</span></div>
+        </div>
+        <div style="flex:1"></div>
+        <div class="big-btn accent" style="min-height:${state.bigButtonHeight}px"><span class="icon">↗</span><span>Transmit · Hold 2s</span></div>
+        <div style="text-align:center;font-family:ui-monospace,monospace;font-size:10px;color:var(--c-fg3);letter-spacing:0.14em;text-transform:uppercase">🔒 Airgap · QR fallback</div>
+      </div>
+    </div>
+  `;
+}
+
+function sumLine(icon, label, value, hot) {
+  return `
+    <div class="sum-line ${hot ? 'hot' : ''}">
+      <span class="icon">${icon}</span>
+      <span class="label">${label}</span>
+      <span class="value">${value}</span>
+    </div>
+  `;
+}
+
+function tlRow(ts, kind, desc, hot) {
+  return `
+    <div class="timeline-row ${hot ? 'hot' : ''}">
+      <span class="ts">${ts}</span>
+      <div class="rail"><div class="node"></div></div>
+      <div class="body">
+        <div class="kind">${kind}</div>
+        <div class="desc">${desc}</div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// Snippet output
+// ============================================================
+
+function buildSnippet() {
+  const s = state;
+  return `// ===========================================
+// Layout.swift — paste these into TCCC_IOS/Design/Layout.swift
+// ===========================================
+
+enum Layout {
+    static let statusStripHeight: CGFloat = ${s.statusStripHeight}
+    static let dynamicIslandClearance: CGFloat = ${s.dynamicIslandClearance}
+    static let pageHeaderHeight: CGFloat = ${s.pageHeaderHeight}
+    static let footerHintsHeight: CGFloat = ${s.footerHintsHeight}
+    static let homeIndicatorClearance: CGFloat = 36
+
+    static let panelPadding: CGFloat = ${s.panelPadding}
+    static let outerPadding: CGFloat = ${s.outerPadding}
+    static let gridGap: CGFloat = ${s.gridGap}
+
+    static let cornerRadiusSmall: CGFloat = 2
+    static let cornerRadiusMedium: CGFloat = 4
+    static let cornerRadiusLarge: CGFloat = 6
+
+    static let hairline: CGFloat = ${s.hairline}
+    static let bracketSize: CGFloat = 12
+
+    static let minHitTarget: CGFloat = 44
+    static let bigButtonHeight: CGFloat = ${s.bigButtonHeight}
+    static let swipeThreshold: CGFloat = 50
+
+    static let fastDuration: Double = 0.12
+    static let standardDuration: Double = 0.22
+    static let pageTransitionDuration: Double = 0.32
+}
+
+// ===========================================
+// PageHeader.swift — font sizes
+// ===========================================
+// indexLabel: .font(.system(size: ${s.pageHeaderIndexSize}, ...))
+// title:      .font(.system(size: ${s.pageHeaderTitleSize}, weight: .heavy))
+// trailing.value: .font(.system(size: ${s.pageHeaderValueSize}, design: .monospaced))
+
+// ===========================================
+// Atom sizes — search for these magic numbers
+// ===========================================
+// AudioMeterView.maxBarHeight       = ${s.audioBarMaxHeight}
+// VoiceCommandChip min height       = ${s.chipMinHeight}
+// Panel header min height (approx)  = ${s.panelHeaderHeight}
+
+// ===========================================
+// VitalsScreen — column + BigVital ratios
+// ===========================================
+// Left / right column ratio:  ${s.vitalsLeftRatio.toFixed(2)} / 1.00
+//   → wL = usable * (${s.vitalsLeftRatio.toFixed(2)} / ${(s.vitalsLeftRatio + 1).toFixed(2)})
+// BigVital row ratio (HR / BP / SpO₂):  1.00 / ${s.vitalsBPRatio.toFixed(2)} / 1.00
+//   → wHR = usable * (1.00 / ${(2.0 + s.vitalsBPRatio).toFixed(2)})
+//   → wBP = usable * (${s.vitalsBPRatio.toFixed(2)} / ${(2.0 + s.vitalsBPRatio).toFixed(2)})
+// BigVital strip height: ${s.bigVitalCardHeight}
+// BigVital value font:  .font(.system(size: ${s.bigVitalValueSize}, weight: .bold, design: .monospaced))
+// SmallVital value font: .font(.system(size: ${s.smallVitalValueSize}, ..., design: .monospaced))
+
+// ===========================================
+// MedevacScreen — 9-Line row vertical padding
+// ===========================================
+// NineLineRow: .padding(.vertical, ${s.nineLineRowPadding})
+
+// ===========================================
+// TCCCCardScreen — body map height
+// ===========================================
+// BodyMap: .frame(minHeight: 140, maxHeight: ${s.bodyMapHeight})
+
+// ===========================================
+// HandoffScreen — column ratios (1.10 / 1.00 / 0.90 default)
+// ===========================================
+// summary / timeline / export = ${s.handoffSummaryRatio.toFixed(2)} / 1.00 / ${s.handoffExportRatio.toFixed(2)}
+//   total = ${(s.handoffSummaryRatio + 1.0 + s.handoffExportRatio).toFixed(2)}
+//   wSum = usable * (${s.handoffSummaryRatio.toFixed(2)} / ${(s.handoffSummaryRatio + 1.0 + s.handoffExportRatio).toFixed(2)})
+//   wTL  = usable * (1.00 / ${(s.handoffSummaryRatio + 1.0 + s.handoffExportRatio).toFixed(2)})
+//   wExp = usable * (${s.handoffExportRatio.toFixed(2)} / ${(s.handoffSummaryRatio + 1.0 + s.handoffExportRatio).toFixed(2)})
+`;
+}
+
+function updatePrompt() {
+  document.getElementById('snippet').textContent = buildSnippet();
+}
+
+// ============================================================
+// Boot
+// ============================================================
+
+wireControls();
+syncControlsFromState();
+updateAll();
+</script>
+</body>
+</html>
