@@ -70,13 +70,38 @@ App layer:
 - [x] Phase E — Screen 05 Handoff. Encounter Summary + Timeline + Export · Transmit. **QR · OFFLINE export is functional end-to-end** — `JSONEncoder().encode(primaryPatient)` rendered via `CIQRCodeGenerator` into a 360pt sheet. DD-1380 PDF / Audio bundle / CSV stubbed READY/PENDING. Selected destination is read by Screen 04's transmit handler.
 - [x] Phase F — Screen 02 Vitals. BigVital (52pt mono) / SmallVital tiles, ECG canvas (Canvas + TimelineView, ~80 BPM PQRST scrolling 80pt/s), TrendChart (3 series over rolling 15-min `VitalsHistory` buffer, recorded each engine snapshot), InterventionRow filtered to non-medication kinds.
 - [x] Phase G — Settings + Quick Actions overlays. Settings: RF discipline visual confirmation (5 line-through radio cards + 3 egress cards), 3-theme picker (live applies via environment), 5 system toggles, operator profile fields, NEW CAS + WIPE (HOLD 3s with progress bar). Quick Actions: 3×2 action grid feeding system transcript lines. Both presented as ZStack overlays; tap-on-scrim dismisses. Footer gear / plus icons trigger them on every screen.
-- [ ] Polish — Custom icon library, DD-1380 PDF (PDFKit), real export wiring, sensor integration when hardware lands
+- [x] Audio capture lead/tail — 10s pre-roll ring buffer + 10s post-roll tail in `SpeechRecognizer`. Pre-roll drains into the recognizer + a `.wav` audio file on `start(audioURL:)`. Tail keeps recognising for 10s after `stop()` so trailing sentences aren't cut off. Engine continues to be primed across Live Capture's lifetime.
+- [x] Real exports — Handoff cards now wire JSON / Audio + Transcript / Vitals CSV through `UIActivityViewController`. QR sheet has Save-to-Photos + Share buttons. (DD-1380 PDF still PEND.)
+- [x] Lifecycle quick-tap — footer NEW / END / WIPE buttons with top-positioned big-letter confirmation banner. No more navigating into Settings every time.
+- [x] SLM v1 — `TCCCLanguageModel` + `RadioScriptGenerator` (natural-language MEDEVAC radio call from 9-line) wired into Screen 04.
+- [x] SLM v2 — `EncounterNarrativeGenerator` (2-3 sentence prose summary), `ZMISTNarrativeGenerator` (SLM-formatted ZMIST on top of `TCCCReports.ZMISTGenerator` fallback), `TranscriptCleaner` (fix ASR mishearings of drugs/anatomy/military shorthand). Surfaced on Handoff + Live Capture.
+- [x] Silence-debounce on partial transcripts — 1.5s of partial stability commits the line and runs the engine. `SpeechRecognizer.forceFinalize()` resets the recognition context so subsequent partials don't redundantly include already-committed text. `appendFinal` dedupes if SFSpeechRecognizer's own `isFinal` later fires the same string.
+- [x] Permissive vitals regex — HR / BP / SpO₂ / RR now accept `is | was | of | at | around | reading | came` between keyword and digits. Catches natural medic phrasings like "BP was 120/80" without breaking the 33 existing vitals tests.
 
-## Open items
+## Future work — small wins
 
-- Download Inter Tight + JetBrains Mono into `TCCC_IOS/Fonts/` before Phase A.
-- DD-1380 PDF template — find/extract a real DD Form 1380 background to overlay generated text on. Polish phase.
-- Sensor hardware (ANT+ chest strap, Jetson Nano companion) does not exist yet — `VitalsSensor` protocol scaffolded only.
+- **Foundation Model loading status indicator.** Today the SLM error on first use ("still downloading") is a one-shot; a persistent badge on Handoff/MEDEVAC showing "SLM: ready" / "SLM: downloading" / "SLM: not enabled" would stop the user from re-tapping Generate hoping for a different result. Cheap polish.
+- **Structured SLM output via `@Generable`.** Right now ZMIST + Narrative are free-form strings. Switching to `@Generable` types (with `@Guide` field hints) would force the model into a known structure and let us validate output against engine state before display.
+- **Transcript debounce tuning.** 1.5s was a guess. Field testing should determine the right value; could also make it adaptive (longer when partial is short, shorter when it's long).
+- **Engine extraction on partial text.** Currently the engine only runs on committed (debounced or finalised) text. Running on partials would surface tentative facts faster, at the cost of UI flicker. Worth testing.
+- **DD-1380 PDF export.** Real PDFKit overlay onto a DD Form 1380 background image. Maps engine fields to form positions. ~½ day of work plus finding a clean form image.
+- **Real swipe-up / swipe-down gestures** for Settings + Quick Actions overlays. Currently only the footer SET/ACT taps work. The pager already takes horizontal drags; this needs a vertical-only gesture that doesn't conflict.
+
+## Future work — bigger lifts
+
+- **Custom stroke icon library** per design package §7. Replace SF Symbols on medical/MEDEVAC iconography. Each icon is a small SwiftUI `Shape` or `Path`. Probably 20+ icons. Consider dispatching as a parallel agent task.
+- **Inter Tight + JetBrains Mono** font registration. Bundle the OFL TTFs into `TCCC_IOS/Fonts/`, add `UIAppFonts` entries to `project.yml`. Update `Typography.swift` to use them.
+- **Real ECG sensor stream.** The synthetic PQRST in `ECGWave.swift` is a placeholder. Real integration needs the ANT+ chest strap → Jetson Nano companion (paired-only sub-second burst per RF Ghost rules) → BLE/USB-C bridge into the iPhone. The `VitalsSensor` protocol is scaffolded.
+- **Real audio export bundle.** Currently the Audio + Transcript card shares the .wav and a .txt separately. A proper bundle would zip them with metadata and a manifest.
+- **Multi-casualty UI.** Engine already handles multiple patients (`PatientStateEngine.snapshot()` returns a dict). UI is single-casualty per design §9. Adding a casualty switcher in the status strip would expose multi-casualty workflows for IED-blast scenarios.
+- **Validator path for SLM-generated reports.** The Python prototype's `validate_medevac_against_state` / `validate_zmist_against_state` functions exist to clean up SLM hallucinations. Now that we have SLM output, port these validators and run them between SLM generation and display.
+
+## Open items / decisions
+
+- **Foundation Model still downloading on the user's iPhone 17 Pro as of last test.** Once it lands, validate radio script + narrative + ZMIST quality. Adjust system prompts as needed.
+- **DD-1380 PDF template source** — need a clean form image (preferably an editable PDF template) to use as the PDFKit overlay base.
+- **Sensor hardware** (ANT+ chest strap, Jetson Nano companion) does not exist yet.
+- **Inter Tight + JetBrains Mono** still not bundled — system fonts in use.
 
 ## Verifying the build
 
