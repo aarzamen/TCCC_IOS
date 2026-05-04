@@ -134,4 +134,29 @@ final class AppState {
 
     var selectedHandoffDestination: HandoffDestination = .qr
     var qrOverlayVisible: Bool = false
+
+    // MARK: - Settings — operator profile + system flags
+
+    var operatorCallsign: String = "HAVOC 2A"
+    var operatorRole: String = "68W · SR MEDIC"
+    var operatorUnit: String = "2/75 RGR"
+    var operatorDeviceId: String = "EUD-441-C"
+
+    var voiceCommandsEnabled: Bool = true
+    var hapticFeedbackEnabled: Bool = true
+    var lockOrientationEnabled: Bool = true
+    var screenBurnProtectionEnabled: Bool = true
+    var autoExportOnWiredHandoffEnabled: Bool = false
+
+    func wipeSession() {
+        transcript.removeAll()
+        partialTranscript = ""
+        recognitionError = nil
+        primaryPatient = nil
+        allPatients.removeAll()
+        sessionStart = Date()
+        // Engine retains previously-extracted state across calls; spawning a
+        // new engine would also do it, but processTranscript-on-empty plus
+        // clearing the snapshot is enough for the current single-casualty UI.
+    }
 }
