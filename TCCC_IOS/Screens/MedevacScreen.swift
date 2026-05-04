@@ -1,9 +1,15 @@
 import SwiftUI
+import FoundationModels
 import TCCCDomain
 
 struct MedevacScreen: View {
     let state: AppState
     @Environment(\.palette) private var palette
+
+    @State private var generator = RadioScriptGenerator()
+    @State private var generatedScript: String?
+    @State private var isGenerating: Bool = false
+    @State private var generationError: String?
 
     private var form: NineLineForm {
         let patients = state.allPatients.values.sorted { $0.patientId < $1.patientId }
@@ -85,7 +91,11 @@ struct MedevacScreen: View {
             TransmitScript(
                 entries: form.entries,
                 onReview: handleReview,
-                onTransmit: handleTransmit
+                onTransmit: handleTransmit,
+                onGenerate: handleGenerate,
+                generatedScript: generatedScript,
+                isGenerating: isGenerating,
+                generationError: generationError
             )
         }
     }
@@ -97,11 +107,55 @@ struct MedevacScreen: View {
     }
 
     private func handleTransmit() {
-        // Destination selection is owned by Screen 05 (Handoff). The actual
-        // transport is hardware-deferred (RF Ghost forbids any radio call
-        // from this codebase) — we record the action only.
         let dest = state.selectedHandoffDestination.displayName
         state.appendSystem("TRANSMIT · 9-LINE · \(dest) · \(formattedTimestamp())")
+    }
+
+    private func handleGenerate() {
+        let snapshot = form
+        let callsign = state.operatorCallsign
+        Task { @MainActor in
+            isGenerating = true
+            generationError = nil
+
+            // Pre-flight availability check so we can show a useful message
+            // instead of "generation failed" when Apple Intelligence is off.
+            let availability = TCCCLanguageModel.availability()
+            guard availability == .available else {
+                generationError = availabilityMessage(availability)
+                isGenerating = false
+                return
+            }
+
+            do {
+                let text = try await generator.generate(from: snapshot, callsign: callsign)
+                generatedScript = text
+                state.appendSystem("RADIO SCRIPT · generated on-device · \(formattedTimestamp())")
+            } catch {
+                generationError = error.localizedDescription
+            }
+            isGenerating = false
+        }
+    }
+
+    private func availabilityMessage(_ availability: SystemLanguageModel.Availability) -> String {
+        switch availability {
+        case .available:
+            return ""
+        case .unavailable(let reason):
+            switch reason {
+            case .deviceNotEligible:
+                return "Foundation Model not supported on this device."
+            case .appleIntelligenceNotEnabled:
+                return "Enable Apple Intelligence in Settings to generate radio scripts."
+            case .modelNotReady:
+                return "Foundation Model is still downloading. Try again shortly."
+            @unknown default:
+                return "Foundation Model unavailable."
+            }
+        @unknown default:
+            return "Foundation Model unavailable."
+        }
     }
 
     private func formattedTimestamp() -> String {

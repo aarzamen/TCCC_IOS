@@ -41,6 +41,7 @@
 		7C0A4CFA9C21CD15F51F7770 /* TranscriptLineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E1035E8B149E396C8EED9FC /* TranscriptLineView.swift */; };
 		86BA530C6C55B2B98D486750 /* FooterHints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2CCE67936451614B668080 /* FooterHints.swift */; };
 		89EF0B5DE8FDC850975E7017 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAA6C0033E6E1A9DB176C2E /* Theme.swift */; };
+		8DC1156F7128911034EFF946 /* RadioScriptGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC7666599E263562C0948458 /* RadioScriptGenerator.swift */; };
 		8E10B2F777B27F6009DFDDBB /* VitalsHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C0E6D65504C87A7D9894C13 /* VitalsHistory.swift */; };
 		8EC8E02D86C55CAAB3BA7DA4 /* DestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E59FC65329AC434413958DE /* DestCard.swift */; };
 		991558BAAA9B21B1DCC6BA58 /* ECGWave.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22071D86B80268CE30E02A96 /* ECGWave.swift */; };
@@ -54,6 +55,7 @@
 		BD7A4C23586CB96972781B6D /* MarchRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2948D10CDEC949BDE4EFD900 /* MarchRowView.swift */; };
 		C2857D2977856447A6679591 /* MedRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140881810FD1F888CCCF60A2 /* MedRowView.swift */; };
 		C512FA47820E29A1BFDA4901 /* RecCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04BC9CC5B5E0351D55C2A0B7 /* RecCapsule.swift */; };
+		C5A3D28A8BACDBB1F7CBD170 /* TCCCLanguageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8DD000AEA797F182C96445E /* TCCCLanguageModel.swift */; };
 		CA4EC2183B056422C16E94E5 /* BodyMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA4BB66A62C7E065D6C2282 /* BodyMap.swift */; };
 		CC431037BDB5DAE9F34FBA76 /* PAWSRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EED0969895F125C962A9134 /* PAWSRowView.swift */; };
 		CF2A891275EF13C4AAD3F116 /* PageHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D59C15139886E7B8C11A614 /* PageHeader.swift */; };
@@ -132,6 +134,8 @@
 		D67CD12F7F9F83C6D0D2AAA0 /* ExportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportCard.swift; sourceTree = "<group>"; };
 		D6C51FA8A919214DFD7769FC /* MapPlotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapPlotView.swift; sourceTree = "<group>"; };
 		DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCC_IOSApp.swift; sourceTree = "<group>"; };
+		E8DD000AEA797F182C96445E /* TCCCLanguageModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCCLanguageModel.swift; sourceTree = "<group>"; };
+		EC7666599E263562C0948458 /* RadioScriptGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioScriptGenerator.swift; sourceTree = "<group>"; };
 		F4CC2166C5D1EA72E2BCE496 /* TCCCKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCKit; path = Packages/TCCCKit; sourceTree = SOURCE_ROOT; };
 		F5F6D97B7FB9AB745F523F49 /* StatusStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusStrip.swift; sourceTree = "<group>"; };
 		F6329758947011BA2C164B43 /* AudioMeterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioMeterView.swift; sourceTree = "<group>"; };
@@ -216,6 +220,15 @@
 			path = Chrome;
 			sourceTree = "<group>";
 		};
+		87A645BEFD6B3BA10E36A7F8 /* Intelligence */ = {
+			isa = PBXGroup;
+			children = (
+				EC7666599E263562C0948458 /* RadioScriptGenerator.swift */,
+				E8DD000AEA797F182C96445E /* TCCCLanguageModel.swift */,
+			);
+			path = Intelligence;
+			sourceTree = "<group>";
+		};
 		9202B98779DFB85D02958F79 /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -271,6 +284,7 @@
 				67F66EB7E7D4C4A7E25E39D4 /* Chrome */,
 				14F3326E92FAEBD459679368 /* Components */,
 				B57939935A7DD27029A794DB /* Design */,
+				87A645BEFD6B3BA10E36A7F8 /* Intelligence */,
 				DFB9F4FCBA71D7CB5E1FF523 /* Pager */,
 				1F593FCD09EBB28D17FCFA5E /* Screens */,
 			);
@@ -416,6 +430,7 @@
 				0A9AA237302FD35F3D5BC61C /* QuickActionsSheet.swift in Sources */,
 				200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */,
 				6CC33EC6FEA4295C9B184C26 /* RFRow.swift in Sources */,
+				8DC1156F7128911034EFF946 /* RadioScriptGenerator.swift in Sources */,
 				C512FA47820E29A1BFDA4901 /* RecCapsule.swift in Sources */,
 				D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */,
 				AE42FC858CF65F919B010F01 /* SettingsOverlay.swift in Sources */,
@@ -425,6 +440,7 @@
 				03E2E966AFCFB4A4EBB0399F /* StatusStrip.swift in Sources */,
 				588D0FF07310F89B70C93707 /* SumLineView.swift in Sources */,
 				49B7CE9FD6838E73E3EFC75B /* TCCCCardScreen.swift in Sources */,
+				C5A3D28A8BACDBB1F7CBD170 /* TCCCLanguageModel.swift in Sources */,
 				2D32BE161689099A00EC6DBA /* TCCC_IOSApp.swift in Sources */,
 				89EF0B5DE8FDC850975E7017 /* Theme.swift in Sources */,
 				2F90B64ADB799DF96C4344D4 /* ThemeOptCard.swift in Sources */,
@@ -499,7 +515,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -611,7 +627,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

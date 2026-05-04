@@ -4,6 +4,10 @@ struct TransmitScript: View {
     let entries: [NineLineEntry]
     let onReview: () -> Void
     let onTransmit: () -> Void
+    let onGenerate: () -> Void
+    let generatedScript: String?
+    let isGenerating: Bool
+    let generationError: String?
 
     @Environment(\.palette) private var palette
     @State private var holdProgress: CGFloat = 0
@@ -11,13 +15,24 @@ struct TransmitScript: View {
     private let holdDuration: Double = 2.0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             scriptCard
+            generationStatusLine
             actionsRow
         }
     }
 
     private var scriptCard: some View {
+        Group {
+            if let generated = generatedScript, !generated.isEmpty {
+                generatedScriptView(generated)
+            } else {
+                fallbackScriptView
+            }
+        }
+    }
+
+    private var fallbackScriptView: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("DUSTOFF SIX, DUSTOFF SIX,")
                 .foregroundStyle(palette.accent)
@@ -41,6 +56,25 @@ struct TransmitScript: View {
         )
     }
 
+    private func generatedScriptView(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(text.components(separatedBy: "\n"), id: \.self) { line in
+                Text(line.isEmpty ? " " : line)
+                    .foregroundStyle(line.lowercased().contains("dustoff") ? palette.accent : palette.fg)
+            }
+        }
+        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+        .lineSpacing(3)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(palette.bg)
+        .overlay(
+            Rectangle()
+                .strokeBorder(palette.accentDim, lineWidth: Layout.hairline)
+        )
+    }
+
     private var scriptLines: [String] {
         var out: [String] = []
         for entry in entries.prefix(5) {
@@ -49,8 +83,41 @@ struct TransmitScript: View {
         return out
     }
 
+    @ViewBuilder
+    private var generationStatusLine: some View {
+        if isGenerating {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.mini)
+                Text("Generating radio call · on-device")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(palette.fg2)
+                    .textCase(.uppercase)
+            }
+        } else if let err = generationError {
+            Text(err)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(palette.crit)
+                .lineLimit(2)
+        } else if generatedScript != nil {
+            Text("Generated · review before transmit")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.4)
+                .foregroundStyle(palette.accent)
+                .textCase(.uppercase)
+        }
+    }
+
     private var actionsRow: some View {
         HStack(spacing: 6) {
+            BigButton(
+                isGenerating ? "Generating…" : (generatedScript == nil ? "Generate" : "Regenerate"),
+                systemImage: "wand.and.stars",
+                style: .standard,
+                action: onGenerate
+            )
+            .disabled(isGenerating)
+
             BigButton("Review", systemImage: "slider.horizontal.3", style: .standard, action: onReview)
 
             ZStack(alignment: .bottomLeading) {
@@ -58,11 +125,7 @@ struct TransmitScript: View {
                     "Transmit",
                     systemImage: "paperplane.fill",
                     style: .accent
-                ) {
-                    // Tap on the inner BigButton just resets the hold; only
-                    // the long-press completes the action. Provide a tap-to-
-                    // start-hold UX by toggling here.
-                }
+                ) { /* handled by long-press gesture below */ }
                 .gesture(transmitHoldGesture)
 
                 Rectangle()
