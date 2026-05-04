@@ -56,14 +56,14 @@ App target depends only on `TCCCKit`. All logic, all reports, all design tokens 
 
 Logic kit (parallelizable from app work):
 - [x] Phase 0 — Xcode project + design package extracted
-- [ ] Phase 1 — TCCCKit skeleton + domain model
+- [x] Phase 1 — TCCCKit skeleton + domain model (46/46 tests passing)
 - [ ] Phase 2 — Spoken-number normalizer (high-risk, over-test it)
 - [ ] Phase 3 — Negation + sentence tokenization + patient-switch
 - [ ] Phase 4 — PatientStateEngine + per-phase extractors
 - [ ] Phase 5 — Fallback report generators (9-Line + ZMIST)
 
 App layer:
-- [ ] Phase A — Shell: design tokens, theme switcher, chrome (`StatusStrip` + RF Ghost badge, `PageHeader`, `Panel`, `FooterHints`), 5-screen pager
+- [x] Phase A — Shell: design tokens, theme switcher, chrome (`StatusStrip` + RF Ghost badge, `PageHeader`, `Panel`, `FooterHints`), 5-screen pager. Runs on iPhone 17 Pro simulator. SF Symbols + system fonts used as placeholders.
 - [ ] Phase B — **Apple Speech ASR + Screen 01 Live Capture** (per user direction: ASR up front)
 - [ ] Phase C — Screen 03 TCCC Card (engine output → MARCH/PAWS/meds rows + body map)
 - [ ] Phase D — Screen 04 9-Line MEDEVAC (fallback report → 9-line rows + map plot)
