@@ -5,14 +5,18 @@ import Foundation
 /// requires typed structs rather than dicts.
 ///
 /// Out-of-range fields are silently dropped (set to nil) — never crashes.
+///
+/// Note: range validation runs in `init`. Direct field mutation (e.g.
+/// `vitals.hr = 9999`) bypasses validation; callers are responsible for valid
+/// values when assigning post-init. Use `Vitals(...)` if you need re-validation.
 public struct Vitals: Sendable, Codable, Equatable, Hashable {
-    public let hr: Int?
-    public let bp: BloodPressure?
-    public let spo2: Int?
-    public let rr: Int?
-    public let gcs: Int?
-    public let temperatureCelsius: Double?
-    public let capillaryRefillSeconds: Double?
+    public var hr: Int?
+    public var bp: BloodPressure?
+    public var spo2: Int?
+    public var rr: Int?
+    public var gcs: Int?
+    public var temperatureCelsius: Double?
+    public var capillaryRefillSeconds: Double?
 
     /// Plausible physiological ranges. Out-of-range values are dropped.
     public static let hrRange: ClosedRange<Int> = 0...300

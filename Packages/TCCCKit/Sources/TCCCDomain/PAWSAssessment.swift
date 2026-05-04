@@ -9,13 +9,13 @@ import Foundation
 /// extracts the four categories into their own optional descriptor fields.
 public struct PAWSAssessment: Sendable, Codable, Equatable, Hashable {
     /// e.g. "Combat pill pack administered", "Ketamine administered".
-    public let pain: String?
+    public var pain: String?
     /// e.g. "Moxifloxacin administered".
-    public let antibiotics: String?
+    public var antibiotics: String?
     /// e.g. "Wound care performed".
-    public let wounds: String?
+    public var wounds: String?
     /// e.g. "SAM splint", "Traction splint (Sager)".
-    public let splinting: String?
+    public var splinting: String?
 
     public init(
         pain: String? = nil,

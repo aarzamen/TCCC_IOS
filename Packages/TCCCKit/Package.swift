@@ -22,6 +22,7 @@ let package = Package(
         ),
         .target(
             name: "TCCCExtractor",
+            dependencies: ["TCCCDomain"],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
                 .enableUpcomingFeature("StrictConcurrency"),
@@ -50,7 +51,7 @@ let package = Package(
         ),
         .testTarget(
             name: "TCCCExtractorTests",
-            dependencies: ["TCCCExtractor"],
+            dependencies: ["TCCCExtractor", "TCCCDomain"],
             resources: [
                 .copy("Resources/scenarios"),
             ],

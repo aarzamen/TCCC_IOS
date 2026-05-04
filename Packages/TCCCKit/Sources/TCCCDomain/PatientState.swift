@@ -14,22 +14,22 @@ import Foundation
 /// All other fields preserve Python field names, optionality, and defaults.
 public struct PatientState: Sendable, Codable, Equatable, Hashable, Identifiable {
     /// e.g. "PATIENT_1", "PATIENT_2".
-    public let patientId: String
+    public var patientId: String
     /// e.g. "IED blast", "GSW", "fall".
-    public let mechanismOfInjury: String?
-    public let march: MARCHState
-    public let vitals: Vitals
-    public let interventions: [Intervention]
+    public var mechanismOfInjury: String?
+    public var march: MARCHState
+    public var vitals: Vitals
+    public var interventions: [Intervention]
     /// List of injuries (fractures, wounds, etc.).
-    public let injuries: [String]
+    public var injuries: [String]
     /// Current MARCH phase being assessed. Defaults to massive ("M") to match
     /// the Python `march_phase: str = "M"`.
-    public let marchPhase: MarchPhase
-    public let classification: Classification?
-    public let paws: PAWSAssessment
+    public var marchPhase: MarchPhase
+    public var classification: Classification?
+    public var paws: PAWSAssessment
     /// POSIX seconds since epoch. Mirrors Python `Optional[float]`.
-    public let timestampFirstMention: Double?
-    public let timestampLastUpdate: Double?
+    public var timestampFirstMention: Double?
+    public var timestampLastUpdate: Double?
 
     public var id: String { patientId }
 

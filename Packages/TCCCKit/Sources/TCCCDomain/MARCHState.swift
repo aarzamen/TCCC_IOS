@@ -7,43 +7,43 @@ import Foundation
 public struct MARCHState: Sendable, Codable, Equatable, Hashable {
 
     // M - Massive Hemorrhage
-    public let hemorrhageIdentified: Bool
+    public var hemorrhageIdentified: Bool
     /// True if hemorrhage was explicitly checked (even if none found).
-    public let hemorrhageAssessed: Bool
+    public var hemorrhageAssessed: Bool
     /// e.g. "right leg", "bilateral arms".
-    public let hemorrhageLocation: String?
+    public var hemorrhageLocation: String?
     /// e.g. "tourniquet applied".
-    public let hemorrhageIntervention: String?
-    public let hemorrhageEffective: Bool?
+    public var hemorrhageIntervention: String?
+    public var hemorrhageEffective: Bool?
 
     // A - Airway
     /// e.g. "patent", "compromised", "obstructed".
-    public let airwayStatus: String?
+    public var airwayStatus: String?
     /// e.g. "NPA inserted", "surgical cric".
-    public let airwayIntervention: String?
+    public var airwayIntervention: String?
 
     // R - Respiration
     /// e.g. "normal", "labored", "absent".
-    public let respirationStatus: String?
+    public var respirationStatus: String?
     /// e.g. "chest seal", "needle decompression".
-    public let respirationIntervention: String?
+    public var respirationIntervention: String?
     /// e.g. "bilateral equal", "diminished left".
-    public let breathSounds: String?
+    public var breathSounds: String?
 
     // C - Circulation
     /// e.g. "strong radial", "weak radial", "absent radial".
-    public let pulseStatus: String?
+    public var pulseStatus: String?
     /// e.g. "warm dry", "cool clammy", "pale".
-    public let skinSigns: String?
+    public var skinSigns: String?
     /// e.g. "IV access", "blood products".
-    public let circulationIntervention: String?
+    public var circulationIntervention: String?
 
     // H - Head/Hypothermia
     /// AVPU: Alert, Voice, Pain, Unresponsive.
-    public let consciousness: String?
-    public let pupilResponse: String?
+    public var consciousness: String?
+    public var pupilResponse: String?
     /// e.g. "hypothermia wrap applied".
-    public let hypothermiaPrevention: String?
+    public var hypothermiaPrevention: String?
 
     public init(
         hemorrhageIdentified: Bool = false,
