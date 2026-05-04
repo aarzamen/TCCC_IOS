@@ -41,7 +41,12 @@ struct MedevacScreen: View {
             .padding(Layout.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            FooterHints(leadingLabel: "TCCC CARD", trailingLabel: "HANDOFF")
+            FooterHints(
+                leadingLabel: "TCCC CARD",
+                trailingLabel: "HANDOFF",
+                onSettings: { state.settingsOpen = true },
+                onQuickActions: { state.quickActionsOpen = true }
+            )
         }
         .background(palette.bg)
     }

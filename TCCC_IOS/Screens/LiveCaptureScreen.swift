@@ -31,7 +31,12 @@ struct LiveCaptureScreen: View {
             .padding(Layout.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            FooterHints(leadingLabel: "HANDOFF", trailingLabel: "VITALS")
+            FooterHints(
+                leadingLabel: "HANDOFF",
+                trailingLabel: "VITALS",
+                onSettings: { state.settingsOpen = true },
+                onQuickActions: { state.quickActionsOpen = true }
+            )
         }
         .background(palette.bg)
         .task {
