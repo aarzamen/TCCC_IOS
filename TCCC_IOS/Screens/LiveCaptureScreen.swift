@@ -98,7 +98,7 @@ struct LiveCaptureScreen: View {
     }
 
     private var emptyTranscriptHint: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             Text("Awaiting voice intake")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(1.6)
@@ -107,6 +107,33 @@ struct LiveCaptureScreen: View {
             Text("Tap RECORD to start on-device transcription")
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
                 .foregroundStyle(palette.fg3)
+
+            HStack(spacing: 8) {
+                Button("Load demo · GSW thigh") {
+                    Task { await state.loadDemoTranscript(DemoScenarios.scenario1) }
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(1.4)
+                .foregroundStyle(palette.accent)
+                .textCase(.uppercase)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .overlay(Rectangle().strokeBorder(palette.accentDim, lineWidth: 1))
+
+                Button("Load demo · Femur") {
+                    Task { await state.loadDemoTranscript(DemoScenarios.scenario4) }
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(1.4)
+                .foregroundStyle(palette.accent)
+                .textCase(.uppercase)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .overlay(Rectangle().strokeBorder(palette.accentDim, lineWidth: 1))
+            }
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, minHeight: 200)
         .padding(.vertical, 24)
@@ -182,33 +209,43 @@ struct LiveCaptureScreen: View {
     }
 
     private var extractedPanel: some View {
-        Panel("Extracted", action: "\(state.transcript.count)", padded: false) {
+        let facts = ExtractedFact.derive(from: state.primaryPatient)
+        return Panel("Extracted", action: "\(facts.count)", padded: false) {
             VStack(alignment: .leading, spacing: 0) {
-                if state.transcript.isEmpty {
-                    PlaceholderBody(label: "Auto-extracted facts")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if facts.isEmpty {
+                    extractedEmptyHint
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 0) {
-                            ForEach(state.transcript.suffix(8)) { line in
-                                ExtractedRowPreview(line: line)
+                            ForEach(facts) { fact in
+                                FactRow(fact: fact)
                                 Rectangle()
                                     .fill(palette.line)
                                     .frame(height: Layout.hairline)
                             }
                         }
                     }
-
-                    Text("Engine port pending — Phase 4")
-                        .font(.system(size: 9, weight: .semibold))
-                        .tracking(1.4)
-                        .foregroundStyle(palette.fg3)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
         }
+    }
+
+    private var extractedEmptyHint: some View {
+        VStack(spacing: 6) {
+            Text("No findings yet")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(1.6)
+                .foregroundStyle(palette.fg2)
+                .textCase(.uppercase)
+            Text("Facts populate as the engine extracts MARCH, vitals, and interventions from the transcript.")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(palette.fg3)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .padding(.horizontal, 12)
+        }
+        .frame(maxWidth: .infinity, minHeight: 200)
+        .padding(.vertical, 24)
     }
 
     // MARK: - Helpers
@@ -291,35 +328,3 @@ struct LiveCaptureScreen: View {
     }
 }
 
-private struct ExtractedRowPreview: View {
-    let line: TranscriptLine
-    @Environment(\.palette) private var palette
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "circle.dotted")
-                .font(.system(size: 12))
-                .foregroundStyle(palette.fg2)
-                .padding(.top, 2)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(line.speaker == .system ? "EVENT" : "CAPTURED")
-                    .font(.system(size: 9, weight: .semibold))
-                    .tracking(1.4)
-                    .foregroundStyle(palette.fg2)
-                Text(line.text)
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(palette.fg)
-                    .lineLimit(2)
-            }
-
-            Spacer(minLength: 0)
-
-            Text(line.displayTimestamp)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(palette.fg3)
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-    }
-}

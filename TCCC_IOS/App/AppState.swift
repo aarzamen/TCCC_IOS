@@ -1,5 +1,7 @@
 import Foundation
 import Observation
+import TCCCDomain
+import TCCCExtractor
 
 @MainActor
 @Observable
@@ -64,11 +66,23 @@ final class AppState {
 
     let audioLevels = AudioLevels()
 
+    // Casualty header (currently mock — would come from a roster lookup in production)
+    var casualtyName: String = "DOE, J."
+    var casualtyUnit: String = "2/75 RGR"
+    var casualtyServiceNumberMasked: String = "••• 4471"
+    var casualtyAllergies: String = "NKDA"
+
+    // TCCC engine — full 10-pass dispatch per state.py:515–524.
+    let engine = PatientStateEngine.standard()
+    var primaryPatient: PatientState?
+    var allPatients: [String: PatientState] = [:]
+
     func appendFinal(_ text: String, speaker: TranscriptLine.Speaker = .medic) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         transcript.append(TranscriptLine(speaker: speaker, text: trimmed))
         partialTranscript = ""
+        Task { await processWithEngine(trimmed) }
     }
 
     func appendSystem(_ text: String) {
@@ -77,6 +91,30 @@ final class AppState {
 
     func clearError() {
         recognitionError = nil
+    }
+
+    private func processWithEngine(_ text: String) async {
+        await engine.processTranscript(text, timestamp: Date())
+        await refreshPatientSnapshot()
+    }
+
+    func refreshPatientSnapshot() async {
+        let snapshot = await engine.snapshot()
+        allPatients = snapshot
+        // Single-casualty UI per design §9 — surface PATIENT_1 only.
+        primaryPatient = snapshot["PATIENT_1"]
+    }
+
+    func loadDemoTranscript(_ text: String) async {
+        transcript.removeAll()
+        partialTranscript = ""
+        for raw in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !line.isEmpty else { continue }
+            transcript.append(TranscriptLine(speaker: .medic, text: line))
+        }
+        await engine.processTranscript(text, timestamp: Date())
+        await refreshPatientSnapshot()
     }
 
     func nextScreen() {
