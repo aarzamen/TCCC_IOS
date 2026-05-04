@@ -34,14 +34,18 @@ struct VitalsScreen: View {
                 trailingKickerValue: lastUpdateLabel
             )
 
-            HStack(alignment: .top, spacing: Layout.gridGap) {
-                leftColumn
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .layoutPriority(1.3)
-
-                rightColumn
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .layoutPriority(1.0)
+            GeometryReader { geo in
+                let totalGap = Layout.gridGap
+                let usable = geo.size.width - totalGap
+                // 1.3 / 1.0 split → 1.3 / 2.3 = 56% left, 44% right
+                let wL = usable * (1.3 / 2.3)
+                let wR = usable - wL
+                HStack(alignment: .top, spacing: totalGap) {
+                    leftColumn
+                        .frame(width: wL, height: geo.size.height)
+                    rightColumn
+                        .frame(width: wR, height: geo.size.height)
+                }
             }
             .padding(Layout.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -69,19 +73,22 @@ struct VitalsScreen: View {
     }
 
     private var bigVitalStrip: some View {
-        // 3-col grid `1fr / 1.1fr / 1fr` — middle column slightly wider so
-        // "80 / 40" doesn't crowd against the BPM/SpO₂ neighbors.
-        HStack(spacing: Layout.gridGap) {
-            hrCard
-                .frame(maxWidth: .infinity)
-                .layoutPriority(1.0)
-            bpCard
-                .frame(maxWidth: .infinity)
-                .layoutPriority(1.1)
-            spo2Card
-                .frame(maxWidth: .infinity)
-                .layoutPriority(1.0)
+        // 3-col grid 1.0 / 1.1 / 1.0 — explicit widths via GeometryReader so
+        // SwiftUI doesn't let BP eat HR's and SpO₂'s widths just because BP
+        // has a longer natural string ("80/40 mmHg · PAL").
+        GeometryReader { geo in
+            let gaps = Layout.gridGap * 2
+            let usable = geo.size.width - gaps
+            let wHR = usable * (1.0 / 3.1)
+            let wBP = usable * (1.1 / 3.1)
+            let wSP = usable - wHR - wBP
+            HStack(spacing: Layout.gridGap) {
+                hrCard.frame(width: wHR, height: geo.size.height)
+                bpCard.frame(width: wBP, height: geo.size.height)
+                spo2Card.frame(width: wSP, height: geo.size.height)
+            }
         }
+        .frame(height: 112)
     }
 
     private var hrCard: some View {

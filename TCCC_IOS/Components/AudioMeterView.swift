@@ -9,7 +9,7 @@ struct AudioMeterView: View {
     private let barCount = AudioLevels.barCount
     private let barWidth: CGFloat = 3
     private let barSpacing: CGFloat = 2
-    private let maxBarHeight: CGFloat = 32
+    private let maxBarHeight: CGFloat = 24
 
     var body: some View {
         HStack(alignment: .center, spacing: barSpacing) {

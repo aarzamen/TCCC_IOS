@@ -19,7 +19,7 @@ enum Layout {
     static let bracketSize: CGFloat = 12
 
     static let minHitTarget: CGFloat = 44
-    static let bigButtonHeight: CGFloat = 56
+    static let bigButtonHeight: CGFloat = 48
     static let swipeThreshold: CGFloat = 50
 
     static let fastDuration: Double = 0.12

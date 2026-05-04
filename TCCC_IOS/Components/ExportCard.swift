@@ -24,14 +24,18 @@ struct ExportCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 11, weight: .semibold))
-                    .tracking(1.6)
+                    .tracking(1.2)
                     .foregroundStyle(palette.fg)
                     .textCase(.uppercase)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Text(detail)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(palette.fg2)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer(minLength: 0)
 
@@ -48,11 +52,13 @@ struct ExportCard: View {
     }
 
     private var statusPill: some View {
-        Text(isReady ? "✓ READY" : "PENDING")
+        Text(isReady ? "✓ READY" : "PEND")
             .font(.system(size: 9, weight: .semibold))
-            .tracking(1.4)
+            .tracking(1.0)
             .foregroundStyle(isReady ? palette.ok : palette.fg2)
             .textCase(.uppercase)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.vertical, 3)
             .padding(.horizontal, 6)
             .overlay(
