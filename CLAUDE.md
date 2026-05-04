@@ -66,8 +66,8 @@ App layer:
 - [x] Phase A — Shell: design tokens, theme switcher, chrome (`StatusStrip` + RF Ghost badge, `PageHeader`, `Panel`, `FooterHints`), 5-screen pager. Runs on iPhone 17 Pro simulator. SF Symbols + system fonts used as placeholders.
 - [x] Phase B — Apple Speech ASR + Screen 01 Live Capture. `SpeechRecognizer` actor uses `requiresOnDeviceRecognition = true` (refuses if unavailable per RF Ghost). `TranscriptStream` protocol abstracts the source so WhisperKit can swap later. Live transcript + audio meter render; "Extracted" panel still placeholder pending Phase 4 engine.
 - [x] Phase C — Screen 03 TCCC Card + engine wiring. AppState now owns `PatientStateEngine.standard()`. Live Capture's EXTRACTED panel and TCCC Card's MARCH / PAWS / Meds panels render real engine output. BodyMap drawn with `Canvas` keyed off `march.hemorrhageLocation` / `hemorrhageIntervention`. Two LOAD DEMO buttons seed the engine from bundled scenarios for testing without mic.
-- [ ] Phase D — Screen 04 9-Line MEDEVAC (fallback report → 9-line rows + map plot)
-- [ ] Phase E — Screen 05 Handoff (summary + timeline + export stubs + QR)
+- [x] Phase D — Screen 04 9-Line MEDEVAC. `NineLineForm` derives the 9 lines from `[PatientState]` + AppState GPS; `MapPlotView` is Canvas-drawn (graticule, contours, CCP, LZ ALPHA, threat, scale bar); `TransmitScript` has the 5-line voice script + REVIEW + TRANSMIT (HOLD 2s with progress bar). RF Ghost: no networking framework wired.
+- [x] Phase E — Screen 05 Handoff. Encounter Summary + Timeline + Export · Transmit. **QR · OFFLINE export is functional end-to-end** — `JSONEncoder().encode(primaryPatient)` rendered via `CIQRCodeGenerator` into a 360pt sheet. DD-1380 PDF / Audio bundle / CSV stubbed READY/PENDING. Selected destination is read by Screen 04's transmit handler.
 - [ ] Phase F — Screen 02 Vitals (manual/voice entry + sensor protocol scaffold)
 - [ ] Phase G — Settings + Quick Actions overlays
 - [ ] Polish — Custom icon library, DD-1380 PDF (PDFKit), real export wiring, sensor integration when hardware lands
