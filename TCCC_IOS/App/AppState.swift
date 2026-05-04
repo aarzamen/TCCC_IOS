@@ -250,4 +250,29 @@ final class AppState {
     /// Cleaned-up version of the transcript with mishearings corrected.
     /// When non-nil, Live Capture renders this instead of `transcript`.
     var transcriptCleaned: [TranscriptLine]?
+
+    // MARK: - Confirmation flow for lifecycle actions
+
+    /// When non-nil, ContentView renders a top-positioned confirmation banner.
+    /// Set by `requestConfirmation`, cleared by `confirm` or
+    /// `cancelConfirmation`.
+    var pendingConfirmation: ConfirmationAction?
+
+    func requestConfirmation(_ action: ConfirmationAction) {
+        pendingConfirmation = action
+    }
+
+    func confirmPending() {
+        guard let action = pendingConfirmation else { return }
+        pendingConfirmation = nil
+        switch action {
+        case .newPatient: newPatient()
+        case .endCare:    endCurrentCare()
+        case .wipe:       wipeSession()
+        }
+    }
+
+    func cancelConfirmation() {
+        pendingConfirmation = nil
+    }
 }

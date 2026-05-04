@@ -66,10 +66,9 @@ struct HandoffScreen: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             FooterHints(
+                state: state,
                 leadingLabel: "MEDEVAC",
-                trailingLabel: nil,
-                onSettings: { state.settingsOpen = true },
-                onQuickActions: { state.quickActionsOpen = true }
+                trailingLabel: nil
             )
         }
         .background(palette.bg)

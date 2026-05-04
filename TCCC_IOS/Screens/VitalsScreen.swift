@@ -51,10 +51,9 @@ struct VitalsScreen: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             FooterHints(
+                state: state,
                 leadingLabel: "CAPTURE",
-                trailingLabel: "TCCC CARD",
-                onSettings: { state.settingsOpen = true },
-                onQuickActions: { state.quickActionsOpen = true }
+                trailingLabel: "TCCC CARD"
             )
         }
         .background(palette.bg)

@@ -26,12 +26,19 @@ struct ContentView: View {
                     .transition(.opacity)
                     .zIndex(2)
             }
+
+            // Confirmation banner sits at z=3 so it floats above everything
+            // else — including the Settings overlay if a wipe is requested
+            // while Settings is open.
+            ConfirmationBanner(state: state)
+                .zIndex(3)
         }
         .preferredColorScheme(state.theme.preferredColorScheme)
         .environment(\.palette, state.theme.palette)
         .ignoresSafeArea(.keyboard)
         .animation(.fast, value: state.settingsOpen)
         .animation(.fast, value: state.quickActionsOpen)
+        .animation(.fast, value: state.pendingConfirmation?.id)
     }
 }
 

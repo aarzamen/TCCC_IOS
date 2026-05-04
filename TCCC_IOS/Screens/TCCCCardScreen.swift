@@ -40,10 +40,9 @@ struct TCCCCardScreen: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             FooterHints(
+                state: state,
                 leadingLabel: "VITALS",
-                trailingLabel: "MEDEVAC",
-                onSettings: { state.settingsOpen = true },
-                onQuickActions: { state.quickActionsOpen = true }
+                trailingLabel: "MEDEVAC"
             )
         }
         .background(palette.bg)
