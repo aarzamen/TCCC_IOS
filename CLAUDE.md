@@ -60,12 +60,12 @@ Logic kit (parallelizable from app work):
 - [x] Phase 2 — Spoken-number normalizer (96/96 tests passing — 142 total in package)
 - [x] Phase 3 — Negation + sentence tokenization + patient-switch (folded into Phase 4 Lane A — committed together)
 - [x] Phase 4 — PatientStateEngine + 10 extractors (MOI, Hemorrhage, Airway, Respiration, Circulation, HeadHypothermia, Fracture, PAWS, Vitals, Classification). Full dispatch order matches Python state.py:515–524. **515 tests passing in TCCCKit.** End-to-end scenario tests against all 4 fixtures green. One known Python-parity bug documented: `don't` not caught by hemorrhage negation regex (test asserts the buggy behavior; flip when upstream fixes).
-- [ ] Phase 5 — Fallback report generators (9-Line + ZMIST)
+- [x] Phase 5 — Fallback report generators (9-Line + ZMIST). 58 new tests, 573 total in TCCCKit. `Report.isFallback` exposes the SLM-deferred state at the API boundary.
 
 App layer:
 - [x] Phase A — Shell: design tokens, theme switcher, chrome (`StatusStrip` + RF Ghost badge, `PageHeader`, `Panel`, `FooterHints`), 5-screen pager. Runs on iPhone 17 Pro simulator. SF Symbols + system fonts used as placeholders.
 - [x] Phase B — Apple Speech ASR + Screen 01 Live Capture. `SpeechRecognizer` actor uses `requiresOnDeviceRecognition = true` (refuses if unavailable per RF Ghost). `TranscriptStream` protocol abstracts the source so WhisperKit can swap later. Live transcript + audio meter render; "Extracted" panel still placeholder pending Phase 4 engine.
-- [ ] Phase C — Screen 03 TCCC Card (engine output → MARCH/PAWS/meds rows + body map)
+- [x] Phase C — Screen 03 TCCC Card + engine wiring. AppState now owns `PatientStateEngine.standard()`. Live Capture's EXTRACTED panel and TCCC Card's MARCH / PAWS / Meds panels render real engine output. BodyMap drawn with `Canvas` keyed off `march.hemorrhageLocation` / `hemorrhageIntervention`. Two LOAD DEMO buttons seed the engine from bundled scenarios for testing without mic.
 - [ ] Phase D — Screen 04 9-Line MEDEVAC (fallback report → 9-line rows + map plot)
 - [ ] Phase E — Screen 05 Handoff (summary + timeline + export stubs + QR)
 - [ ] Phase F — Screen 02 Vitals (manual/voice entry + sensor protocol scaffold)
