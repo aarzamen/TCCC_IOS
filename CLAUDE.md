@@ -68,8 +68,8 @@ App layer:
 - [x] Phase C — Screen 03 TCCC Card + engine wiring. AppState now owns `PatientStateEngine.standard()`. Live Capture's EXTRACTED panel and TCCC Card's MARCH / PAWS / Meds panels render real engine output. BodyMap drawn with `Canvas` keyed off `march.hemorrhageLocation` / `hemorrhageIntervention`. Two LOAD DEMO buttons seed the engine from bundled scenarios for testing without mic.
 - [x] Phase D — Screen 04 9-Line MEDEVAC. `NineLineForm` derives the 9 lines from `[PatientState]` + AppState GPS; `MapPlotView` is Canvas-drawn (graticule, contours, CCP, LZ ALPHA, threat, scale bar); `TransmitScript` has the 5-line voice script + REVIEW + TRANSMIT (HOLD 2s with progress bar). RF Ghost: no networking framework wired.
 - [x] Phase E — Screen 05 Handoff. Encounter Summary + Timeline + Export · Transmit. **QR · OFFLINE export is functional end-to-end** — `JSONEncoder().encode(primaryPatient)` rendered via `CIQRCodeGenerator` into a 360pt sheet. DD-1380 PDF / Audio bundle / CSV stubbed READY/PENDING. Selected destination is read by Screen 04's transmit handler.
-- [ ] Phase F — Screen 02 Vitals (manual/voice entry + sensor protocol scaffold)
-- [ ] Phase G — Settings + Quick Actions overlays
+- [x] Phase F — Screen 02 Vitals. BigVital (52pt mono) / SmallVital tiles, ECG canvas (Canvas + TimelineView, ~80 BPM PQRST scrolling 80pt/s), TrendChart (3 series over rolling 15-min `VitalsHistory` buffer, recorded each engine snapshot), InterventionRow filtered to non-medication kinds.
+- [x] Phase G — Settings + Quick Actions overlays. Settings: RF discipline visual confirmation (5 line-through radio cards + 3 egress cards), 3-theme picker (live applies via environment), 5 system toggles, operator profile fields, NEW CAS + WIPE (HOLD 3s with progress bar). Quick Actions: 3×2 action grid feeding system transcript lines. Both presented as ZStack overlays; tap-on-scrim dismisses. Footer gear / plus icons trigger them on every screen.
 - [ ] Polish — Custom icon library, DD-1380 PDF (PDFKit), real export wiring, sensor integration when hardware lands
 
 ## Open items
