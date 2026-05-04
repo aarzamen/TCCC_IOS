@@ -1,4 +1,5 @@
 import SwiftUI
+import FoundationModels
 
 struct LiveCaptureScreen: View {
     let state: AppState
@@ -8,6 +9,10 @@ struct LiveCaptureScreen: View {
     @State private var streamingTask: Task<Void, Never>?
     @State private var elapsedDisplay: String = "00:00:00"
     @State private var elapsedTickerTask: Task<Void, Never>?
+
+    @State private var cleaner = TranscriptCleaner()
+    @State private var isCleaningTranscript: Bool = false
+    @State private var cleanError: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -67,15 +72,23 @@ struct LiveCaptureScreen: View {
 
     private var transcriptPanel: some View {
         Panel("Transcript", titleIcon: "mic", action: liveActionLabel, padded: false) {
-            transcriptList
+            VStack(spacing: 0) {
+                transcriptList
+                    .frame(maxHeight: .infinity)
+                cleanerActionRow
+            }
         }
+    }
+
+    private var displayedTranscript: [TranscriptLine] {
+        state.transcriptCleaned ?? state.transcript
     }
 
     private var transcriptList: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(state.transcript) { line in
+                    ForEach(displayedTranscript) { line in
                         TranscriptLineView(line: line)
                             .id(line.id)
                         Rectangle()
@@ -94,13 +107,13 @@ struct LiveCaptureScreen: View {
                         .id("partial")
                     }
 
-                    if state.transcript.isEmpty && state.partialTranscript.isEmpty {
+                    if displayedTranscript.isEmpty && state.partialTranscript.isEmpty {
                         emptyTranscriptHint
                     }
                 }
             }
-            .onChange(of: state.transcript.count) {
-                if let last = state.transcript.last {
+            .onChange(of: displayedTranscript.count) {
+                if let last = displayedTranscript.last {
                     withAnimation(.standard) {
                         proxy.scrollTo(last.id, anchor: .bottom)
                     }
@@ -113,6 +126,117 @@ struct LiveCaptureScreen: View {
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var cleanerActionRow: some View {
+        if !state.transcript.isEmpty {
+            HStack(spacing: 6) {
+                if state.transcriptCleaned == nil {
+                    Button(action: handleCleanTranscript) {
+                        cleanerButtonLabel(
+                            icon: isCleaningTranscript ? nil : "wand.and.stars",
+                            title: isCleaningTranscript ? "Cleaning…" : "Clean transcript",
+                            tinted: false
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isCleaningTranscript)
+                } else {
+                    Button {
+                        state.transcriptCleaned = nil
+                    } label: {
+                        cleanerButtonLabel(icon: "arrow.uturn.backward", title: "Show raw", tinted: false)
+                    }
+                    .buttonStyle(.plain)
+                    Button(action: handleCleanTranscript) {
+                        cleanerButtonLabel(
+                            icon: "wand.and.stars",
+                            title: "Re-clean",
+                            tinted: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isCleaningTranscript)
+                }
+                if let err = cleanError {
+                    Text(err)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(palette.crit)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .top) {
+                Rectangle().fill(palette.line).frame(height: Layout.hairline)
+            }
+        }
+    }
+
+    private func cleanerButtonLabel(icon: String?, title: String, tinted: Bool) -> some View {
+        HStack(spacing: 4) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .semibold))
+            } else {
+                ProgressView().controlSize(.mini)
+            }
+            Text(title)
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(1.2)
+                .textCase(.uppercase)
+        }
+        .foregroundStyle(tinted ? palette.accent : palette.fg)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .overlay(
+            Rectangle()
+                .strokeBorder(tinted ? palette.accentDim : palette.line, lineWidth: Layout.hairline)
+        )
+    }
+
+    private func handleCleanTranscript() {
+        let lines = state.transcript
+        Task { @MainActor in
+            cleanError = nil
+            isCleaningTranscript = true
+            defer { isCleaningTranscript = false }
+
+            let availability = TCCCLanguageModel.availability()
+            guard availability == .available else {
+                cleanError = unavailabilityMessage(availability)
+                return
+            }
+
+            do {
+                let cleaned = try await cleaner.clean(lines)
+                state.transcriptCleaned = cleaned
+            } catch {
+                cleanError = error.localizedDescription
+            }
+        }
+    }
+
+    private func unavailabilityMessage(_ availability: SystemLanguageModel.Availability) -> String {
+        switch availability {
+        case .available:
+            return ""
+        case .unavailable(let reason):
+            switch reason {
+            case .deviceNotEligible:
+                return "Foundation Model unavailable on this device."
+            case .appleIntelligenceNotEnabled:
+                return "Enable Apple Intelligence in Settings."
+            case .modelNotReady:
+                return "Foundation Model is still downloading."
+            @unknown default:
+                return "Foundation Model unavailable."
+            }
+        @unknown default:
+            return "Foundation Model unavailable."
         }
     }
 

@@ -182,6 +182,9 @@ final class AppState {
         casualtyCounter = 4
         casualtyId = "C-04"
         lastRecordingURL = nil
+        encounterNarrative = nil
+        zmistNarrative = nil
+        transcriptCleaned = nil
     }
 
     /// Begin a new casualty. Increments the casualty counter, wipes
@@ -202,6 +205,9 @@ final class AppState {
         vitalsHistory = VitalsHistory()
         engine = PatientStateEngine.standard()
         lastRecordingURL = nil
+        encounterNarrative = nil
+        zmistNarrative = nil
+        transcriptCleaned = nil
         appendSystem("NEW CASUALTY · \(casualtyId) · \(oldId) archived")
     }
 
@@ -220,6 +226,9 @@ final class AppState {
         vitalsHistory = VitalsHistory()
         engine = PatientStateEngine.standard()
         lastRecordingURL = nil
+        encounterNarrative = nil
+        zmistNarrative = nil
+        transcriptCleaned = nil
     }
 
     // MARK: - Vitals trend (Screen 02) — rolling 15-min sample buffer
@@ -227,4 +236,18 @@ final class AppState {
     /// Rolling buffer of vitals samples, recorded each time the engine
     /// snapshot refreshes. Drives the TrendChart on Screen 02.
     var vitalsHistory = VitalsHistory()
+
+    // MARK: - SLM-generated text (persists across screen switches)
+
+    /// 2–3 sentence prose summary of the encounter. Set by the Generate
+    /// Narrative button on Handoff. Cleared on lifecycle changes.
+    var encounterNarrative: String?
+
+    /// SLM-formatted ZMIST handoff block. Set by the Generate ZMIST button
+    /// on Handoff. Cleared on lifecycle changes.
+    var zmistNarrative: String?
+
+    /// Cleaned-up version of the transcript with mishearings corrected.
+    /// When non-nil, Live Capture renders this instead of `transcript`.
+    var transcriptCleaned: [TranscriptLine]?
 }

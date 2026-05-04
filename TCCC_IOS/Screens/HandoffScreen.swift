@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import FoundationModels
 import TCCCDomain
 
 /// Screen 05 — Role-1 → Role-2 Handoff.
@@ -23,6 +24,12 @@ struct HandoffScreen: View {
     @State private var elapsedTick: Date = Date()
     @State private var shareItems: [Any] = []
     @State private var shareSheetVisible: Bool = false
+
+    @State private var narrativeGenerator = EncounterNarrativeGenerator()
+    @State private var zmistGenerator = ZMISTNarrativeGenerator()
+    @State private var isGeneratingNarrative: Bool = false
+    @State private var isGeneratingZMIST: Bool = false
+    @State private var slmError: String?
 
     private var patient: PatientState? { state.primaryPatient }
 
@@ -90,7 +97,19 @@ struct HandoffScreen: View {
         ) {
             VStack(spacing: 0) {
                 ScrollView {
-                    VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        if let narrative = state.encounterNarrative, !narrative.isEmpty {
+                            slmBlock(label: "Narrative", body: narrative)
+                            Rectangle()
+                                .fill(palette.line)
+                                .frame(height: Layout.hairline)
+                        }
+                        if let zmist = state.zmistNarrative, !zmist.isEmpty {
+                            slmBlock(label: "ZMIST", body: zmist, mono: true)
+                            Rectangle()
+                                .fill(palette.line)
+                                .frame(height: Layout.hairline)
+                        }
                         ForEach(HandoffSummary.lines(for: patient, casualtyId: state.casualtyId)) { line in
                             SumLineView(
                                 icon: line.icon,
@@ -110,8 +129,180 @@ struct HandoffScreen: View {
                     .fill(palette.line)
                     .frame(height: Layout.hairline)
 
+                slmActionRow
+
+                Rectangle()
+                    .fill(palette.line)
+                    .frame(height: Layout.hairline)
+
                 summaryFooter
             }
+        }
+    }
+
+    private func slmBlock(label: String, body: String, mono: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.system(size: 9, weight: .heavy))
+                .tracking(1.6)
+                .foregroundStyle(palette.accent)
+                .textCase(.uppercase)
+            Text(body)
+                .font(mono
+                    ? .system(size: 12, weight: .medium, design: .monospaced)
+                    : .system(size: 13, weight: .medium))
+                .foregroundStyle(palette.fg)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(palette.bg2)
+    }
+
+    private var slmActionRow: some View {
+        HStack(spacing: 6) {
+            slmButton(
+                title: state.encounterNarrative == nil ? "Narrative" : "Regen",
+                icon: "wand.and.stars",
+                isLoading: isGeneratingNarrative,
+                action: handleGenerateNarrative
+            )
+            slmButton(
+                title: state.zmistNarrative == nil ? "ZMIST" : "Regen Z",
+                icon: "doc.text.fill",
+                isLoading: isGeneratingZMIST,
+                action: handleGenerateZMIST
+            )
+            if state.encounterNarrative != nil || state.zmistNarrative != nil {
+                Button {
+                    state.encounterNarrative = nil
+                    state.zmistNarrative = nil
+                    slmError = nil
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark")
+                        Text("Clear")
+                    }
+                    .font(.system(size: 10, weight: .heavy))
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                    .foregroundStyle(palette.fg2)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
+                    .overlay(
+                        Rectangle()
+                            .strokeBorder(palette.line, lineWidth: Layout.hairline)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .overlay(alignment: .bottom) {
+            if let err = slmError {
+                Text(err)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(palette.crit)
+                    .lineLimit(2)
+                    .padding(.horizontal, 12)
+            }
+        }
+    }
+
+    private func slmButton(title: String, icon: String, isLoading: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if isLoading {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                Text(title)
+                    .font(.system(size: 10, weight: .heavy))
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+            }
+            .foregroundStyle(palette.fg)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity)
+            .overlay(
+                Rectangle()
+                    .strokeBorder(palette.accentDim, lineWidth: Layout.hairline)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isLoading)
+    }
+
+    // MARK: - SLM action handlers
+
+    private func handleGenerateNarrative() {
+        let p = patient
+        let id = state.casualtyId
+        Task { @MainActor in
+            slmError = nil
+            isGeneratingNarrative = true
+            defer { isGeneratingNarrative = false }
+
+            let availability = TCCCLanguageModel.availability()
+            guard availability == .available else {
+                slmError = unavailabilityMessage(availability)
+                return
+            }
+
+            do {
+                let text = try await narrativeGenerator.generate(for: p, casualtyId: id)
+                state.encounterNarrative = text
+            } catch {
+                slmError = error.localizedDescription
+            }
+        }
+    }
+
+    private func handleGenerateZMIST() {
+        let p = patient
+        let id = state.casualtyId
+        Task { @MainActor in
+            slmError = nil
+            isGeneratingZMIST = true
+            defer { isGeneratingZMIST = false }
+
+            let availability = TCCCLanguageModel.availability()
+            guard availability == .available else {
+                slmError = unavailabilityMessage(availability)
+                return
+            }
+
+            do {
+                let text = try await zmistGenerator.generate(for: p, casualtyId: id)
+                state.zmistNarrative = text
+            } catch {
+                slmError = error.localizedDescription
+            }
+        }
+    }
+
+    private func unavailabilityMessage(_ availability: SystemLanguageModel.Availability) -> String {
+        switch availability {
+        case .available:
+            return ""
+        case .unavailable(let reason):
+            switch reason {
+            case .deviceNotEligible:
+                return "Foundation Model not supported on this device."
+            case .appleIntelligenceNotEnabled:
+                return "Enable Apple Intelligence in Settings."
+            case .modelNotReady:
+                return "Foundation Model is still downloading."
+            @unknown default:
+                return "Foundation Model unavailable."
+            }
+        @unknown default:
+            return "Foundation Model unavailable."
         }
     }
 
