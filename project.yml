@@ -4,6 +4,9 @@ options:
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
+packages:
+  TCCCKit:
+    path: Packages/TCCCKit
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -16,6 +19,15 @@ targets:
     platform: iOS
     sources:
       - path: TCCC_IOS
+    dependencies:
+      - package: TCCCKit
+        product: TCCCDomain
+      - package: TCCCKit
+        product: TCCCExtractor
+      - package: TCCCKit
+        product: TCCCReports
+      - package: TCCCKit
+        product: TCCCDesign
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aarzamen.TCCCai

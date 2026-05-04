@@ -7,25 +7,108 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03E2E966AFCFB4A4EBB0399F /* StatusStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F6D97B7FB9AB745F523F49 /* StatusStrip.swift */; };
+		053C6224571C815A36C1D8D1 /* LiveCaptureScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F2B33AA3BB5856ECC1D263 /* LiveCaptureScreen.swift */; };
+		1780AEC6F9937ABC665E1778 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9256329C7E3B8CDC74E1CA5F /* Typography.swift */; };
+		1A7250023CAD5E01EC0C1B5A /* Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77292E524CA7F6BE07FFBF4A /* Layout.swift */; };
+		200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 966DDC69FD2BA6744149DD70 /* RFGhostBadge.swift */; };
 		2D32BE161689099A00EC6DBA /* TCCC_IOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */; };
+		4A0F0CBCC1FA321587B4A2C5 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5228B58B0B7DEB4A7E25D6EB /* AppState.swift */; };
+		5E335E98466F27FE4BB04476 /* TCCCExtractor in Frameworks */ = {isa = PBXBuildFile; productRef = A15CAC0CB421F5287463F2D1 /* TCCCExtractor */; };
+		6CE528D3418D0AD8149078FE /* TCCCReports in Frameworks */ = {isa = PBXBuildFile; productRef = 1EBADE04B1405565EC85AC04 /* TCCCReports */; };
+		86BA530C6C55B2B98D486750 /* FooterHints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2CCE67936451614B668080 /* FooterHints.swift */; };
+		89EF0B5DE8FDC850975E7017 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAA6C0033E6E1A9DB176C2E /* Theme.swift */; };
+		9959847700098A8A614CA581 /* TCCCDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 1E9168029DF6BAD8005DF319 /* TCCCDesign */; };
+		BD117DBEF33C429693F8CDB9 /* TCCCDomain in Frameworks */ = {isa = PBXBuildFile; productRef = CC65DA259DE892E2BB91FEA0 /* TCCCDomain */; };
+		CF2A891275EF13C4AAD3F116 /* PageHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D59C15139886E7B8C11A614 /* PageHeader.swift */; };
+		D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904C678A5044C0CC41C1D43F /* ScreenPager.swift */; };
+		DA2F29FB92881C06599E8F2C /* Panel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60B4A039F88CD4EAF7BDEA64 /* Panel.swift */; };
+		E90C0A613B8EA36C543B92AD /* PageIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635AA31015FB0ED0FBA93821 /* PageIndicator.swift */; };
 		F6DE3AD575F34257585637E7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1EA433E85994D4343C0AF2D /* Assets.xcassets */; };
 		FB00759BDB3E3A0B862E33C3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB801690CCDCF2E1C0E6BBC3 /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		44F2B33AA3BB5856ECC1D263 /* LiveCaptureScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCaptureScreen.swift; sourceTree = "<group>"; };
 		45432B79F663572BEAD08956 /* TCCC_IOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TCCC_IOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5228B58B0B7DEB4A7E25D6EB /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		5C2CCE67936451614B668080 /* FooterHints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FooterHints.swift; sourceTree = "<group>"; };
+		60B4A039F88CD4EAF7BDEA64 /* Panel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panel.swift; sourceTree = "<group>"; };
+		635AA31015FB0ED0FBA93821 /* PageIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageIndicator.swift; sourceTree = "<group>"; };
+		77292E524CA7F6BE07FFBF4A /* Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Layout.swift; sourceTree = "<group>"; };
+		904C678A5044C0CC41C1D43F /* ScreenPager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenPager.swift; sourceTree = "<group>"; };
+		9256329C7E3B8CDC74E1CA5F /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
+		966DDC69FD2BA6744149DD70 /* RFGhostBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RFGhostBadge.swift; sourceTree = "<group>"; };
+		9D59C15139886E7B8C11A614 /* PageHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageHeader.swift; sourceTree = "<group>"; };
 		A1EA433E85994D4343C0AF2D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AFAA6C0033E6E1A9DB176C2E /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		BB801690CCDCF2E1C0E6BBC3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCC_IOSApp.swift; sourceTree = "<group>"; };
+		F4CC2166C5D1EA72E2BCE496 /* TCCCKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCKit; path = Packages/TCCCKit; sourceTree = SOURCE_ROOT; };
+		F5F6D97B7FB9AB745F523F49 /* StatusStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusStrip.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		F29C626FEF63D365412BCBB0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BD117DBEF33C429693F8CDB9 /* TCCCDomain in Frameworks */,
+				5E335E98466F27FE4BB04476 /* TCCCExtractor in Frameworks */,
+				6CE528D3418D0AD8149078FE /* TCCCReports in Frameworks */,
+				9959847700098A8A614CA581 /* TCCCDesign in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
+		1F593FCD09EBB28D17FCFA5E /* Screens */ = {
+			isa = PBXGroup;
+			children = (
+				44F2B33AA3BB5856ECC1D263 /* LiveCaptureScreen.swift */,
+			);
+			path = Screens;
+			sourceTree = "<group>";
+		};
+		67F66EB7E7D4C4A7E25E39D4 /* Chrome */ = {
+			isa = PBXGroup;
+			children = (
+				5C2CCE67936451614B668080 /* FooterHints.swift */,
+				9D59C15139886E7B8C11A614 /* PageHeader.swift */,
+				635AA31015FB0ED0FBA93821 /* PageIndicator.swift */,
+				60B4A039F88CD4EAF7BDEA64 /* Panel.swift */,
+				966DDC69FD2BA6744149DD70 /* RFGhostBadge.swift */,
+				F5F6D97B7FB9AB745F523F49 /* StatusStrip.swift */,
+			);
+			path = Chrome;
+			sourceTree = "<group>";
+		};
+		9202B98779DFB85D02958F79 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				5228B58B0B7DEB4A7E25D6EB /* AppState.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
 		AFDFD47A406C44F91CDED3B2 = {
 			isa = PBXGroup;
 			children = (
+				D00E829784C1881DECEAEC5E /* Packages */,
 				C049A4667C6FBDDBC1664021 /* TCCC_IOS */,
 				F596E5A8784203AAD8491A91 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		B57939935A7DD27029A794DB /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				77292E524CA7F6BE07FFBF4A /* Layout.swift */,
+				AFAA6C0033E6E1A9DB176C2E /* Theme.swift */,
+				9256329C7E3B8CDC74E1CA5F /* Typography.swift */,
+			);
+			path = Design;
 			sourceTree = "<group>";
 		};
 		C049A4667C6FBDDBC1664021 /* TCCC_IOS */ = {
@@ -34,8 +117,29 @@
 				A1EA433E85994D4343C0AF2D /* Assets.xcassets */,
 				BB801690CCDCF2E1C0E6BBC3 /* ContentView.swift */,
 				DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */,
+				9202B98779DFB85D02958F79 /* App */,
+				67F66EB7E7D4C4A7E25E39D4 /* Chrome */,
+				B57939935A7DD27029A794DB /* Design */,
+				DFB9F4FCBA71D7CB5E1FF523 /* Pager */,
+				1F593FCD09EBB28D17FCFA5E /* Screens */,
 			);
 			path = TCCC_IOS;
+			sourceTree = "<group>";
+		};
+		D00E829784C1881DECEAEC5E /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				F4CC2166C5D1EA72E2BCE496 /* TCCCKit */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		DFB9F4FCBA71D7CB5E1FF523 /* Pager */ = {
+			isa = PBXGroup;
+			children = (
+				904C678A5044C0CC41C1D43F /* ScreenPager.swift */,
+			);
+			path = Pager;
 			sourceTree = "<group>";
 		};
 		F596E5A8784203AAD8491A91 /* Products */ = {
@@ -55,6 +159,7 @@
 			buildPhases = (
 				6E9A0E110280A9BBEBB9BFF8 /* Sources */,
 				81954D0402411ADAA8D282C9 /* Resources */,
+				F29C626FEF63D365412BCBB0 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -62,6 +167,10 @@
 			);
 			name = TCCC_IOS;
 			packageProductDependencies = (
+				CC65DA259DE892E2BB91FEA0 /* TCCCDomain */,
+				A15CAC0CB421F5287463F2D1 /* TCCCExtractor */,
+				1EBADE04B1405565EC85AC04 /* TCCCReports */,
+				1E9168029DF6BAD8005DF319 /* TCCCDesign */,
 			);
 			productName = TCCC_IOS;
 			productReference = 45432B79F663572BEAD08956 /* TCCC_IOS.app */;
@@ -91,6 +200,9 @@
 			);
 			mainGroup = AFDFD47A406C44F91CDED3B2;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AAE3596B57A6C7320B2E4F4A /* XCLocalSwiftPackageReference "Packages/TCCCKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F596E5A8784203AAD8491A91 /* Products */;
 			projectDirPath = "";
@@ -117,8 +229,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4A0F0CBCC1FA321587B4A2C5 /* AppState.swift in Sources */,
 				FB00759BDB3E3A0B862E33C3 /* ContentView.swift in Sources */,
+				86BA530C6C55B2B98D486750 /* FooterHints.swift in Sources */,
+				1A7250023CAD5E01EC0C1B5A /* Layout.swift in Sources */,
+				053C6224571C815A36C1D8D1 /* LiveCaptureScreen.swift in Sources */,
+				CF2A891275EF13C4AAD3F116 /* PageHeader.swift in Sources */,
+				E90C0A613B8EA36C543B92AD /* PageIndicator.swift in Sources */,
+				DA2F29FB92881C06599E8F2C /* Panel.swift in Sources */,
+				200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */,
+				D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */,
+				03E2E966AFCFB4A4EBB0399F /* StatusStrip.swift in Sources */,
 				2D32BE161689099A00EC6DBA /* TCCC_IOSApp.swift in Sources */,
+				89EF0B5DE8FDC850975E7017 /* Theme.swift in Sources */,
+				1780AEC6F9937ABC665E1778 /* Typography.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -316,6 +440,32 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AAE3596B57A6C7320B2E4F4A /* XCLocalSwiftPackageReference "Packages/TCCCKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/TCCCKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1E9168029DF6BAD8005DF319 /* TCCCDesign */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TCCCDesign;
+		};
+		1EBADE04B1405565EC85AC04 /* TCCCReports */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TCCCReports;
+		};
+		A15CAC0CB421F5287463F2D1 /* TCCCExtractor */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TCCCExtractor;
+		};
+		CC65DA259DE892E2BB91FEA0 /* TCCCDomain */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TCCCDomain;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = CC4A76A4E410E242ACD5DD13 /* Project object */;
 }
