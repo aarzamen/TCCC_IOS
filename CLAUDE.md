@@ -58,8 +58,8 @@ Logic kit (parallelizable from app work):
 - [x] Phase 0 — Xcode project + design package extracted
 - [x] Phase 1 — TCCCKit skeleton + domain model (46/46 tests passing)
 - [x] Phase 2 — Spoken-number normalizer (96/96 tests passing — 142 total in package)
-- [ ] Phase 3 — Negation + sentence tokenization + patient-switch
-- [ ] Phase 4 — PatientStateEngine + per-phase extractors
+- [x] Phase 3 — Negation + sentence tokenization + patient-switch (folded into Phase 4 Lane A — committed together)
+- [x] Phase 4 — PatientStateEngine + 10 extractors (MOI, Hemorrhage, Airway, Respiration, Circulation, HeadHypothermia, Fracture, PAWS, Vitals, Classification). Full dispatch order matches Python state.py:515–524. **515 tests passing in TCCCKit.** End-to-end scenario tests against all 4 fixtures green. One known Python-parity bug documented: `don't` not caught by hemorrhage negation regex (test asserts the buggy behavior; flip when upstream fixes).
 - [ ] Phase 5 — Fallback report generators (9-Line + ZMIST)
 
 App layer:
