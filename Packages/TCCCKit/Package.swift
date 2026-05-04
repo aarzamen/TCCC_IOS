@@ -48,5 +48,15 @@ let package = Package(
                 .swiftLanguageMode(.v6),
             ]
         ),
+        .testTarget(
+            name: "TCCCExtractorTests",
+            dependencies: ["TCCCExtractor"],
+            resources: [
+                .copy("Resources/scenarios"),
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
     ]
 )
