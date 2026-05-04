@@ -2,20 +2,62 @@ import Foundation
 import Speech
 @preconcurrency import AVFAudio
 
+/// On-device speech recognizer with a 10-second pre-roll ring buffer and a
+/// 10-second post-roll tail. Mic engine runs continuously while the recognizer
+/// is "primed" — that lets the medic start narrating before tapping RECORD,
+/// and gives a few seconds of trailing context after PAUSE so an interrupted
+/// last sentence still gets captured.
+///
+/// Lifecycle:
+///   prime()      — engine + tap on; ring buffer accumulates last 10s
+///   start(...)   — drain ring buffer into recognizer, attach live; optionally
+///                  write captured PCM to a .wav file for export
+///   stop()       — schedule a 10s tail; recognizer continues, then ends
+///   unprime()    — engine + tap off
+///
+/// All audio remains on-device. `requiresOnDeviceRecognition = true` is hard
+/// requirement — RF Ghost forbids cloud transcription.
 actor SpeechRecognizer: TranscriptStream {
+
+    // MARK: - Configuration
+
+    private let leadDuration: TimeInterval = 10.0
+    private let tailDuration: TimeInterval = 10.0
+
+    // MARK: - Audio engine
+
     private let recognizer: SFSpeechRecognizer?
     private let engine = AVAudioEngine()
     private weak var levels: AudioLevels?
+    private var inputFormat: AVAudioFormat?
+    private var isPrimed: Bool = false
+
+    // MARK: - Pre-roll ring buffer (last ~10s of PCM)
+
+    private var ringBuffer: [AVAudioPCMBuffer] = []
+    private var ringBufferFrames: Int = 0
+
+    // MARK: - Recognition
 
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private var continuation: AsyncStream<RecognitionUpdate>.Continuation?
-    private var running: Bool = false
+    private var isRecognizing: Bool = false
+    private var tailDeadline: Date?
+
+    // MARK: - Audio file capture
+
+    private var audioFile: AVAudioFile?
+    public private(set) var lastRecordingURL: URL?
+
+    // MARK: - Init
 
     init(locale: Locale = Locale(identifier: "en-US"), levels: AudioLevels?) {
         self.recognizer = SFSpeechRecognizer(locale: locale)
         self.levels = levels
     }
+
+    // MARK: - Authorization
 
     func authorize() async throws {
         let speechStatus: SFSpeechRecognizerAuthorizationStatus = await withCheckedContinuation { cont in
@@ -33,33 +75,29 @@ actor SpeechRecognizer: TranscriptStream {
         }
     }
 
-    func start() async throws -> AsyncStream<RecognitionUpdate> {
-        guard !running else { throw TranscriptStreamError.alreadyRunning }
-        guard let recognizer, recognizer.isAvailable else {
-            throw TranscriptStreamError.recognizerUnavailable
-        }
-        guard recognizer.supportsOnDeviceRecognition else {
-            throw TranscriptStreamError.onDeviceUnavailable
-        }
+    // MARK: - Engine lifecycle
 
+    /// Start the audio engine + tap so the ring buffer fills with the last
+    /// `leadDuration` seconds of audio. The recognizer is NOT attached yet —
+    /// call `start()` for that. Idempotent.
+    func prime() async throws {
+        guard !isPrimed else { return }
         try configureSession()
-
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.shouldReportPartialResults = true
-        request.requiresOnDeviceRecognition = true
-        self.request = request
 
         let inputNode = engine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
+        self.inputFormat = format
 
         let weakLevels = self.levels
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            request.append(buffer)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            // Copy out of AVAudioEngine's reusable buffer pool.
+            guard let copy = Self.copyBuffer(buffer) else { return }
             let rms = Self.computeRMS(buffer)
             if let weakLevels {
-                Task { @MainActor in
-                    weakLevels.ingest(rms)
-                }
+                Task { @MainActor in weakLevels.ingest(rms) }
+            }
+            Task { [weak self] in
+                await self?.ingestBuffer(copy)
             }
         }
 
@@ -68,56 +106,187 @@ actor SpeechRecognizer: TranscriptStream {
             try engine.start()
         } catch {
             inputNode.removeTap(onBus: 0)
-            self.request = nil
             throw TranscriptStreamError.engineFailed(error.localizedDescription)
+        }
+        isPrimed = true
+    }
+
+    /// Stop the audio engine + tap. Tears down any in-flight recognizer.
+    func unprime() async {
+        if isRecognizing { await teardownRecognizer() }
+        guard isPrimed else { return }
+        if engine.isRunning { engine.stop() }
+        engine.inputNode.removeTap(onBus: 0)
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        ringBuffer.removeAll()
+        ringBufferFrames = 0
+        isPrimed = false
+        let weakLevels = self.levels
+        if let weakLevels {
+            Task { @MainActor in weakLevels.reset() }
+        }
+    }
+
+    // MARK: - Recognition lifecycle
+
+    /// Attach the recognizer. The 10s ring buffer is drained as pre-roll, then
+    /// live audio streams in. If `audioURL` is provided, captured PCM is written
+    /// to that file for export — pre-roll included.
+    func start(audioURL: URL? = nil) async throws -> AsyncStream<RecognitionUpdate> {
+        if !isPrimed {
+            try await prime()
+        }
+        guard !isRecognizing else { throw TranscriptStreamError.alreadyRunning }
+        guard let recognizer, recognizer.isAvailable else {
+            throw TranscriptStreamError.recognizerUnavailable
+        }
+        guard recognizer.supportsOnDeviceRecognition else {
+            throw TranscriptStreamError.onDeviceUnavailable
+        }
+
+        let req = SFSpeechAudioBufferRecognitionRequest()
+        req.shouldReportPartialResults = true
+        req.requiresOnDeviceRecognition = true
+        self.request = req
+
+        // Open audio file for writing if URL provided.
+        if let audioURL, let format = inputFormat {
+            do {
+                let file = try AVAudioFile(
+                    forWriting: audioURL,
+                    settings: format.settings,
+                    commonFormat: format.commonFormat,
+                    interleaved: format.isInterleaved
+                )
+                self.audioFile = file
+                self.lastRecordingURL = audioURL
+            } catch {
+                // Non-fatal — recognition still works, just no audio export.
+                self.audioFile = nil
+            }
+        }
+
+        // Drain pre-roll: feed the last 10s of buffered audio into both the
+        // recognizer and the audio file.
+        for buf in ringBuffer {
+            req.append(buf)
+            try? audioFile?.write(from: buf)
         }
 
         let (stream, continuation) = AsyncStream<RecognitionUpdate>.makeStream()
         self.continuation = continuation
-        self.running = true
+        self.tailDeadline = nil
+        self.isRecognizing = true
 
-        self.task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+        self.task = recognizer.recognitionTask(with: req) { [weak self] result, error in
             guard let self else { return }
             if let result {
                 let text = result.bestTranscription.formattedString
                 let isFinal = result.isFinal
                 Task { await self.emit(text: text, isFinal: isFinal) }
                 if isFinal {
-                    Task { await self.finishRecognitionPass() }
+                    Task { await self.handleFinalResult() }
                 }
             } else if error != nil {
-                Task { await self.stop() }
+                Task { await self.teardownRecognizer() }
             }
         }
 
         return stream
     }
 
+    /// Mark the end of recording. Schedules a `tailDuration`-second tail —
+    /// the recognizer keeps consuming live audio until the tail elapses, then
+    /// finalises. Engine stays primed so a subsequent `start()` is instant.
     func stop() async {
-        guard running else { return }
-        running = false
-
-        if engine.isRunning {
-            engine.stop()
-        }
-        engine.inputNode.removeTap(onBus: 0)
-
-        request?.endAudio()
-        task?.cancel()
-
-        request = nil
-        task = nil
-
-        continuation?.finish()
-        continuation = nil
-
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-
-        let weakLevels = self.levels
-        if let weakLevels {
-            Task { @MainActor in weakLevels.reset() }
+        guard isRecognizing else { return }
+        if tailDeadline == nil {
+            tailDeadline = Date().addingTimeInterval(tailDuration)
         }
     }
+
+    /// Immediate tear-down without tail — error path / app backgrounded.
+    func stopImmediate() async {
+        await teardownRecognizer()
+    }
+
+    // MARK: - Tap-callback path
+
+    private func ingestBuffer(_ buffer: AVAudioPCMBuffer) {
+        // Always: maintain the ring buffer.
+        ringBuffer.append(buffer)
+        ringBufferFrames += Int(buffer.frameLength)
+        let sampleRate = buffer.format.sampleRate
+        let maxFrames = Int(leadDuration * sampleRate)
+        while ringBufferFrames > maxFrames, !ringBuffer.isEmpty {
+            let oldest = ringBuffer.removeFirst()
+            ringBufferFrames -= Int(oldest.frameLength)
+        }
+
+        guard isRecognizing else { return }
+
+        request?.append(buffer)
+        try? audioFile?.write(from: buffer)
+
+        // Check tail deadline.
+        if let deadline = tailDeadline, Date() >= deadline {
+            Task { await self.teardownRecognizer() }
+        }
+    }
+
+    // MARK: - Recognition internals
+
+    private func emit(text: String, isFinal: Bool) {
+        continuation?.yield(RecognitionUpdate(text: text, isFinal: isFinal, timestamp: Date()))
+    }
+
+    private func handleFinalResult() async {
+        // If we're tearing down (tail mode), let the recognizer die.
+        guard isRecognizing else { return }
+        guard tailDeadline == nil else {
+            await teardownRecognizer()
+            return
+        }
+
+        // Continuous narration: start a fresh recognition pass.
+        request?.endAudio()
+        task = nil
+        request = nil
+
+        let req = SFSpeechAudioBufferRecognitionRequest()
+        req.shouldReportPartialResults = true
+        req.requiresOnDeviceRecognition = true
+        self.request = req
+
+        guard let recognizer else { return }
+        self.task = recognizer.recognitionTask(with: req) { [weak self] result, error in
+            guard let self else { return }
+            if let result {
+                let text = result.bestTranscription.formattedString
+                let isFinal = result.isFinal
+                Task { await self.emit(text: text, isFinal: isFinal) }
+                if isFinal {
+                    Task { await self.handleFinalResult() }
+                }
+            } else if error != nil {
+                Task { await self.teardownRecognizer() }
+            }
+        }
+    }
+
+    private func teardownRecognizer() async {
+        guard isRecognizing else { return }
+        isRecognizing = false
+        tailDeadline = nil
+        request?.endAudio()
+        task = nil
+        request = nil
+        audioFile = nil
+        continuation?.finish()
+        continuation = nil
+    }
+
+    // MARK: - Helpers
 
     private func configureSession() throws {
         let session = AVAudioSession.sharedInstance()
@@ -125,35 +294,23 @@ actor SpeechRecognizer: TranscriptStream {
         try session.setActive(true, options: .notifyOthersOnDeactivation)
     }
 
-    private func emit(text: String, isFinal: Bool) {
-        continuation?.yield(RecognitionUpdate(text: text, isFinal: isFinal, timestamp: Date()))
-    }
-
-    private func finishRecognitionPass() async {
-        guard running else { return }
-        request?.endAudio()
-        task = nil
-        request = nil
-
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.shouldReportPartialResults = true
-        request.requiresOnDeviceRecognition = true
-        self.request = request
-
-        guard let recognizer else { return }
-        self.task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            guard let self else { return }
-            if let result {
-                let text = result.bestTranscription.formattedString
-                let isFinal = result.isFinal
-                Task { await self.emit(text: text, isFinal: isFinal) }
-                if isFinal {
-                    Task { await self.finishRecognitionPass() }
-                }
-            } else if error != nil {
-                Task { await self.stop() }
+    private static func copyBuffer(_ b: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard let copy = AVAudioPCMBuffer(pcmFormat: b.format, frameCapacity: b.frameCapacity) else {
+            return nil
+        }
+        copy.frameLength = b.frameLength
+        let frames = Int(b.frameLength)
+        let channels = Int(b.format.channelCount)
+        if let src = b.floatChannelData, let dst = copy.floatChannelData {
+            for ch in 0..<channels {
+                memcpy(dst[ch], src[ch], frames * MemoryLayout<Float>.size)
+            }
+        } else if let src = b.int16ChannelData, let dst = copy.int16ChannelData {
+            for ch in 0..<channels {
+                memcpy(dst[ch], src[ch], frames * MemoryLayout<Int16>.size)
             }
         }
+        return copy
     }
 
     private static func computeRMS(_ buffer: AVAudioPCMBuffer) -> Float {

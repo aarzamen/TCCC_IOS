@@ -40,12 +40,26 @@ struct LiveCaptureScreen: View {
         }
         .background(palette.bg)
         .task {
-            recognizer = SpeechRecognizer(levels: state.audioLevels)
+            if recognizer == nil {
+                recognizer = SpeechRecognizer(levels: state.audioLevels)
+            }
+            // Prime the engine so the 10s pre-roll buffer is filling before
+            // the medic taps RECORD. Permission already granted (or not) —
+            // priming is silent on either path.
+            do {
+                try await recognizer?.authorize()
+                try await recognizer?.prime()
+            } catch {
+                // Authorization may be deferred to first RECORD tap; ignore.
+            }
         }
         .onDisappear {
             streamingTask?.cancel()
             elapsedTickerTask?.cancel()
-            Task { await recognizer?.stop() }
+            Task {
+                await recognizer?.stopImmediate()
+                await recognizer?.unprime()
+            }
         }
     }
 
@@ -277,10 +291,14 @@ struct LiveCaptureScreen: View {
 
     private func toggleRecording() async {
         if state.isRecording {
-            streamingTask?.cancel()
-            elapsedTickerTask?.cancel()
+            // Tail mode: recognizer keeps consuming for 10s before tearing
+            // down. Flip the UI flag immediately so the user gets feedback,
+            // but DON'T cancel the streaming task — final transcript lines
+            // arrive during the tail and we want them appended.
             await recognizer?.stop()
             state.isRecording = false
+            elapsedTickerTask?.cancel()
+            state.appendSystem("RECORDING TAIL · 10s capture continuing")
             return
         }
 
@@ -295,10 +313,13 @@ struct LiveCaptureScreen: View {
         }
 
         do {
-            let stream = try await recognizer.start()
+            let url = state.newAudioCaptureURL()
+            let stream = try await recognizer.start(audioURL: url)
             state.isRecording = true
             state.sessionStart = Date()
+            state.lastRecordingURL = url
             startElapsedTicker()
+            streamingTask?.cancel()
             streamingTask = Task { @MainActor in
                 for await update in stream {
                     if Task.isCancelled { break }

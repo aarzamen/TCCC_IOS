@@ -64,7 +64,24 @@ final class AppState {
     var isRecording: Bool = false
     var recognitionError: String?
 
+    /// Path to the .wav file that the most recent recording session is being
+    /// (or was) captured into. Used by the Handoff Audio Export card.
+    var lastRecordingURL: URL?
+
     let audioLevels = AudioLevels()
+
+    /// Build a fresh audio capture URL inside Documents. The recognizer will
+    /// open this for writing on the next start().
+    func newAudioCaptureURL() -> URL {
+        let fm = FileManager.default
+        let dir = fm.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let dateF = DateFormatter()
+        dateF.dateFormat = "yyyyMMdd-HHmmss"
+        let stamp = dateF.string(from: Date())
+        let safeId = casualtyId.replacingOccurrences(of: " ", with: "_")
+        return dir.appendingPathComponent("encounter-\(safeId)-\(stamp).wav")
+    }
 
     // Casualty header (currently mock — would come from a roster lookup in production)
     var casualtyName: String = "DOE, J."
@@ -164,6 +181,7 @@ final class AppState {
         engine = PatientStateEngine.standard()
         casualtyCounter = 4
         casualtyId = "C-04"
+        lastRecordingURL = nil
     }
 
     /// Begin a new casualty. Increments the casualty counter, wipes
@@ -183,6 +201,7 @@ final class AppState {
         sessionStart = Date()
         vitalsHistory = VitalsHistory()
         engine = PatientStateEngine.standard()
+        lastRecordingURL = nil
         appendSystem("NEW CASUALTY · \(casualtyId) · \(oldId) archived")
     }
 
@@ -200,6 +219,7 @@ final class AppState {
         allPatients.removeAll()
         vitalsHistory = VitalsHistory()
         engine = PatientStateEngine.standard()
+        lastRecordingURL = nil
     }
 
     // MARK: - Vitals trend (Screen 02) — rolling 15-min sample buffer

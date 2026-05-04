@@ -356,3 +356,93 @@ enum HandoffQR {
         return context.createCGImage(scaled, from: scaled.extent)
     }
 }
+
+// MARK: - Export file builders
+
+@MainActor
+enum HandoffExports {
+
+    /// Write the patient JSON to a temp file, return the URL. Suitable for
+    /// passing to UIActivityViewController.
+    static func writeJSON(for patient: PatientState?, casualtyId: String) -> URL? {
+        let data = HandoffQR.payload(for: patient)
+        let dir = FileManager.default.temporaryDirectory
+        let stamp = Self.timestampString()
+        let url = dir.appendingPathComponent("encounter-\(casualtyId)-\(stamp).json")
+        do {
+            try data.write(to: url, options: [.atomic])
+            return url
+        } catch {
+            return nil
+        }
+    }
+
+    /// Build a CSV from the rolling vitals history and write to temp.
+    /// Header row + one row per sample.
+    static func writeVitalsCSV(history: VitalsHistory, casualtyId: String) -> URL? {
+        let samples = history.samples
+        let dir = FileManager.default.temporaryDirectory
+        let stamp = Self.timestampString()
+        let url = dir.appendingPathComponent("vitals-\(casualtyId)-\(stamp).csv")
+
+        var rows: [String] = []
+        rows.append("timestamp,hr,sys,dia,spo2")
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        for s in samples {
+            let ts = f.string(from: s.timestamp)
+            let hr = s.hr.map(String.init) ?? ""
+            let sys = s.systolic.map(String.init) ?? ""
+            let dia = s.diastolic.map(String.init) ?? ""
+            let spo2 = s.spo2.map(String.init) ?? ""
+            rows.append("\(ts),\(hr),\(sys),\(dia),\(spo2)")
+        }
+        let csv = rows.joined(separator: "\n").appending("\n")
+
+        do {
+            try csv.data(using: .utf8)?.write(to: url, options: [.atomic])
+            return url
+        } catch {
+            return nil
+        }
+    }
+
+    /// Build a plain-text transcript file (one line per `TranscriptLine`).
+    static func writeTranscript(transcript: [TranscriptLine], casualtyId: String) -> URL? {
+        let dir = FileManager.default.temporaryDirectory
+        let stamp = Self.timestampString()
+        let url = dir.appendingPathComponent("transcript-\(casualtyId)-\(stamp).txt")
+
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        let lines = transcript.map { line -> String in
+            let speaker = line.speaker.rawValue.uppercased()
+            let ts = f.string(from: line.timestamp)
+            return "[\(ts)] \(speaker): \(line.text)"
+        }
+        let body = lines.joined(separator: "\n").appending("\n")
+
+        do {
+            try body.data(using: .utf8)?.write(to: url, options: [.atomic])
+            return url
+        } catch {
+            return nil
+        }
+    }
+
+    /// File-size for display, in KB ceiling-rounded. Returns 0 if file missing.
+    static func sizeKB(of url: URL?) -> Int {
+        guard let url else { return 0 }
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attrs[.size] as? NSNumber else {
+            return 0
+        }
+        return max(1, Int(ceil(size.doubleValue / 1024.0)))
+    }
+
+    private static func timestampString() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMdd-HHmmss"
+        return f.string(from: Date())
+    }
+}

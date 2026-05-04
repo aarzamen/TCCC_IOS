@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import TCCCDomain
 
 /// Screen 05 — Role-1 → Role-2 Handoff.
@@ -20,6 +21,8 @@ struct HandoffScreen: View {
     @State private var transmitProgress: Double = 0
     @State private var isTransmitting: Bool = false
     @State private var elapsedTick: Date = Date()
+    @State private var shareItems: [Any] = []
+    @State private var shareSheetVisible: Bool = false
 
     private var patient: PatientState? { state.primaryPatient }
 
@@ -70,6 +73,9 @@ struct HandoffScreen: View {
         )) {
             QRSheet(payload: HandoffQR.payload(for: patient))
                 .environment(\.palette, palette)
+        }
+        .sheet(isPresented: $shareSheetVisible) {
+            ShareSheet(items: shareItems, onDismiss: { shareSheetVisible = false })
         }
     }
 
@@ -196,22 +202,58 @@ struct HandoffScreen: View {
             ExportCard(
                 icon: "curlybraces",
                 title: "JSON Encounter",
-                detail: "\(HandoffQR.payloadKilobytes(for: patient)) KB",
-                isReady: patient != nil
+                detail: "\(HandoffQR.payloadKilobytes(for: patient)) KB · Tap to share",
+                isReady: patient != nil,
+                action: { shareJSON() }
             )
             ExportCard(
                 icon: "waveform",
                 title: "Audio + Transcript",
                 detail: audioStatusDetail,
-                isReady: !state.transcript.isEmpty
+                isReady: hasAudioOrTranscript,
+                action: { shareAudioAndTranscript() }
             )
             ExportCard(
                 icon: "tablecells",
                 title: "Vitals CSV",
                 detail: vitalsCsvDetail,
-                isReady: vitalsFieldCount > 0
+                isReady: vitalsFieldCount > 0,
+                action: { shareVitalsCSV() }
             )
         }
+    }
+
+    // MARK: - Share actions
+
+    private var hasAudioOrTranscript: Bool {
+        !state.transcript.isEmpty || state.lastRecordingURL != nil
+    }
+
+    private func shareJSON() {
+        guard let url = HandoffExports.writeJSON(for: patient, casualtyId: state.casualtyId) else { return }
+        shareItems = [url]
+        shareSheetVisible = true
+    }
+
+    private func shareAudioAndTranscript() {
+        var items: [Any] = []
+        if let audio = state.lastRecordingURL,
+           FileManager.default.fileExists(atPath: audio.path) {
+            items.append(audio)
+        }
+        if !state.transcript.isEmpty,
+           let txt = HandoffExports.writeTranscript(transcript: state.transcript, casualtyId: state.casualtyId) {
+            items.append(txt)
+        }
+        guard !items.isEmpty else { return }
+        shareItems = items
+        shareSheetVisible = true
+    }
+
+    private func shareVitalsCSV() {
+        guard let url = HandoffExports.writeVitalsCSV(history: state.vitalsHistory, casualtyId: state.casualtyId) else { return }
+        shareItems = [url]
+        shareSheetVisible = true
     }
 
     private var destinationLabel: some View {
@@ -298,9 +340,13 @@ struct HandoffScreen: View {
     // MARK: - Derived export details
 
     private var audioStatusDetail: String {
+        var parts: [String] = []
+        let kb = HandoffExports.sizeKB(of: state.lastRecordingURL)
+        if kb > 0 { parts.append("\(kb) KB audio") }
         let lines = state.transcript.count
-        if lines == 0 { return "Capture in progress" }
-        return "\(lines) lines logged"
+        if lines > 0 { parts.append("\(lines) lines") }
+        if parts.isEmpty { return "Tap RECORD to capture" }
+        return parts.joined(separator: " · ") + " · Tap to share"
     }
 
     private var vitalsFieldCount: Int {
@@ -353,55 +399,37 @@ struct HandoffScreen: View {
 // MARK: - QR sheet
 
 /// Modal sheet showing the offline QR code for the selected payload.
+/// Includes Save-to-Photos and Share buttons so the medic can hand the code
+/// off via any local mechanism (AirDrop, Photos library, Files).
 private struct QRSheet: View {
     let payload: Data
 
     @Environment(\.palette) private var palette
     @Environment(\.dismiss) private var dismiss
 
+    @State private var qrCG: CGImage?
+    @State private var showShare: Bool = false
+    @State private var saveStatus: String?
+
     var body: some View {
         ZStack {
             palette.bg
                 .ignoresSafeArea()
 
-            VStack(spacing: 16) {
-                HStack {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(palette.accent)
-                    Text("OFFLINE QR · ROLE-2 SCAN")
-                        .font(.system(size: 11, weight: .semibold))
-                        .tracking(1.6)
-                        .foregroundStyle(palette.fg)
-                        .textCase(.uppercase)
-                    Spacer()
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(palette.fg)
-                            .padding(8)
-                            .frame(minWidth: Layout.minHitTarget, minHeight: Layout.minHitTarget)
-                            .overlay(
-                                Rectangle()
-                                    .strokeBorder(palette.line, lineWidth: Layout.hairline)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Close")
-                }
-                .padding(.horizontal, 14)
+            VStack(spacing: 12) {
+                header
 
                 GeometryReader { geo in
-                    let side = min(min(geo.size.width, geo.size.height), 360)
+                    let side = min(min(geo.size.width, geo.size.height), 380)
                     ZStack {
                         Rectangle()
                             .fill(palette.fg)
-                        if let cg = HandoffQR.generateImage(from: payload) {
+                        if let cg = qrCG {
                             Image(decorative: cg, scale: 1, orientation: .up)
                                 .interpolation(.none)
                                 .resizable()
                                 .scaledToFit()
-                                .padding(16)
+                                .padding(12)
                         } else {
                             Text("QR unavailable")
                                 .font(.system(size: 13, weight: .semibold))
@@ -412,12 +440,106 @@ private struct QRSheet: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
 
-                Text("\(payload.count) bytes · AES-encrypted at rest")
+                actionRow
+
+                Text(footerText)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(palette.fg2)
                     .padding(.bottom, 14)
             }
             .padding(.top, 14)
         }
+        .task {
+            qrCG = HandoffQR.generateImage(from: payload, scale: 12)
+        }
+        .sheet(isPresented: $showShare) {
+            if let img = qrUIImage() {
+                ShareSheet(items: [img], onDismiss: { showShare = false })
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(palette.accent)
+            Text("OFFLINE QR · ROLE-2 SCAN")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(1.6)
+                .foregroundStyle(palette.fg)
+                .textCase(.uppercase)
+            Spacer()
+            Button(action: { dismiss() }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(palette.fg)
+                    .padding(8)
+                    .frame(minWidth: Layout.minHitTarget, minHeight: Layout.minHitTarget)
+                    .overlay(
+                        Rectangle()
+                            .strokeBorder(palette.line, lineWidth: Layout.hairline)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close")
+        }
+        .padding(.horizontal, 14)
+    }
+
+    private var actionRow: some View {
+        HStack(spacing: 8) {
+            Button {
+                saveToPhotos()
+            } label: {
+                actionButtonLabel(icon: "square.and.arrow.down", title: "Save to Photos")
+            }
+            .buttonStyle(.plain)
+            .disabled(qrCG == nil)
+
+            Button {
+                showShare = true
+            } label: {
+                actionButtonLabel(icon: "square.and.arrow.up", title: "Share")
+            }
+            .buttonStyle(.plain)
+            .disabled(qrCG == nil)
+        }
+        .padding(.horizontal, 14)
+    }
+
+    private func actionButtonLabel(icon: String, title: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(title)
+                .font(.system(size: 11, weight: .heavy))
+                .tracking(1.4)
+                .textCase(.uppercase)
+        }
+        .foregroundStyle(palette.fg)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity)
+        .overlay(
+            Rectangle()
+                .strokeBorder(palette.line, lineWidth: Layout.hairline)
+        )
+    }
+
+    private var footerText: String {
+        if let status = saveStatus { return status }
+        return "\(payload.count) bytes · on-device only"
+    }
+
+    private func qrUIImage() -> UIImage? {
+        guard let cg = qrCG else { return nil }
+        return UIImage(cgImage: cg)
+    }
+
+    private func saveToPhotos() {
+        guard let img = qrUIImage() else { return }
+        UIImageWriteToSavedPhotosAlbum(img, nil, nil, nil)
+        saveStatus = "Saved to Photos · scan from another device"
     }
 }

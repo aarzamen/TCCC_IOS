@@ -28,6 +28,9 @@ enum TranscriptStreamError: Error, LocalizedError {
 
 protocol TranscriptStream: Sendable {
     func authorize() async throws
-    func start() async throws -> AsyncStream<RecognitionUpdate>
+    func prime() async throws
+    func unprime() async
+    func start(audioURL: URL?) async throws -> AsyncStream<RecognitionUpdate>
     func stop() async
+    func stopImmediate() async
 }

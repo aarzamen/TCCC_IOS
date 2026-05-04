@@ -21,6 +21,7 @@
 		2DB8ED3856F8A0E263A4A795 /* FactRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC8E752C934974E83313217 /* FactRow.swift */; };
 		2F90B64ADB799DF96C4344D4 /* ThemeOptCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBE6D7852D92258C933FEF8 /* ThemeOptCard.swift */; };
 		3079A030E1574FDBFA01D960 /* InterventionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99C033D7A4B1BF4742D8F743 /* InterventionRow.swift */; };
+		344E26DF03B3E113A3126F80 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1439B6599811FA567A67B1C2 /* ShareSheet.swift */; };
 		413E2267D1F0EBE40FBA130A /* NineLineForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0894014601F9571B1B376A /* NineLineForm.swift */; };
 		424652A98CD7C9860C59FCF0 /* SmallVital.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274E6A86610FEAD04C57413F /* SmallVital.swift */; };
 		483F45A4FEDF2B50D5C7C882 /* MapPlotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C51FA8A919214DFD7769FC /* MapPlotView.swift */; };
@@ -77,6 +78,7 @@
 		0CC8E752C934974E83313217 /* FactRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FactRow.swift; sourceTree = "<group>"; };
 		0EE8A25877D44D109385309C /* HandoffData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffData.swift; sourceTree = "<group>"; };
 		140881810FD1F888CCCF60A2 /* MedRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedRowView.swift; sourceTree = "<group>"; };
+		1439B6599811FA567A67B1C2 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		1611CD2F2C6FBCA090FA9463 /* DemoScenarios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoScenarios.swift; sourceTree = "<group>"; };
 		1D9D9A775A7C3BB84A0D9A2E /* HandoffScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffScreen.swift; sourceTree = "<group>"; };
 		1ECA9A5D8E6ECA17682B5CF0 /* HandoffDestination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffDestination.swift; sourceTree = "<group>"; };
@@ -174,6 +176,7 @@
 				04BC9CC5B5E0351D55C2A0B7 /* RecCapsule.swift */,
 				337B999E3A62ABAB82A5D1E2 /* RFRow.swift */,
 				F7AEBF56F548969E0FD0AFDA /* SettingsOverlay.swift */,
+				1439B6599811FA567A67B1C2 /* ShareSheet.swift */,
 				274E6A86610FEAD04C57413F /* SmallVital.swift */,
 				3CAAF88DF513C78083F43399 /* SumLineView.swift */,
 				2FBE6D7852D92258C933FEF8 /* ThemeOptCard.swift */,
@@ -416,6 +419,7 @@
 				C512FA47820E29A1BFDA4901 /* RecCapsule.swift in Sources */,
 				D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */,
 				AE42FC858CF65F919B010F01 /* SettingsOverlay.swift in Sources */,
+				344E26DF03B3E113A3126F80 /* ShareSheet.swift in Sources */,
 				424652A98CD7C9860C59FCF0 /* SmallVital.swift in Sources */,
 				59B76D40E7C2FC6C97543EFD /* SpeechRecognizer.swift in Sources */,
 				03E2E966AFCFB4A4EBB0399F /* StatusStrip.swift in Sources */,
@@ -516,6 +520,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Swift TCCC";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save the offline QR code of the encounter to Photos so you can scan it from another device when no wired handoff is available.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -541,6 +546,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Swift TCCC";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save the offline QR code of the encounter to Photos so you can scan it from another device when no wired handoff is available.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

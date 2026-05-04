@@ -11,10 +11,20 @@ struct ExportCard: View {
     let title: String       // "DD-1380 PDF"
     let detail: String      // "48 KB" or "Pending PDFKit"
     let isReady: Bool
+    var action: (() -> Void)? = nil
 
     @Environment(\.palette) private var palette
 
     var body: some View {
+        if let action, isReady {
+            Button(action: action) { content }
+                .buttonStyle(.plain)
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
