@@ -129,4 +129,9 @@ final class AppState {
             screen = Screen(rawValue: screen.rawValue - 1) ?? screen
         }
     }
+
+    // MARK: - Handoff (Screen 05) state additions
+
+    var selectedHandoffDestination: HandoffDestination = .qr
+    var qrOverlayVisible: Bool = false
 }
