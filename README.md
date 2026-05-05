@@ -6,7 +6,11 @@ The whole stack is **on-device only.** No telemetry, no analytics, no cloud tran
 
 ## Status
 
-5/5 screens functional · 573 unit tests passing · running on iPhone 17 Pro / iOS 26.2.
+5/5 screens functional · 637 unit tests passing · running on iPhone 17 Pro / iOS 26.2.
+
+Aligned to the **01 May 2026 TCCC Guidelines** + **DD Form 1380 (June 2014)**. Every visible UI element traces to a field in
+`reference/rubric/extracted/dd1380_field_inventory.json` or a phase in
+`reference/rubric/extracted/march_paws_vocabulary_2026.json`. See CLAUDE.md "2026 Rubric Alignment Sprint" for the audit log.
 
 | Screen | What it does | What's still mock |
 |---|---|---|
