@@ -56,6 +56,7 @@
 		AE42FC858CF65F919B010F01 /* SettingsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AEBF56F548969E0FD0AFDA /* SettingsOverlay.swift */; };
 		AF6A76D936D8A86571D11109 /* VitalsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56776AA19BDE9BE265F682AD /* VitalsScreen.swift */; };
 		B0FA15641FED8566A4B55CE8 /* ConfirmationBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 488B93C595B14353B319A9B4 /* ConfirmationBanner.swift */; };
+		B25901AF2D494789130E7058 /* MemoryStat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DA3636AE0ECFB9FA1857EFB /* MemoryStat.swift */; };
 		B3A9BDA0AF96DA35F6C13E61 /* ExtractedFact.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6328749551E5CBB4EB8FC99F /* ExtractedFact.swift */; };
 		B7BEE994DB134BDC44A28680 /* NineLineRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2F816A4303D35399BBA567 /* NineLineRow.swift */; };
 		BD117DBEF33C429693F8CDB9 /* TCCCDomain in Frameworks */ = {isa = PBXBuildFile; productRef = CC65DA259DE892E2BB91FEA0 /* TCCCDomain */; };
@@ -90,6 +91,7 @@
 		1439B6599811FA567A67B1C2 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		1611CD2F2C6FBCA090FA9463 /* DemoScenarios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoScenarios.swift; sourceTree = "<group>"; };
 		1D9D9A775A7C3BB84A0D9A2E /* HandoffScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffScreen.swift; sourceTree = "<group>"; };
+		1DA3636AE0ECFB9FA1857EFB /* MemoryStat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryStat.swift; sourceTree = "<group>"; };
 		1ECA9A5D8E6ECA17682B5CF0 /* HandoffDestination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffDestination.swift; sourceTree = "<group>"; };
 		1EED0969895F125C962A9134 /* PAWSRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PAWSRowView.swift; sourceTree = "<group>"; };
 		274E6A86610FEAD04C57413F /* SmallVital.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmallVital.swift; sourceTree = "<group>"; };
@@ -256,6 +258,7 @@
 				6328749551E5CBB4EB8FC99F /* ExtractedFact.swift */,
 				0EE8A25877D44D109385309C /* HandoffData.swift */,
 				1ECA9A5D8E6ECA17682B5CF0 /* HandoffDestination.swift */,
+				1DA3636AE0ECFB9FA1857EFB /* MemoryStat.swift */,
 				AD0894014601F9571B1B376A /* NineLineForm.swift */,
 				5279A4A90D8BE4BEC038F0A8 /* TranscriptLine.swift */,
 			);
@@ -446,6 +449,7 @@
 				BD7A4C23586CB96972781B6D /* MarchRowView.swift in Sources */,
 				C2857D2977856447A6679591 /* MedRowView.swift in Sources */,
 				FF806D8C2DBF0764539D33EF /* MedevacScreen.swift in Sources */,
+				B25901AF2D494789130E7058 /* MemoryStat.swift in Sources */,
 				413E2267D1F0EBE40FBA130A /* NineLineForm.swift in Sources */,
 				B7BEE994DB134BDC44A28680 /* NineLineRow.swift in Sources */,
 				CC431037BDB5DAE9F34FBA76 /* PAWSRowView.swift in Sources */,

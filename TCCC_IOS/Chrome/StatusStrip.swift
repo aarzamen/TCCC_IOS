@@ -17,6 +17,8 @@ struct StatusStrip: View {
                 divider
                 pageIndicatorCell
                 divider
+                memoryCell
+                divider
                 batteryCell
             }
             .frame(height: Layout.statusStripHeight)
@@ -109,6 +111,37 @@ struct StatusStrip: View {
             active: state.screen.rawValue
         )
         .padding(.horizontal, 12)
+    }
+
+    /// Memory-headroom chip per night-pass A3. Shows bytes available
+    /// before iOS would jetsam-kill the foreground app. Color shifts
+    /// from fg2 (plenty) to warn (~500 MB) to crit (~200 MB) so a
+    /// medic notices when the on-device LLMs / ASR are pushing the
+    /// budget.
+    /// Memory-headroom chip. Reads `MemoryStat.availableBytes()` on
+    /// each TimelineView tick (the same 1Hz cadence as the dual
+    /// clock).
+    private var memoryCell: some View {
+        let label = MemoryStat.chipLabel()
+        let pressure = MemoryStat.pressure()
+        let color: Color
+        switch pressure {
+        case .crit:    color = palette.crit
+        case .warn:    color = palette.warn
+        case .normal:  color = palette.fg2
+        case .unknown: color = palette.fg3
+        }
+        return HStack(spacing: 6) {
+            Image(systemName: "memorychip")
+                .font(.system(size: 11))
+                .foregroundStyle(color)
+            Text(label)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(color)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 8)
+        .frame(minWidth: 70)
     }
 
     private var batteryCell: some View {

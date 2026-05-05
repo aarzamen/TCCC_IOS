@@ -147,9 +147,13 @@ struct NineLineForm {
     // MARK: - Helpers
 
     private static func formattedLocation(lat: Double, lon: Double) -> String {
-        // Real MGRS conversion is deferred; show signed decimal degrees with 4 places.
-        // The status badge stays "auto" since the value originated from CoreLocation
-        // (or in our case, the AppState seed coordinates).
+        // 9-line MEDEVAC LINE 1 is voice-transmitted to the inbound bird —
+        // MGRS is the canonical military format. Per night-pass A2.
+        // Falls back to decimal degrees for UPS polar regions or NaN
+        // inputs that MGRS rejects.
+        if let mgrs = MGRS.formatted(latitude: lat, longitude: lon) {
+            return mgrs
+        }
         let nsLat = String(format: "%.4f° %@", abs(lat), lat >= 0 ? "N" : "S")
         let ewLon = String(format: "%.4f° %@", abs(lon), lon >= 0 ? "E" : "W")
         return "\(nsLat)  \(ewLon)"
