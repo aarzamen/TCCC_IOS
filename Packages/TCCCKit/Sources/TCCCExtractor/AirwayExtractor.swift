@@ -36,6 +36,10 @@ public struct AirwayExtractor: ExtractorPass {
     private let compromised: NSRegularExpression
     private let npa: NSRegularExpression
     private let cric: NSRegularExpression
+    // 2026 §4 (FLAGGED NEW in chapter structure) additions:
+    private let recoveryPosition: NSRegularExpression
+    private let suction: NSRegularExpression
+    private let etco2: NSRegularExpression
 
     public init() {
         self.patent = try! NSRegularExpression(
@@ -47,8 +51,40 @@ public struct AirwayExtractor: ExtractorPass {
         self.npa = try! NSRegularExpression(
             pattern: "npa|nasopharyngeal|nasal\\s*airway",
             options: [.caseInsensitive])
+        // Cric pattern extended with 2026 §4 device-spec language:
+        // bougie-aided open + standard open surgical technique. Backward
+        // compatible — bare "cric" / "cricothyroidotomy" / "surgical airway"
+        // continue to match.
         self.cric = try! NSRegularExpression(
-            pattern: "cric|cricothyroidotomy|surgical\\s*airway",
+            pattern:
+                "cric|cricothyroidotomy|surgical\\s*airway|" +
+                "bougie-?aided\\s+open|standard\\s+open\\s+surgical",
+            options: [.caseInsensitive])
+
+        // 2026 §4 — Recovery position for unconscious casualty per
+        // march_paws_vocabulary_2026.json MARCH.A.recovery position:
+        // "Place unconscious casualty in the recovery position, head
+        // tilted back; chin away from chest".
+        self.recoveryPosition = try! NSRegularExpression(
+            pattern:
+                "recovery\\s+position|" +
+                "head\\s+tilted\\s+back|" +
+                "chin\\s+away\\s+from\\s+chest",
+            options: [.caseInsensitive])
+
+        // 2026 §4 — Suction (per MARCH.A.suction).
+        self.suction = try! NSRegularExpression(
+            pattern: "\\bsuction(?:ed|ing)?\\b",
+            options: [.caseInsensitive])
+
+        // 2026 §4 — EtCO2 capnography (per MARCH.A.surgical cricothyroidotomy
+        // device_specs and MARCH.R.continuous EtCO2 and SpO2 monitoring).
+        // Recognized as a monitoring marker; does not alter airwayStatus on
+        // its own.
+        self.etco2 = try! NSRegularExpression(
+            pattern:
+                "etco2|end-?tidal\\s+co2|capnograph(?:y|ic)|" +
+                "continuous\\s+etco2",
             options: [.caseInsensitive])
     }
 
@@ -85,6 +121,44 @@ public struct AirwayExtractor: ExtractorPass {
                     timestamp: context.timestamp,
                     kind: .surgicalAirway,
                     description: "Surgical cricothyroidotomy"))
+            }
+        }
+
+        // 2026 §4 additions — recovery position, suction, EtCO2 monitoring.
+        // These are positioning/monitoring rather than primary airway
+        // interventions; they're tracked separately in interventions[] so
+        // reports can show them without overwriting NPA/cric in the
+        // airwayIntervention slot.
+        if matches(recoveryPosition, text) {
+            let existing = s.interventions.map { $0.description.lowercased() }
+                .joined(separator: "|")
+            if !existing.contains("recovery position") {
+                s.interventions.append(Intervention(
+                    timestamp: context.timestamp,
+                    kind: .other,
+                    description: "Recovery position"))
+            }
+        }
+
+        if matches(suction, text) {
+            let existing = s.interventions.map { $0.description.lowercased() }
+                .joined(separator: "|")
+            if !existing.contains("suction") {
+                s.interventions.append(Intervention(
+                    timestamp: context.timestamp,
+                    kind: .other,
+                    description: "Suction performed"))
+            }
+        }
+
+        if matches(etco2, text) {
+            let existing = s.interventions.map { $0.description.lowercased() }
+                .joined(separator: "|")
+            if !existing.contains("etco2") && !existing.contains("capnograph") {
+                s.interventions.append(Intervention(
+                    timestamp: context.timestamp,
+                    kind: .other,
+                    description: "EtCO2 capnography monitoring"))
             }
         }
 

@@ -36,6 +36,11 @@ public struct TBIExtractor: ExtractorPass {
 
     private let gcs: NSRegularExpression
 
+    // 2026 §8 additions
+    private let posturing: NSRegularExpression
+    private let asymmetricPupil: NSRegularExpression
+    private let hypertonicSaline: NSRegularExpression
+
     public init() {
         // Verbatim from state.py:428–434 (head_patterns avpu/pupils/gcs).
         self.avpuAlert = try! NSRegularExpression(
@@ -60,6 +65,29 @@ public struct TBIExtractor: ExtractorPass {
 
         self.gcs = try! NSRegularExpression(
             pattern: "gcs\\s*(?:is\\s*|of\\s*)?(\\d+)",
+            options: [.caseInsensitive])
+
+        // 2026 §8 herniation signs — a single match pushes a finding into
+        // injuries[]. "asymmetric pupil" is a herniation sign distinct from
+        // the basic equal/unequal pupil descriptor; "posturing" (decorticate
+        // or decerebrate) is not currently captured by the legacy patterns.
+        self.posturing = try! NSRegularExpression(
+            pattern: "\\bposturing\\b|decorticate|decerebrate",
+            options: [.caseInsensitive])
+        self.asymmetricPupil = try! NSRegularExpression(
+            pattern: "asymmetric\\s+pupils?|asymmetric\\s+pupillary",
+            options: [.caseInsensitive])
+
+        // 2026 §8 hypertonic saline herniation protocol.
+        // Per march_paws_vocabulary_2026.json MARCH.H_tbi.hypertonic saline
+        // for herniation: "250ml of 3% or 5% hypertonic saline OR 30ml of
+        // 23.4% hypertonic saline IV/IO over at least 10 minutes". Max 2
+        // doses, repeat at 20 min if no response.
+        self.hypertonicSaline = try! NSRegularExpression(
+            pattern:
+                "hypertonic\\s+saline|" +
+                "250\\s*ml\\s+of\\s+(?:3|5)\\s*%|" +
+                "30\\s*ml\\s+of\\s+23\\.?4\\s*%",
             options: [.caseInsensitive])
     }
 
@@ -111,6 +139,32 @@ public struct TBIExtractor: ExtractorPass {
         }
 
         s.march = march
+
+        // 2026 §8 herniation signs — record into injuries[] so reports can
+        // surface them. Dedup on the descriptor.
+        if matches(posturing, text) {
+            let exists = s.injuries.contains(where: { $0.lowercased().contains("posturing") })
+            if !exists { s.injuries.append("Posturing (decorticate/decerebrate)") }
+        }
+        if matches(asymmetricPupil, text) {
+            let exists = s.injuries.contains(where: { $0.lowercased().contains("asymmetric pupil") })
+            if !exists { s.injuries.append("Asymmetric pupils (herniation sign)") }
+        }
+
+        // 2026 §8 hypertonic saline administration — record as a medication
+        // intervention. Distinct from generic .medication descriptor so
+        // reports can format herniation-protocol fluids correctly.
+        if matches(hypertonicSaline, text) {
+            let existing = s.interventions.map { $0.description.lowercased() }
+                .joined(separator: "|")
+            if !existing.contains("hypertonic saline") {
+                s.interventions.append(Intervention(
+                    timestamp: context.timestamp,
+                    kind: .medication,
+                    description: "Hypertonic saline administered (TBI herniation protocol)"))
+            }
+        }
+
         return s
     }
 

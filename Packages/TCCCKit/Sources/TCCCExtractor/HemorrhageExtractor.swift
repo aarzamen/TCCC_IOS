@@ -43,6 +43,7 @@ public struct HemorrhageExtractor: ExtractorPass {
     private let generalBodyPart: NSRegularExpression
     private let tourniquet: NSRegularExpression
     private let tourniquetNegative: NSRegularExpression
+    private let tourniquetReposition: NSRegularExpression
     private let controlled: NSRegularExpression
     private let pressureDressing: NSRegularExpression
 
@@ -83,6 +84,22 @@ public struct HemorrhageExtractor: ExtractorPass {
 
         self.tourniquetNegative = try! NSRegularExpression(
             pattern: "no\\s+(?:tonic|tourniquet)\\s+needed|not?\\s+(?:tonic|tourniquet)|tonicaine",
+            options: [.caseInsensitive])
+
+        // 2026 §6 TQ reposition vocabulary — explicit conversion event.
+        // Per march_paws_vocabulary_2026.json MARCH.C.tourniquet reposition:
+        // "apply a second tourniquet directly to the skin 2-3 inches above
+        // the bleeding site, then loosening the first." Replaces 2024
+        // "replace tourniquet" language but the older verb is kept for
+        // backward compatibility in the alternation below.
+        self.tourniquetReposition = try! NSRegularExpression(
+            pattern:
+                "reposition(?:ing)?\\s+(?:the\\s+)?tourniquet|" +
+                "reposition(?:ing)?\\s+(?:the\\s+)?tq|" +
+                "(?:applied?|apply)\\s+a\\s+second\\s+(?:tourniquet|tq)|" +
+                "directly\\s+to\\s+the\\s+skin\\s+2-?3\\s+inches\\s+above|" +
+                "loosen(?:ed|ing)?\\s+the\\s+(?:first|original)\\s+(?:tourniquet|tq)|" +
+                "replac(?:e|ing)\\s+(?:the\\s+)?tourniquet",
             options: [.caseInsensitive])
 
         self.controlled = try! NSRegularExpression(
@@ -161,6 +178,24 @@ public struct HemorrhageExtractor: ExtractorPass {
                     timestamp: context.timestamp,
                     kind: .tourniquet,
                     description: "Tourniquet applied"))
+            }
+        }
+
+        // 4b. 2026 §6 TQ reposition / conversion event.
+        // Emits a distinct .tourniquetConversion intervention so the
+        // ASM/CLS scope warning (2026 §6, sprint 2.5) and downstream
+        // documentation can distinguish initial application from
+        // conversion. Independent of the tourniquetNegative gate; even if
+        // the sentence says "no new tourniquet needed", a "loosened the
+        // first" mention is still a conversion event.
+        if matches(tourniquetReposition, text) {
+            let existingDesc = s.interventions.map { $0.description.lowercased() }
+                .joined(separator: "|")
+            if !existingDesc.contains("tourniquet repositioned") {
+                s.interventions.append(Intervention(
+                    timestamp: context.timestamp,
+                    kind: .tourniquetConversion,
+                    description: "Tourniquet repositioned"))
             }
         }
 

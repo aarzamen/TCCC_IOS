@@ -43,26 +43,54 @@ import TCCCDomain
 public struct PAWSExtractor: ExtractorPass {
 
     // MARK: - Compiled regex patterns
+    //
+    // 2026 vocabulary additions per
+    // reference/rubric/extracted/march_paws_vocabulary_2026.json:
+    //   - Suzetrigine added to CWMP regimen (§11)
+    //   - Esketamine IN added (§11)
+    //   - Acetaminophen 2026 dose 1000–1300mg q8h (§11) — recognition unchanged,
+    //     dose extraction handled by VitalsExtractor downstream
+    //   - PO antibiotics changed from moxifloxacin to cefadroxil (§12)
+    //   - IV/IO/IM antibiotics changed from ertapenem to ceftriaxone (§12)
+    //   - Cephalexin recognized as the 2026 PO alternative
 
     private let painMedsRegex: NSRegularExpression
     private let combatPillPackRegex: NSRegularExpression
+    private let suzetrigineRegex: NSRegularExpression
+    private let esketamineRegex: NSRegularExpression
     private let ketamineRegex: NSRegularExpression
     private let antibioticsRegex: NSRegularExpression
+    private let cefadroxilRegex: NSRegularExpression
+    private let cephalexinRegex: NSRegularExpression
+    private let ceftriaxoneRegex: NSRegularExpression
     private let moxiRegex: NSRegularExpression
     private let woundCareRegex: NSRegularExpression
 
     public init() {
-        // Pain medications. Group-less; we just need a hit.
+        // Pain medications — 2026 CWMP + ketamine family + Esketamine IN.
         let painMedsPattern =
             "combat\\s*pill\\s*pack|tylenol|meloxicam|acetaminophen|" +
-            "motrin|ibuprofen|ketamine|pain\\s*meds?"
+            "motrin|ibuprofen|ketamine|esketamine|suzetrigine|pain\\s*meds?"
 
-        // Sub-classifiers (case-insensitive).
         let combatPillPackPattern = "combat\\s*pill\\s*pack"
-        let ketaminePattern = "ketamine"
+        let suzetriginePattern = "suzetrigine"
+        // Esketamine MUST be matched before ketamine — otherwise the bare
+        // "ketamine" token swallows the descriptor. The regex below uses a
+        // word boundary so "esketamine" is only matched as the discrete drug
+        // name, not as part of "ketamine".
+        let esketaminePattern = "\\besketamine\\b"
+        // Ketamine: word boundary on the LEFT prevents matching "esketamine".
+        let ketaminePattern = "(?<!es)ketamine"
 
-        // Antibiotics.
-        let antibioticsPattern = "moxifloxacin|moxi|antibiotics?|ertapenem"
+        // Antibiotics — 2026 PO regimen (cefadroxil, cephalexin) and
+        // IV/IO/IM regimen (ceftriaxone), plus retained moxi/ertapenem
+        // recognition for backward compatibility.
+        let antibioticsPattern =
+            "moxifloxacin|moxi|antibiotics?|ertapenem|cefadroxil|" +
+            "cephalexin|ceftriaxone"
+        let cefadroxilPattern = "cefadroxil"
+        let cephalexinPattern = "cephalexin"
+        let ceftriaxonePattern = "ceftriaxone"
         let moxiPattern = "moxifloxacin|moxi"
 
         // Wound care (irrigation, packing, dressing care).
@@ -73,10 +101,20 @@ public struct PAWSExtractor: ExtractorPass {
             pattern: painMedsPattern, options: [.caseInsensitive])
         self.combatPillPackRegex = try! NSRegularExpression(
             pattern: combatPillPackPattern, options: [.caseInsensitive])
+        self.suzetrigineRegex = try! NSRegularExpression(
+            pattern: suzetriginePattern, options: [.caseInsensitive])
+        self.esketamineRegex = try! NSRegularExpression(
+            pattern: esketaminePattern, options: [.caseInsensitive])
         self.ketamineRegex = try! NSRegularExpression(
             pattern: ketaminePattern, options: [.caseInsensitive])
         self.antibioticsRegex = try! NSRegularExpression(
             pattern: antibioticsPattern, options: [.caseInsensitive])
+        self.cefadroxilRegex = try! NSRegularExpression(
+            pattern: cefadroxilPattern, options: [.caseInsensitive])
+        self.cephalexinRegex = try! NSRegularExpression(
+            pattern: cephalexinPattern, options: [.caseInsensitive])
+        self.ceftriaxoneRegex = try! NSRegularExpression(
+            pattern: ceftriaxonePattern, options: [.caseInsensitive])
         self.moxiRegex = try! NSRegularExpression(
             pattern: moxiPattern, options: [.caseInsensitive])
         self.woundCareRegex = try! NSRegularExpression(
@@ -95,11 +133,18 @@ public struct PAWSExtractor: ExtractorPass {
         let sentence = context.sentence
         var updated = state
 
-        // ---- Pain management (state.py:901–912) -------------------------
+        // ---- Pain management (state.py:901–912 + 2026 §11 additions) ---
+        // Sub-classifier order matters: more specific drugs first, then the
+        // catch-all. Esketamine BEFORE ketamine so "esketamine" doesn't fall
+        // through to the generic ketamine descriptor.
         if hasMatch(sentence, regex: painMedsRegex) && updated.paws.pain == nil {
             let medType: String
             if hasMatch(sentence, regex: combatPillPackRegex) {
                 medType = "Combat pill pack administered"
+            } else if hasMatch(sentence, regex: suzetrigineRegex) {
+                medType = "Suzetrigine administered"
+            } else if hasMatch(sentence, regex: esketamineRegex) {
+                medType = "Esketamine administered"
             } else if hasMatch(sentence, regex: ketamineRegex) {
                 medType = "Ketamine administered"
             } else {
@@ -115,11 +160,19 @@ public struct PAWSExtractor: ExtractorPass {
             )
         }
 
-        // ---- Antibiotics (state.py:914–923) -----------------------------
+        // ---- Antibiotics (2026 §12 — cefadroxil/cephalexin PO,
+        //                   ceftriaxone IV/IO/IM; legacy moxi/ertapenem
+        //                   retained for backward compatibility) ----------
         if hasMatch(sentence, regex: antibioticsRegex) &&
             updated.paws.antibiotics == nil {
             let abxType: String
-            if hasMatch(sentence, regex: moxiRegex) {
+            if hasMatch(sentence, regex: cefadroxilRegex) {
+                abxType = "Cefadroxil administered"
+            } else if hasMatch(sentence, regex: ceftriaxoneRegex) {
+                abxType = "Ceftriaxone administered"
+            } else if hasMatch(sentence, regex: cephalexinRegex) {
+                abxType = "Cephalexin administered"
+            } else if hasMatch(sentence, regex: moxiRegex) {
                 abxType = "Moxifloxacin administered"
             } else {
                 abxType = "Antibiotics administered"

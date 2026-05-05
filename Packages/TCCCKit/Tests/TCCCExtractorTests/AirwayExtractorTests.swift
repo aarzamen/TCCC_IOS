@@ -99,9 +99,14 @@ final class AirwayExtractorTests: XCTestCase {
     // MARK: - Interventions: NPA
 
     func testNpaSetsIntervention() {
+        // Note: "recovery position" is recognized as a separate 2026 §4
+        // intervention by AirwayExtractor — the original sentence
+        // "Inserting NPA, placing in recovery position." now produces TWO
+        // interventions. This test isolates the NPA event by using a
+        // sentence with only NPA vocabulary.
         let s = a.apply(
             PatientState(patientId: "PATIENT_1"),
-            context: freshContext("Inserting NPA, placing in recovery position."))
+            context: freshContext("Inserting NPA in the right nostril."))
         XCTAssertEqual(s.march.airwayIntervention, "NPA inserted")
         XCTAssertEqual(s.interventions.count, 1)
         XCTAssertEqual(s.interventions.first?.kind, .npa)

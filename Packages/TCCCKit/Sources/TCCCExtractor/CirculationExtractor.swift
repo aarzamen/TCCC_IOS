@@ -44,6 +44,7 @@ public struct CirculationExtractor: ExtractorPass {
     private let skinRules: [CaptureRule]
     private let ivRegex: NSRegularExpression
     private let ioRegex: NSRegularExpression
+    private let calciumRegex: NSRegularExpression
 
     public init() {
         // (re.compile(r"radial\s*pulse\s*(is\s*)?(present|strong|weak|absent|palpable)", re.I),
@@ -136,6 +137,20 @@ public struct CirculationExtractor: ExtractorPass {
             pattern: "\\bio\\b|intraosseous",
             options: [.caseInsensitive]
         )
+        // 2026 §6 calcium administration after transfusion.
+        // Per march_paws_vocabulary_2026.json MARCH.C.calcium administration
+        // after transfusion: "1 g calcium IV/IO" / "30 ml of 10% calcium
+        // gluconate" / "10 ml of 10% calcium chloride" given after first
+        // transfused product.
+        self.calciumRegex = try! NSRegularExpression(
+            pattern:
+                "calcium\\s+gluconate|calcium\\s+chloride|" +
+                "1\\s*g(?:ram)?\\s+calcium|" +
+                "calcium\\s+(?:iv|io)|" +
+                "30\\s*ml\\s+of\\s+10%?\\s+calcium\\s+gluconate|" +
+                "10\\s*ml\\s+of\\s+10%?\\s+calcium\\s+chloride",
+            options: [.caseInsensitive]
+        )
     }
 
     public func apply(_ state: PatientState, context: ExtractionContext) -> PatientState {
@@ -195,6 +210,21 @@ public struct CirculationExtractor: ExtractorPass {
                             timestamp: context.timestamp,
                             kind: .ioAccess,
                             description: "IO access established"
+                        )
+                    )
+                }
+            }
+
+            // 4. 2026 §6 calcium-after-transfusion.
+            if calciumRegex.firstMatch(in: text, options: [], range: fullRange) != nil {
+                let existing = s.interventions.map { $0.description.lowercased() }
+                    .joined(separator: "|")
+                if !existing.contains("calcium") {
+                    s.interventions.append(
+                        Intervention(
+                            timestamp: context.timestamp,
+                            kind: .medication,
+                            description: "Calcium administered (post-transfusion)"
                         )
                     )
                 }
