@@ -332,7 +332,11 @@ struct SettingsOverlay: View {
                     LLMBackendRow(
                         backend: backend,
                         isSelected: state.llmBackend == backend,
-                        onTap: { state.llmBackend = backend }
+                        isDownloading: state.downloadingBackend == backend,
+                        onTap: { state.llmBackend = backend },
+                        onDownload: {
+                            Task { await state.downloadBackendWeights(backend) }
+                        }
                     )
                 }
             }
@@ -658,28 +662,39 @@ struct SettingsOverlay: View {
 private struct LLMBackendRow: View {
     let backend: AppState.LLMBackend
     let isSelected: Bool
+    let isDownloading: Bool
     let onTap: () -> Void
+    let onDownload: () -> Void
 
     @Environment(\.palette) private var palette
     @State private var availability: BackendAvailability = .unknown
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 10) {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .font(.system(size: 14))
-                    .foregroundStyle(isSelected ? palette.accent : palette.fg2)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(backend.displayName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(palette.fg)
-                    Text(subtitle)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(palette.fg3)
-                        .lineLimit(2)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 10) {
+                    Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                        .font(.system(size: 14))
+                        .foregroundStyle(isSelected ? palette.accent : palette.fg2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(backend.displayName)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(palette.fg)
+                        Text(subtitle)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(palette.fg3)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 0)
+                    downloadAffordance
+                    statusPill
                 }
-                Spacer(minLength: 0)
-                statusPill
+                if let warning = downloadWarning {
+                    Text(warning)
+                        .font(.system(size: 9, weight: .regular))
+                        .foregroundStyle(palette.fg3)
+                        .padding(.leading, 24)  // align under display name
+                }
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 10)
@@ -692,6 +707,55 @@ private struct LLMBackendRow: View {
         .buttonStyle(.plain)
         .task(id: backend) {
             availability = await Self.readAvailability(for: backend)
+        }
+        .task(id: isDownloading) {
+            // When a download finishes (isDownloading flips back to false),
+            // re-read availability so the status pill flips READY without
+            // needing the operator to leave + re-open Settings.
+            if !isDownloading {
+                availability = await Self.readAvailability(for: backend)
+            }
+        }
+    }
+
+    /// DOWNLOAD button (or a spinner if a fetch is in flight). Only shown
+    /// for non-Apple backends whose weights aren't on disk yet.
+    @ViewBuilder
+    private var downloadAffordance: some View {
+        if backend != .appleFoundation && availability == .modelNotProvided {
+            if isDownloading {
+                ProgressView()
+                    .controlSize(.small)
+                    .padding(.horizontal, 4)
+            } else {
+                Button(action: onDownload) {
+                    Text("DOWNLOAD")
+                        .font(.system(size: 9, weight: .heavy))
+                        .tracking(1.4)
+                        .foregroundStyle(palette.accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .overlay(
+                            Rectangle()
+                                .strokeBorder(palette.accent, lineWidth: Layout.hairline)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// One-line size warning rendered under the row when the DOWNLOAD
+    /// button is visible. RF Ghost: download is the only intentional
+    /// network call the app makes; surface the cost up front.
+    private var downloadWarning: String? {
+        guard backend != .appleFoundation, availability == .modelNotProvided else {
+            return nil
+        }
+        switch backend {
+        case .appleFoundation: return nil
+        case .lfm2:            return "Wi-Fi · 660 MB on first download"
+        case .qwen3:           return "Wi-Fi · 968 MB on first download"
         }
     }
 

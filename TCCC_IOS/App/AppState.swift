@@ -228,6 +228,44 @@ final class AppState {
     }
     var llmBackend: LLMBackend = .appleFoundation
 
+    /// Which LLM backend (if any) is currently fetching weights via the
+    /// Settings DOWNLOAD affordance. `nil` = idle. Settings UI binds to
+    /// this to swap the per-row DOWNLOAD button for a spinner. Single-
+    /// flight: `downloadBackendWeights(_:)` short-circuits if already set.
+    var downloadingBackend: LLMBackend? = nil
+
+    /// Pre-fetch the selected backend's weights into the on-disk HF Hub
+    /// cache. Drives the Settings DOWNLOAD button: tap → spinner →
+    /// `availability` flips to `.available` once the snapshot directory
+    /// is populated. Apple Foundation Models is a no-op here — Apple
+    /// manages weight delivery via system update.
+    ///
+    /// Single-flight: bails immediately if another download is in
+    /// progress, so the operator can tap freely without queuing
+    /// duplicate fetches.
+    func downloadBackendWeights(_ backend: LLMBackend) async {
+        guard downloadingBackend == nil else { return }
+        downloadingBackend = backend
+        defer { downloadingBackend = nil }
+
+        switch backend {
+        case .appleFoundation:
+            return  // managed by Apple — nothing to fetch
+        case .lfm2:
+            do {
+                try await LFM2LLMBackend().prefetch()
+            } catch {
+                appendSystem("DOWNLOAD FAILED · \(backend.displayName) · \(error.localizedDescription)")
+            }
+        case .qwen3:
+            do {
+                try await QwenLLMBackend().prefetch()
+            } catch {
+                appendSystem("DOWNLOAD FAILED · \(backend.displayName) · \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Provenance of the casualty location used for 9-line LINE 1.
     /// Modeled explicitly so the UI can render a `NO FIX` / `MANUAL` /
     /// `DEMO` badge and the 9-line refuses to populate Line 1 unless

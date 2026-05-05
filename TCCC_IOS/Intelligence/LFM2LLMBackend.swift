@@ -32,4 +32,12 @@ actor LFM2LLMBackend: TCCCLLMBackend {
     func generate(instructions: String, prompt: String) async throws -> String {
         try await backend.generate(instructions: instructions, prompt: prompt)
     }
+
+    /// Pre-fetch the LFM2 weights into the HF Hub cache. Pass-through to
+    /// `MLXBackend.prefetch()`. Invoked from
+    /// `AppState.downloadBackendWeights(_:)` when the operator taps
+    /// DOWNLOAD in Settings.
+    func prefetch() async throws {
+        try await backend.prefetch()
+    }
 }

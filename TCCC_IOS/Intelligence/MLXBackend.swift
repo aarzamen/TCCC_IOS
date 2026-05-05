@@ -55,6 +55,31 @@ actor MLXBackend: TCCCLLMBackend {
             )
         }
     }
+
+    /// Trigger weight download into the HF Hub cache without performing a
+    /// real generation. The model loader has to materialize weights before
+    /// the first token, so a 1-token throwaway response is sufficient to
+    /// populate the on-disk cache. `availability` flips to `.available`
+    /// once this returns successfully (the snapshot directory is now
+    /// non-empty).
+    ///
+    /// Surfaces any download / load error as `BackendError.generationFailed`
+    /// for symmetry with `generate(...)`. The caller (typically
+    /// `AppState.downloadBackendWeights`) is responsible for surfacing the
+    /// failure to the operator via the system transcript or status pill.
+    func prefetch() async throws {
+        let model = MLXLanguageModel(modelId: modelId)
+        let session = LanguageModelSession(model: model, instructions: "warmup")
+        var opts = GenerationOptions()
+        opts.maximumResponseTokens = 1
+        do {
+            _ = try await session.respond(to: "hi", options: opts)
+        } catch {
+            throw BackendError.generationFailed(
+                "\(displayName) download/warmup: \(error.localizedDescription)"
+            )
+        }
+    }
 }
 
 /// Probes Hugging Face Hub's local snapshot cache. The cache is created
