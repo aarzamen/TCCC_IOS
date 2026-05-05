@@ -179,9 +179,14 @@ actor SpeechRecognizer: TranscriptStream {
         if let audioURL, let format = inputFormat {
             do {
                 try ProtectedWrite.createEmpty(at: audioURL)
+                // AAC encode-on-write. AVFoundation handles PCM -> AAC
+                // internally for .m4a output. Mirrors the Parakeet path so
+                // both ASR backends produce the same voice-quality 32 kbps
+                // / 16 kHz mono m4a (~25 MB/hr) regardless of which is
+                // active. Shared constant lives in `AudioCaptureConfig`.
                 let file = try AVAudioFile(
                     forWriting: audioURL,
-                    settings: format.settings,
+                    settings: AudioCaptureConfig.aacOutputSettings,
                     commonFormat: format.commonFormat,
                     interleaved: format.isInterleaved
                 )
