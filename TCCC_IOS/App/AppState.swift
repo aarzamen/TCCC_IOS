@@ -563,3 +563,22 @@ final class AppState {
         return out
     }
 }
+
+// MARK: - LLM backend dispatch
+
+extension AppState {
+    /// The active backend for this AppState's `llmBackend` selection.
+    /// Recomputed on each access — backends are stateless wrappers and
+    /// the four generators take a backend per call, so allocation cost
+    /// is negligible. This is the single decode site for the runtime
+    /// LLM choice; everything else (RadioScriptGenerator,
+    /// ZMISTNarrativeGenerator, EncounterNarrativeGenerator,
+    /// TranscriptCleaner) consumes the protocol existential.
+    var currentBackend: any TCCCLLMBackend {
+        switch llmBackend {
+        case .appleFoundation: AppleFoundationLLMBackend()
+        case .lfm2:            LFM2LLMBackend()
+        case .qwen3:           QwenLLMBackend()
+        }
+    }
+}

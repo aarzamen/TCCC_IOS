@@ -53,6 +53,7 @@
 		7C0A4CFA9C21CD15F51F7770 /* TranscriptLineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E1035E8B149E396C8EED9FC /* TranscriptLineView.swift */; };
 		86BA530C6C55B2B98D486750 /* FooterHints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2CCE67936451614B668080 /* FooterHints.swift */; };
 		89EF0B5DE8FDC850975E7017 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAA6C0033E6E1A9DB176C2E /* Theme.swift */; };
+		8BFDC48A15257D335AA6FDC2 /* ProtectedWrite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F553E30B771457479876540 /* ProtectedWrite.swift */; };
 		8DC1156F7128911034EFF946 /* RadioScriptGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC7666599E263562C0948458 /* RadioScriptGenerator.swift */; };
 		8EC8E02D86C55CAAB3BA7DA4 /* DestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E59FC65329AC434413958DE /* DestCard.swift */; };
 		9959847700098A8A614CA581 /* TCCCDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 1E9168029DF6BAD8005DF319 /* TCCCDesign */; };
@@ -140,6 +141,7 @@
 		8AA4BB66A62C7E065D6C2282 /* BodyMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyMap.swift; sourceTree = "<group>"; };
 		8BAB6B06BC0C11180630E4CE /* BigButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BigButton.swift; sourceTree = "<group>"; };
 		8E59FC65329AC434413958DE /* DestCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestCard.swift; sourceTree = "<group>"; };
+		8F553E30B771457479876540 /* ProtectedWrite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectedWrite.swift; sourceTree = "<group>"; };
 		904C678A5044C0CC41C1D43F /* ScreenPager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenPager.swift; sourceTree = "<group>"; };
 		9256329C7E3B8CDC74E1CA5F /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		966DDC69FD2BA6744149DD70 /* RFGhostBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RFGhostBadge.swift; sourceTree = "<group>"; };
@@ -275,6 +277,7 @@
 				1ECA9A5D8E6ECA17682B5CF0 /* HandoffDestination.swift */,
 				1DA3636AE0ECFB9FA1857EFB /* MemoryStat.swift */,
 				AD0894014601F9571B1B376A /* NineLineForm.swift */,
+				8F553E30B771457479876540 /* ProtectedWrite.swift */,
 				5279A4A90D8BE4BEC038F0A8 /* TranscriptLine.swift */,
 			);
 			path = App;
@@ -476,6 +479,7 @@
 				DA2F29FB92881C06599E8F2C /* Panel.swift in Sources */,
 				476414054832265A3815AE24 /* ParakeetTranscriptStream.swift in Sources */,
 				D0E1D462FCB005800E7E6772 /* PlaceholderBody.swift in Sources */,
+				8BFDC48A15257D335AA6FDC2 /* ProtectedWrite.swift in Sources */,
 				0A9AA237302FD35F3D5BC61C /* QuickActionsSheet.swift in Sources */,
 				4438165A68BB5C4EAF4461EE /* QwenLLMBackend.swift in Sources */,
 				200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */,

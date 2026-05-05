@@ -173,8 +173,12 @@ actor SpeechRecognizer: TranscriptStream {
         self.request = req
 
         // Open audio file for writing if URL provided.
+        // Pre-create the file with NSFileProtectionComplete so the streamed
+        // AVAudioFile writes inherit Data Protection. CLAUDE.md hard
+        // constraint #3 — casualty audio at rest must be AES-256.
         if let audioURL, let format = inputFormat {
             do {
+                try ProtectedWrite.createEmpty(at: audioURL)
                 let file = try AVAudioFile(
                     forWriting: audioURL,
                     settings: format.settings,
@@ -325,7 +329,12 @@ actor SpeechRecognizer: TranscriptStream {
         request?.endAudio()
         task = nil
         request = nil
+        let closedURL = lastRecordingURL
         audioFile = nil
+        // Re-mark complete protection after closing the streamed file.
+        if let closedURL {
+            try? ProtectedWrite.markProtected(at: closedURL)
+        }
         continuation?.finish()
         continuation = nil
     }

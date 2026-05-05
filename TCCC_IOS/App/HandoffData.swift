@@ -372,7 +372,7 @@ enum HandoffExports {
         let stamp = Self.timestampString()
         let url = dir.appendingPathComponent("encounter-\(casualtyId)-\(stamp).json")
         do {
-            try data.write(to: url, options: [.atomic])
+            try ProtectedWrite.data(data, to: url)
             return url
         } catch {
             return nil
@@ -402,7 +402,9 @@ enum HandoffExports {
         let csv = rows.joined(separator: "\n").appending("\n")
 
         do {
-            try csv.data(using: .utf8)?.write(to: url, options: [.atomic])
+            if let csvData = csv.data(using: .utf8) {
+                try ProtectedWrite.data(csvData, to: url)
+            }
             return url
         } catch {
             return nil
@@ -425,7 +427,9 @@ enum HandoffExports {
         let body = lines.joined(separator: "\n").appending("\n")
 
         do {
-            try body.data(using: .utf8)?.write(to: url, options: [.atomic])
+            if let bodyData = body.data(using: .utf8) {
+                try ProtectedWrite.data(bodyData, to: url)
+            }
             return url
         } catch {
             return nil

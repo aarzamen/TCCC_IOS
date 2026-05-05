@@ -219,8 +219,12 @@ actor ParakeetTranscriptStream: TranscriptStream {
         try await ensureModelsLoaded()
 
         // Open audio file for writing if URL provided.
+        // Pre-create the file with NSFileProtectionComplete so the streamed
+        // AVAudioFile writes inherit Data Protection. CLAUDE.md hard
+        // constraint #3 — casualty audio at rest must be AES-256.
         if let audioURL, let format = inputFormat {
             do {
+                try ProtectedWrite.createEmpty(at: audioURL)
                 let file = try AVAudioFile(
                     forWriting: audioURL,
                     settings: format.settings,
@@ -362,7 +366,14 @@ actor ParakeetTranscriptStream: TranscriptStream {
             }
         }
 
+        let closedURL = lastRecordingURL
         audioFile = nil
+        // Re-mark complete protection after closing the streamed file.
+        // Idempotent; createEmpty already set it, but AVAudioFile may have
+        // unset/touched attributes during close.
+        if let closedURL {
+            try? ProtectedWrite.markProtected(at: closedURL)
+        }
         continuation?.finish()
         continuation = nil
     }
