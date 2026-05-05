@@ -1,0 +1,40 @@
+name: CI
+
+"on":
+  push:
+    branches: [main]
+  pull_request: {}
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # adjust if runner image lacks Xcode 26.2
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app
+
+      - name: Swift Package Tests
+        run: swift test --package-path Packages/TCCCKit
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Resolve package dependencies
+        run: |
+          xcodebuild -project TCCC_IOS.xcodeproj \
+            -scheme TCCC_IOS \
+            -resolvePackageDependencies
+
+      - name: Simulator build
+        run: |
+          xcodebuild -project TCCC_IOS.xcodeproj \
+            -scheme TCCC_IOS \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            build \
+            CODE_SIGNING_ALLOWED=NO
