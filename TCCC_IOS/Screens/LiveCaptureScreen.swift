@@ -264,6 +264,10 @@ struct LiveCaptureScreen: View {
     }
 
     private func handleCleanTranscript() {
+        // Cancel any pending auto-clean — the manual button takes
+        // precedence so we don't fight ourselves on the same transcript.
+        state.autoCleanTask?.cancel()
+        state.autoCleanTask = nil
         let lines = state.transcript
         Task { @MainActor in
             cleanError = nil

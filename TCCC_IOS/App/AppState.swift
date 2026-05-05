@@ -358,6 +358,10 @@ final class AppState {
         transcript.append(TranscriptLine(speaker: speaker, text: trimmed))
         partialTranscript = ""
         Task { await processWithEngine(trimmed) }
+        // Auto-clean second pass: 5s after each commit, run TranscriptCleaner
+        // over the current transcript. Restarts on every commit so the most
+        // recent silence-debounce always wins. (Task S3-6.)
+        scheduleAutoClean()
     }
 
     func appendSystem(_ text: String) {
@@ -475,6 +479,8 @@ final class AppState {
     var autoExportOnWiredHandoffEnabled: Bool = false
 
     func wipeSession() {
+        autoCleanTask?.cancel()
+        autoCleanTask = nil
         transcript.removeAll()
         partialTranscript = ""
         recognitionError = nil
@@ -498,6 +504,8 @@ final class AppState {
     /// and engine state are discarded — by this point the medic is expected
     /// to have already exported via the Handoff screen.
     func newPatient() {
+        autoCleanTask?.cancel()
+        autoCleanTask = nil
         let oldId = casualtyId
         casualtyCounter += 1
         casualtyId = String(format: "C-%02d", casualtyCounter)
@@ -522,6 +530,8 @@ final class AppState {
     /// next casualty (without incrementing the counter — the medic taps
     /// NEW CASUALTY in Settings when they have a new patient assigned).
     func endCurrentCare() {
+        autoCleanTask?.cancel()
+        autoCleanTask = nil
         let endedId = casualtyId
         appendSystem("CARE ENDED · \(endedId) · handoff finalized")
         // Snapshot the system line, then clear so the screen resets.
@@ -551,6 +561,49 @@ final class AppState {
     /// Cleaned-up version of the transcript with mishearings corrected.
     /// When non-nil, Live Capture renders this instead of `transcript`.
     var transcriptCleaned: [TranscriptLine]?
+
+    // MARK: - Auto-clean second pass (Task S3-6)
+    //
+    // Each silence-commit (`appendFinal`) schedules an auto-clean pass to
+    // run 5s later. A new commit cancels the prior schedule so the latest
+    // committed state always wins. The manual "Clean transcript" button
+    // also cancels any in-flight auto-clean before doing its own work.
+    // The auto-clean is opportunistic: failures are swallowed silently —
+    // the manual button surfaces errors directly.
+
+    /// In-flight auto-clean schedule. Non-nil while a 5s sleep is pending
+    /// or the cleaner is running. Cancelled and replaced by every fresh
+    /// commit + by every lifecycle action (newPatient / endCurrentCare /
+    /// wipeSession). The manual cleaner also cancels this before starting
+    /// its own pass so we don't fight ourselves.
+    var autoCleanTask: Task<Void, Never>?
+
+    /// Schedule an auto-clean pass over the committed transcript. Cancels
+    /// any in-flight schedule so a fresh final-commit always wins. Backs
+    /// off if the transcript is too short (< 3 lines) to bother with.
+    /// Uses the same backend the operator picked for product generation,
+    /// so behaviour stays consistent with the manual button.
+    func scheduleAutoClean() {
+        autoCleanTask?.cancel()
+        let lines = transcript
+        guard lines.count >= 3 else { return }
+        let backend = currentBackend
+        autoCleanTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5s
+            guard let self, !Task.isCancelled else { return }
+            // Re-snapshot after sleep — transcript may have grown.
+            let toClean = self.transcript
+            guard toClean.count >= 3 else { return }
+            do {
+                let cleaned = try await TranscriptCleaner(backend: backend).clean(toClean)
+                guard !Task.isCancelled else { return }
+                self.transcriptCleaned = cleaned
+            } catch {
+                // Silent failure — auto-clean is opportunistic. The manual
+                // button surfaces errors directly.
+            }
+        }
+    }
 
     // MARK: - Confirmation flow for lifecycle actions
 
