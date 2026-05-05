@@ -101,6 +101,13 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// produce.
     private var currentPartial: String = ""
 
+    /// Defensive upper bound on partial-string length. If the streaming
+    /// recognizer fails to emit an EOU final (silence-detection
+    /// regression, mic glitch), the accumulating partial would grow
+    /// unbounded over a 30-90 min recording. Force-finalize at this
+    /// ceiling so memory + UI cost stay bounded.
+    private let partialStringCeiling = 2000
+
     // MARK: - Audio file capture
 
     private var audioFile: AVAudioFile?
@@ -429,6 +436,14 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// "ghost text" before EOU.
     private func emitPartial(_ partial: String) {
         currentPartial = partial
+        // Defensive ceiling: if the partial grows beyond
+        // `partialStringCeiling` chars without an EOU final, force-finalize
+        // it now to avoid unbounded growth over long recordings.
+        if partial.count > partialStringCeiling {
+            emitFinal(partial)
+            currentPartial = ""
+            return
+        }
         continuation?.yield(
             RecognitionUpdate(text: partial, isFinal: false, timestamp: Date()))
     }
