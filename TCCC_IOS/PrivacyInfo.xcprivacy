@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+    Apple Privacy Manifest for TCCC.ai (com.aarzamen.TCCCai).
+
+    The app is RF Ghost — no networking framework is wired, no analytics,
+    no telemetry, no tracking SDKs. This manifest declares that explicitly
+    and documents the required-reason APIs the app actually uses.
+    -->
+
+    <!-- The app does NOT track users across apps or websites. -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <!-- No domains contacted for tracking. -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!-- No data collected from the user, sent off-device, or shared with
+         third parties. All clinical data lives in the app sandbox under
+         NSFileProtectionComplete, exported only via user-initiated
+         UIActivityViewController shares (AirDrop, Save to Files, etc.). -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+
+    <!-- Required-reason API justifications. The app uses two flagged APIs:
+
+         1. UserDefaults — currently NOT in use. Listed empty so a future
+            persistent-settings addition (e.g., theme, operatorTier) has
+            a clear audit slot.
+
+         2. File timestamp — used by HandoffData to write ISO-8601
+            timestamps into CSV/JSON exports for chain-of-custody. The
+            app writes file timestamps (encoded as text); it does not
+            read system file timestamps via NSFileManager attribute APIs.
+
+         When future code adds usage of any other required-reason API,
+         add the justification code per Apple's developer.apple.com/
+         documentation/bundleresources/privacy_manifest_files. -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- CA92.1 — Access info from same app group container. -->
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

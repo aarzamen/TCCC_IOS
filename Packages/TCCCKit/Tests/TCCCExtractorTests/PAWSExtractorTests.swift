@@ -53,17 +53,21 @@ final class PAWSExtractorTests: XCTestCase {
         XCTAssertEqual(s.interventions.first?.description, "Ketamine administered")
     }
 
-    func testTylenolFallsBackToGenericPainMed() {
+    func testTylenolMatchesAcetaminophenWithDose() {
+        // 2026 sprint Phase 3b: Tylenol now resolves through the
+        // acetaminophen sub-classifier and the dose extractor pulls the
+        // numeric value out of the same sentence.
         let s = extractor.apply(
             emptyState(),
             context: ctx("Gave him 1000mg of Tylenol for the pain."))
-        XCTAssertEqual(s.paws.pain, "Pain medication administered")
+        XCTAssertEqual(s.paws.pain, "Acetaminophen 1000 mg administered")
     }
 
-    func testMeloxicamFallsBackToGenericPainMed() {
+    func testMeloxicamHasItsOwnDescriptor() {
+        // 2026 sprint Phase 3b: Meloxicam recognized as a CWMP component.
         let s = extractor.apply(
             emptyState(), context: ctx("Started him on Meloxicam."))
-        XCTAssertEqual(s.paws.pain, "Pain medication administered")
+        XCTAssertEqual(s.paws.pain, "Meloxicam administered")
     }
 
     func testMotrinFallsBackToGenericPainMed() {

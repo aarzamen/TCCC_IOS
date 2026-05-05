@@ -2,17 +2,23 @@ import Foundation
 import Speech
 @preconcurrency import AVFAudio
 
-/// On-device speech recognizer with a 10-second pre-roll ring buffer and a
-/// 10-second post-roll tail. Mic engine runs continuously while the recognizer
-/// is "primed" — that lets the medic start narrating before tapping RECORD,
-/// and gives a few seconds of trailing context after PAUSE so an interrupted
-/// last sentence still gets captured.
+/// On-device speech recognizer with a 30-second pre-roll ring buffer and a
+/// 30-second post-roll tail. Mic engine runs continuously while the recognizer
+/// is "primed" — that lets the medic start narrating well before tapping
+/// RECORD (typical scenario: a corpsman speaks the assessment as they
+/// approach the casualty, then taps when they reach the patient), and gives
+/// a generous trailing window after STOP so the final sentence — even a
+/// long one with hesitation pauses — gets captured.
+///
+/// 30s × 16kHz × 16-bit mono ≈ 1 MB of PCM held in-memory between
+/// `prime()` and the next `start()` — trivial for the iPhone's memory
+/// budget.
 ///
 /// Lifecycle:
-///   prime()      — engine + tap on; ring buffer accumulates last 10s
+///   prime()      — engine + tap on; ring buffer accumulates last 30s
 ///   start(...)   — drain ring buffer into recognizer, attach live; optionally
 ///                  write captured PCM to a .wav file for export
-///   stop()       — schedule a 10s tail; recognizer continues, then ends
+///   stop()       — schedule a 30s tail; recognizer continues, then ends
 ///   unprime()    — engine + tap off
 ///
 /// All audio remains on-device. `requiresOnDeviceRecognition = true` is hard
@@ -21,8 +27,15 @@ actor SpeechRecognizer: TranscriptStream {
 
     // MARK: - Configuration
 
-    private let leadDuration: TimeInterval = 10.0
-    private let tailDuration: TimeInterval = 10.0
+    /// 30-second pre-roll. Matches `tailDuration` for symmetry — the medic
+    /// can speak for up to 30 seconds before tapping RECORD and still have
+    /// it captured, and up to 30 seconds after tapping STOP.
+    private let leadDuration: TimeInterval = 30.0
+
+    /// 30-second post-tap tail. Long enough to cover slow trailing
+    /// sentences ("…maintaining airway, will reassess in five.") plus a
+    /// small thinking pause.
+    private let tailDuration: TimeInterval = 30.0
 
     // MARK: - Audio engine
 
