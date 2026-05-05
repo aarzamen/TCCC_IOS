@@ -62,6 +62,7 @@ struct InterventionRow: View {
     private var kindLabel: String {
         switch intervention.kind {
         case .tourniquet:                       "TQ"
+        case .tourniquetConversion:             "TQ → DRESS"
         case .pressureDressing, .dressing:      "DRESSING"
         case .chestSeal:                        "CS"
         case .needleDecompression:              "NDC"
@@ -83,6 +84,7 @@ struct InterventionRow: View {
     private var kindIcon: String {
         switch intervention.kind {
         case .tourniquet:                       "bandage.fill"
+        case .tourniquetConversion:             "arrow.left.arrow.right"
         case .pressureDressing, .dressing:      "bandage"
         case .chestSeal:                        "shield.lefthalf.filled"
         case .needleDecompression:              "lungs"
@@ -102,6 +104,7 @@ extension InterventionRow {
     /// medications (those live on Screen 03 in the Meds Log panel).
     static let nonMedicationKinds: Set<InterventionKind> = [
         .tourniquet,
+        .tourniquetConversion,
         .pressureDressing,
         .dressing,
         .chestSeal,

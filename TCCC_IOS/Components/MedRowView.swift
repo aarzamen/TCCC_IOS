@@ -43,6 +43,7 @@ struct MedRowView: View {
     private var kindLabel: String {
         switch intervention.kind {
         case .tourniquet:           "TQ"
+        case .tourniquetConversion: "TQ → DRESS"
         case .pressureDressing,
              .dressing:             "DRESSING"
         case .chestSeal:            "CHEST SEAL"
@@ -64,6 +65,7 @@ struct MedRowView: View {
     private var kindIcon: String {
         switch intervention.kind {
         case .medication, .painManagement, .antibiotic, .tourniquet: "syringe"
+        case .tourniquetConversion: "arrow.left.arrow.right"
         case .ivAccess, .ioAccess:     "drop.fill"
         case .chestSeal, .needleDecompression: "lungs"
         case .npa, .surgicalAirway:    "wind"

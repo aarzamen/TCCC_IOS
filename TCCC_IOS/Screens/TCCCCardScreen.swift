@@ -29,6 +29,9 @@ struct TCCCCardScreen: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 VStack(spacing: Layout.gridGap) {
+                    if !state.pendingWarnings.isEmpty {
+                        WarningBanner(warnings: state.pendingWarnings)
+                    }
                     pawsPanel
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     medsPanel
@@ -105,11 +108,15 @@ struct TCCCCardScreen: View {
     // MARK: - MARCH panel
 
     private var marchPanel: some View {
-        Panel("M.A.R.C.H.", action: marchAction, padded: false) {
+        // 6-row rendering per 2026 sprint Task 2.2: M, A, R, C, H-Hypo, H-TBI.
+        // The legacy single H row is split into two sub-rows mirroring
+        // 2026 §7 (hypothermia) and §8 (TBI).
+        let phases: [MarchPhase] = [.massive, .airway, .respiration, .circulation]
+        return Panel("M.A.R.C.H.", action: marchAction, padded: false) {
             VStack(spacing: 0) {
-                ForEach(MarchPhase.allCases, id: \.self) { phase in
+                ForEach(phases, id: \.self) { phase in
                     if let patient {
-                        MarchRowView.from(patient: patient, phase: phase)
+                        MarchRowView.from(patient: patient, phase: phase, compact: true)
                     } else {
                         emptyMarchRow(phase: phase)
                     }
@@ -117,8 +124,45 @@ struct TCCCCardScreen: View {
                         .fill(palette.line)
                         .frame(height: Layout.hairline)
                 }
+                // H-Hypothermia
+                if let patient {
+                    MarchRowView.hypothermiaRow(patient: patient, compact: true)
+                } else {
+                    emptyHypothermiaRow
+                }
+                Rectangle()
+                    .fill(palette.line)
+                    .frame(height: Layout.hairline)
+                // H-TBI
+                if let patient {
+                    MarchRowView.tbiRow(patient: patient, compact: true)
+                } else {
+                    emptyTbiRow
+                }
             }
         }
+    }
+
+    private var emptyHypothermiaRow: some View {
+        MarchRowView(
+            letter: "H",
+            title: "Hypothermia",
+            detail: "Not assessed",
+            status: .open,
+            systemImage: "thermometer.snowflake",
+            compact: true
+        )
+    }
+
+    private var emptyTbiRow: some View {
+        MarchRowView(
+            letter: "H",
+            title: "TBI",
+            detail: "Not assessed",
+            status: .open,
+            systemImage: "brain.head.profile",
+            compact: true
+        )
     }
 
     private var marchAction: String {
@@ -171,7 +215,9 @@ struct TCCCCardScreen: View {
     private var pawsPanel: some View {
         Panel("P.A.W.S.", padded: false) {
             VStack(spacing: 0) {
-                let rows = patient.map { PAWSRowView.rows(for: $0.paws) } ?? defaultPAWSRows()
+                let rows: [PAWSRowView] = patient.map {
+                    PAWSRowView.rows(for: $0.paws, march: $0.march)
+                } ?? defaultPAWSRows()
                 ForEach(0..<rows.count, id: \.self) { idx in
                     rows[idx]
                     if idx < rows.count - 1 {
@@ -185,7 +231,8 @@ struct TCCCCardScreen: View {
     }
 
     private func defaultPAWSRows() -> [PAWSRowView] {
-        PAWSRowView.rows(for: PAWSAssessment())
+        // No patient → MARCH not assessed → PAWS dormant.
+        PAWSRowView.rows(for: PAWSAssessment(), march: MARCHState())
     }
 
     // MARK: - Meds panel

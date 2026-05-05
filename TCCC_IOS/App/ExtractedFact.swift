@@ -123,12 +123,11 @@ extension ExtractedFact {
         if let v = patient.march.airwayIntervention {
             facts.append(.init(kind: .airwayIntervention, value: v.uppercased(), timestamp: ts))
         }
-        if let v = patient.march.respirationStatus {
-            facts.append(.init(kind: .respiration, value: v.uppercased(), timestamp: ts))
-        }
-        if let v = patient.march.breathSounds {
-            facts.append(.init(kind: .breathSounds, value: v.uppercased(), timestamp: ts))
-        }
+        // 2026 sprint Task 2.3 — RESP NORMAL and BS BILATERAL EQUAL are
+        // demoted from standalone tiles. They inform MARCH-R phase status
+        // (visible on the TCCC Card) but do not bind to a DD 1380 field.
+        // Demoted facts continue to live in `patient.march` so reports
+        // can read them; only the EXTRACTED tile rendering is suppressed.
         if let v = patient.march.pulseStatus {
             facts.append(.init(kind: .pulse, value: v.uppercased(), timestamp: ts))
         }

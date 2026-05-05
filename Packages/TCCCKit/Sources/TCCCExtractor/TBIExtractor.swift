@@ -1,41 +1,28 @@
-// HeadHypothermiaExtractor
+// TBIExtractor
 //
-// Faithful Swift port of `_extract_head_hypothermia` from
-// /Users/ama/TCCC_FEB_2026/src/state.py (lines 766–797). The H of MARCH.
+// Second half of the 2026 split of HeadHypothermiaExtractor — handles
+// TBI-relevant assessment findings: AVPU consciousness, pupil response,
+// and the legacy GCS scalar. Corresponds to 2026 TCCC Guidelines §8.
+// The hypothermia half lives in HypothermiaExtractor (§7).
 //
-// Pattern definitions live in `_compile_patterns` around lines 427–440:
+// Reference: reference/rubric/extracted/march_paws_vocabulary_2026.json,
+// MARCH.H_tbi. Phase 3 will expand to the 2026 vocabulary additions
+// (herniation signs, hypertonic saline, EtCO2 ventilation targets,
+// SBP > 100 threshold). This extractor preserves the existing AVPU /
+// pupils / GCS patterns from the Python prototype verbatim for test
+// parity.
 //
-//     self.head_patterns = {
-//         "avpu": [
-//             (re.compile(r"\balert\b|\boriented\b|a\s*and\s*o|alert\s*and\s*oriented", re.I), "Alert"),
-//             (re.compile(r"responds?\s*to\s*voice|voice\s*responsive", re.I), "Voice"),
-//             (re.compile(r"responds?\s*to\s*pain|pain\s*responsive", re.I), "Pain"),
-//             (re.compile(r"unresponsive|unconscious|u\s*on\s*avpu", re.I), "Unresponsive"),
-//         ],
-//         "pupils": [
-//             (re.compile(r"pupils?\s*(are\s*)?(equal|unequal|dilated|constricted|reactive|fixed)", re.I), <lambda>),
-//             (re.compile(r"(equal|unequal)\s*(and\s*)?(reactive|fixed)", re.I), <lambda>),
-//         ],
-//         "hypothermia": re.compile(r"hypothermia\s*wrap|prevent\s*hypothermia|wrapping|blanket|insulate", re.I),
-//         "gcs": re.compile(r"gcs\s*(?:is\s*|of\s*)?(\d+)", re.I),
-//     }
-//
-// Python dispatch (state.py:766–797):
-//   - Walk avpu list; first match wins -> march.consciousness = status
-//   - Walk pupils list; first match wins -> march.pupil_response = extracted
-//   - If hypothermia matches -> hypothermia_prevention = "Hypothermia wrap applied"
-//                              + interventions.append("Hypothermia prevention measures")
-//   - If gcs matches -> patient.vitals["GCS"] = int(group 1)
-//
-// Negation: Python does not consult `has_negated_finding` here. We mirror
-// that — context.isNegated is informational only.
+// Note on AVPU vs DD 1380: AVPU is a Section C vital row on the form,
+// not a MARCH-H field. We continue to write it into `march.consciousness`
+// for compatibility with the existing extractor surface; the §C grid in
+// Phase 4 will read from that same field.
 //
 // Foundation only.
 
 import Foundation
 import TCCCDomain
 
-public struct HeadHypothermiaExtractor: ExtractorPass {
+public struct TBIExtractor: ExtractorPass {
 
     // MARK: - Patterns
 
@@ -47,10 +34,10 @@ public struct HeadHypothermiaExtractor: ExtractorPass {
     private let pupilsBasic: NSRegularExpression
     private let pupilsCombined: NSRegularExpression
 
-    private let hypothermia: NSRegularExpression
     private let gcs: NSRegularExpression
 
     public init() {
+        // Verbatim from state.py:428–434 (head_patterns avpu/pupils/gcs).
         self.avpuAlert = try! NSRegularExpression(
             pattern: "\\balert\\b|\\boriented\\b|a\\s*and\\s*o|alert\\s*and\\s*oriented",
             options: [.caseInsensitive])
@@ -71,9 +58,6 @@ public struct HeadHypothermiaExtractor: ExtractorPass {
             pattern: "(equal|unequal)\\s*(and\\s*)?(reactive|fixed)",
             options: [.caseInsensitive])
 
-        self.hypothermia = try! NSRegularExpression(
-            pattern: "hypothermia\\s*wrap|prevent\\s*hypothermia|wrapping|blanket|insulate",
-            options: [.caseInsensitive])
         self.gcs = try! NSRegularExpression(
             pattern: "gcs\\s*(?:is\\s*|of\\s*)?(\\d+)",
             options: [.caseInsensitive])
@@ -107,19 +91,6 @@ public struct HeadHypothermiaExtractor: ExtractorPass {
             march.pupilResponse = pupilDesc
         }
 
-        // Hypothermia prevention.
-        if matches(hypothermia, text) {
-            march.hypothermiaPrevention = "Hypothermia wrap applied"
-            let existing = s.interventions.map { $0.description.lowercased() }
-                .joined(separator: "|")
-            if !existing.contains("hypothermia") {
-                s.interventions.append(Intervention(
-                    timestamp: context.timestamp,
-                    kind: .hypothermiaPrevention,
-                    description: "Hypothermia prevention measures"))
-            }
-        }
-
         // GCS — assign to typed Vitals.gcs (Vitals validates via init range).
         let nsText = text as NSString
         let fullRange = NSRange(location: 0, length: nsText.length)
@@ -128,7 +99,6 @@ public struct HeadHypothermiaExtractor: ExtractorPass {
             let r = m.range(at: 1)
             if r.location != NSNotFound,
                let value = Int(nsText.substring(with: r)) {
-                // Re-build Vitals so the range validator runs.
                 s.vitals = Vitals(
                     hr: s.vitals.hr,
                     bp: s.vitals.bp,
@@ -145,9 +115,6 @@ public struct HeadHypothermiaExtractor: ExtractorPass {
     }
 
     // MARK: - Pupil extraction
-    //
-    // Both lambdas in Python read the captured groups verbatim. We do the
-    // same and trim trailing whitespace so the assertion strings match.
 
     private func extractPupilsBasic(_ text: String) -> String? {
         let nsText = text as NSString

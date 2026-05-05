@@ -112,7 +112,7 @@ extension MarchRowView {
     /// The "status color" is more clinically nuanced than the PhaseStatus alone:
     /// it considers whether the finding is critical (e.g., circulation findings
     /// with hypotension flip to .crit).
-    static func from(patient: PatientState, phase: MarchPhase) -> MarchRowView {
+    static func from(patient: PatientState, phase: MarchPhase, compact: Bool = false) -> MarchRowView {
         switch phase {
         case .massive:
             return MarchRowView(
@@ -120,7 +120,8 @@ extension MarchRowView {
                 title: "Massive Hemo",
                 detail: hemorrhageDetail(patient.march),
                 status: hemorrhageStatus(patient.march),
-                systemImage: "drop.fill"
+                systemImage: "drop.fill",
+                compact: compact
             )
         case .airway:
             return MarchRowView(
@@ -128,7 +129,8 @@ extension MarchRowView {
                 title: "Airway",
                 detail: airwayDetail(patient.march),
                 status: airwayStatus(patient.march),
-                systemImage: "lungs"
+                systemImage: "lungs",
+                compact: compact
             )
         case .respiration:
             return MarchRowView(
@@ -136,7 +138,8 @@ extension MarchRowView {
                 title: "Respirations",
                 detail: respirationDetail(patient.march, vitals: patient.vitals),
                 status: respirationStatus(patient.march),
-                systemImage: "wind"
+                systemImage: "wind",
+                compact: compact
             )
         case .circulation:
             return MarchRowView(
@@ -144,17 +147,58 @@ extension MarchRowView {
                 title: "Circulation",
                 detail: circulationDetail(patient.march, vitals: patient.vitals),
                 status: circulationStatus(patient.vitals),
-                systemImage: "heart.fill"
+                systemImage: "heart.fill",
+                compact: compact
             )
         case .head:
+            // Legacy combined row — kept for callers that still iterate
+            // MarchPhase.allCases. New UI calls hypothermiaRow / tbiRow
+            // directly per 2026 sprint Task 2.2.
             return MarchRowView(
                 letter: "H",
                 title: "Head / Hypothermia",
                 detail: headDetail(patient.march, vitals: patient.vitals),
                 status: headStatus(patient.march),
-                systemImage: "brain.head.profile"
+                systemImage: "brain.head.profile",
+                compact: compact
             )
         }
+    }
+
+    // MARK: - 2026 sprint H split (Task 2.2)
+
+    /// H-Hypothermia sub-row per 2026 §7.
+    static func hypothermiaRow(patient: PatientState, compact: Bool = false) -> MarchRowView {
+        let m = patient.march
+        let detail: String = m.hypothermiaPrevention ?? "Not assessed"
+        let status: Status = m.hypothermiaPhaseStatus == .done ? .done : .open
+        return MarchRowView(
+            letter: "H",
+            title: "Hypothermia",
+            detail: detail,
+            status: status,
+            systemImage: "thermometer.snowflake",
+            compact: compact
+        )
+    }
+
+    /// H-TBI sub-row per 2026 §8.
+    static func tbiRow(patient: PatientState, compact: Bool = false) -> MarchRowView {
+        let m = patient.march
+        var parts: [String] = []
+        if let g = patient.vitals.gcs { parts.append("GCS \(g)") }
+        if let c = m.consciousness { parts.append(c) }
+        if let p = m.pupilResponse { parts.append("Pupils: \(p)") }
+        let detail: String = parts.isEmpty ? "Not assessed" : parts.joined(separator: " · ")
+        let status: Status = m.tbiPhaseStatus == .done ? .done : .open
+        return MarchRowView(
+            letter: "H",
+            title: "TBI",
+            detail: detail,
+            status: status,
+            systemImage: "brain.head.profile",
+            compact: compact
+        )
     }
 
     // MARK: - Detail / status helpers

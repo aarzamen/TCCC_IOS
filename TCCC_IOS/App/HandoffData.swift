@@ -284,6 +284,7 @@ enum HandoffTimeline {
     private static func icon(for kind: InterventionKind) -> String {
         switch kind {
         case .tourniquet:                                   "tag"
+        case .tourniquetConversion:                         "arrow.left.arrow.right"
         case .pressureDressing, .dressing, .woundCare:      "bandage"
         case .chestSeal, .needleDecompression:              "lungs"
         case .npa, .surgicalAirway:                         "wind"
@@ -298,6 +299,7 @@ enum HandoffTimeline {
     private static func kindLabel(for kind: InterventionKind) -> String {
         switch kind {
         case .tourniquet:                       "TQ"
+        case .tourniquetConversion:             "TQ → DRESS"
         case .pressureDressing, .dressing:      "DRESSING"
         case .chestSeal:                        "CHEST SEAL"
         case .needleDecompression:              "NDC"

@@ -47,34 +47,43 @@ struct PAWSRowView: View {
 }
 
 extension PAWSRowView {
-    static func rows(for paws: PAWSAssessment) -> [PAWSRowView] {
-        [
+    /// Build the four PAWS rows. PAWS is **gated on MARCH assessment** per
+    /// 2026-sprint Task 2.1: until every MARCH phase has at least an
+    /// in-progress assessment, all PAWS rows render with placeholder "—"
+    /// detail and `isOpen = true`. This prevents the "Antibiotics Pending"
+    /// hint from appearing before MARCH has been worked through.
+    static func rows(
+        for paws: PAWSAssessment,
+        march: MARCHState
+    ) -> [PAWSRowView] {
+        let dormant = !march.allPhasesAssessed
+        return [
             PAWSRowView(
                 letter: "P",
                 title: "Pain",
-                detail: paws.pain ?? "—",
-                isOpen: paws.pain == nil,
+                detail: dormant ? "—" : (paws.pain ?? "—"),
+                isOpen: dormant || paws.pain == nil,
                 systemImage: "syringe"
             ),
             PAWSRowView(
                 letter: "A",
                 title: "Antibiotics",
-                detail: paws.antibiotics ?? "Pending",
-                isOpen: paws.antibiotics == nil,
+                detail: dormant ? "—" : (paws.antibiotics ?? "Pending"),
+                isOpen: dormant || paws.antibiotics == nil,
                 systemImage: "pills.fill"
             ),
             PAWSRowView(
                 letter: "W",
                 title: "Wounds",
-                detail: paws.wounds ?? "—",
-                isOpen: paws.wounds == nil,
+                detail: dormant ? "—" : (paws.wounds ?? "—"),
+                isOpen: dormant || paws.wounds == nil,
                 systemImage: "bandage"
             ),
             PAWSRowView(
                 letter: "S",
                 title: "Splinting",
-                detail: paws.splinting ?? "N/A",
-                isOpen: paws.splinting == nil,
+                detail: dormant ? "—" : (paws.splinting ?? "N/A"),
+                isOpen: dormant || paws.splinting == nil,
                 systemImage: "ruler"
             ),
         ]

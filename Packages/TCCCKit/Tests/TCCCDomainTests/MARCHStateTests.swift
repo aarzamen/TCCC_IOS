@@ -134,6 +134,84 @@ final class MARCHStateTests: XCTestCase {
         XCTAssertEqual(MARCHState().getPhaseStatus(.head), .notAssessed)
     }
 
+    // MARK: - allPhasesAssessed (PAWS gating, 2026 sprint 2.1)
+
+    func testAllPhasesAssessedFalseByDefault() {
+        XCTAssertFalse(MARCHState().allPhasesAssessed)
+    }
+
+    func testAllPhasesAssessedFalseWhenSomePhasesUnassessed() {
+        // M done + A done, but R/C/H not assessed
+        let m = MARCHState(
+            hemorrhageAssessed: true,
+            airwayStatus: "patent"
+        )
+        XCTAssertFalse(m.allPhasesAssessed)
+    }
+
+    func testAllPhasesAssessedTrueWhenAllPhasesHaveStatus() {
+        let m = MARCHState(
+            hemorrhageAssessed: true,
+            airwayStatus: "patent",
+            respirationStatus: "normal",
+            pulseStatus: "strong radial",
+            consciousness: "Alert"
+        )
+        XCTAssertTrue(m.allPhasesAssessed)
+    }
+
+    func testAllPhasesAssessedTrueWithMixOfDoneAndInProgress() {
+        // Five phases, each at least .inProgress: hemorrhageIdentified
+        // (in-progress), airwayIntervention (in-progress),
+        // respirationIntervention (in-progress), circulationIntervention
+        // (in-progress), hypothermiaPrevention (in-progress for head).
+        let m = MARCHState(
+            hemorrhageIdentified: true,
+            airwayIntervention: "NPA inserted",
+            respirationIntervention: "chest seal",
+            circulationIntervention: "IV access",
+            hypothermiaPrevention: "wrap"
+        )
+        XCTAssertTrue(m.allPhasesAssessed)
+    }
+
+    // MARK: - Hypothermia / TBI sub-phase status (2026 split, sprint 2.2)
+
+    func testHypothermiaPhaseStatusNotAssessedByDefault() {
+        XCTAssertEqual(MARCHState().hypothermiaPhaseStatus, .notAssessed)
+    }
+
+    func testHypothermiaPhaseStatusDoneWhenWrapApplied() {
+        let m = MARCHState(hypothermiaPrevention: "Hypothermia wrap applied")
+        XCTAssertEqual(m.hypothermiaPhaseStatus, .done)
+    }
+
+    func testTbiPhaseStatusNotAssessedByDefault() {
+        XCTAssertEqual(MARCHState().tbiPhaseStatus, .notAssessed)
+    }
+
+    func testTbiPhaseStatusDoneWhenConsciousnessSet() {
+        let m = MARCHState(consciousness: "Alert")
+        XCTAssertEqual(m.tbiPhaseStatus, .done)
+    }
+
+    func testTbiPhaseStatusDoneWhenPupilsSet() {
+        let m = MARCHState(pupilResponse: "equal")
+        XCTAssertEqual(m.tbiPhaseStatus, .done)
+    }
+
+    func testHypothermiaAndTbiAreIndependent() {
+        // Wrap applied — hypothermia .done, TBI still .notAssessed.
+        let hypoOnly = MARCHState(hypothermiaPrevention: "wrap")
+        XCTAssertEqual(hypoOnly.hypothermiaPhaseStatus, .done)
+        XCTAssertEqual(hypoOnly.tbiPhaseStatus, .notAssessed)
+
+        // AVPU recorded — TBI .done, hypothermia still .notAssessed.
+        let tbiOnly = MARCHState(consciousness: "Alert")
+        XCTAssertEqual(tbiOnly.hypothermiaPhaseStatus, .notAssessed)
+        XCTAssertEqual(tbiOnly.tbiPhaseStatus, .done)
+    }
+
     // MARK: - Equality + Codable
 
     func testEqualityIsValueBased() {

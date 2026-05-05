@@ -42,6 +42,36 @@ final class AppState {
         case leak
     }
 
+    /// TCCC responder tier per JTS taxonomy. Drives scope-of-practice
+    /// gating like the ASM/CLS TQ-conversion 2-hour rule (2026 sprint 2.5,
+    /// 2026 §6 ASM/CLS scope safeguard).
+    enum OperatorTier: String, Sendable, CaseIterable {
+        /// All Service Members — basic individual lifesaver level.
+        case asm = "ASM"
+        /// Combat Lifesaver — non-medical squad/team designee.
+        case cls = "CLS"
+        /// Combat Medic / Corpsman — primary unit medical provider.
+        case cmc = "CMC"
+        /// Combat Paramedic / Provider — advanced medical provider.
+        case cpp = "CPP"
+
+        /// True when scope-of-practice limits ASM/CLS personnel from
+        /// independently performing TQ conversion beyond 2 hours per
+        /// 2026 §6.
+        var isASMOrCLS: Bool { self == .asm || self == .cls }
+    }
+
+    /// Non-blocking warnings surfaced from rubric-mandated rules.
+    enum TCCCWarning: Sendable, Hashable {
+        /// 2026 §11 — AVPU must be documented prior to ketamine
+        /// administration. Fires when ketamine is logged but AVPU
+        /// (consciousness) is unset.
+        case avpuBeforeKetamine
+        /// 2026 §6 — ASM/CLS personnel must not attempt TQ conversion
+        /// beyond 2 hours post-application without CMC/CPP direction.
+        case tqConversionScope
+    }
+
     var screen: Screen = .liveCapture
     var theme: Theme = .tactical
     var settingsOpen: Bool = false
@@ -170,6 +200,11 @@ final class AppState {
     var operatorUnit: String = "2/75 RGR"
     var operatorDeviceId: String = "EUD-441-C"
 
+    /// Operator scope-of-practice tier. Default CMC (corpsman/medic) — the
+    /// app's primary user. ASM/CLS picks up scope-limiting warnings; CPP
+    /// has full discretion.
+    var operatorTier: OperatorTier = .cmc
+
     var voiceCommandsEnabled: Bool = true
     var hapticFeedbackEnabled: Bool = true
     var lockOrientationEnabled: Bool = true
@@ -271,5 +306,35 @@ final class AppState {
 
     func cancelConfirmation() {
         pendingConfirmation = nil
+    }
+
+    // MARK: - 2026 sprint warnings (Tasks 2.4 + 2.5)
+
+    /// Non-blocking warnings derived from the current patient state +
+    /// operator tier. Surfaced as a banner on the TCCC Card screen.
+    /// Empty when there's nothing to flag.
+    var pendingWarnings: [TCCCWarning] {
+        var out: [TCCCWarning] = []
+        guard let patient = primaryPatient else { return out }
+
+        // 2.4 — AVPU before ketamine.
+        let hasKetamine = patient.interventions.contains { intervention in
+            intervention.description.lowercased().contains("ketamine")
+        } || (patient.paws.pain?.lowercased().contains("ketamine") ?? false)
+        if hasKetamine && patient.march.consciousness == nil {
+            out.append(.avpuBeforeKetamine)
+        }
+
+        // 2.5 — ASM/CLS TQ conversion beyond 2 hours.
+        if operatorTier.isASMOrCLS,
+           let conversion = patient.interventions.first(where: { $0.kind == .tourniquetConversion }),
+           let application = patient.interventions.first(where: { $0.kind == .tourniquet }) {
+            let elapsed = conversion.timestamp.timeIntervalSince(application.timestamp)
+            if elapsed > 2 * 60 * 60 {
+                out.append(.tqConversionScope)
+            }
+        }
+
+        return out
     }
 }

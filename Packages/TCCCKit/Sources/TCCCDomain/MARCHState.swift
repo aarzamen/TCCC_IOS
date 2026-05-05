@@ -81,6 +81,34 @@ public struct MARCHState: Sendable, Codable, Equatable, Hashable {
         self.hypothermiaPrevention = hypothermiaPrevention
     }
 
+    /// True when every MARCH phase has at least an in-progress assessment.
+    /// PAWS rendering is gated on this — per 2026 sprint spec 2.1, PAWS
+    /// phases stay dormant ("—") until MARCH has been assessed at all.
+    public var allPhasesAssessed: Bool {
+        MarchPhase.allCases.allSatisfy {
+            getPhaseStatus($0) != .notAssessed
+        }
+    }
+
+    // MARK: - Hypothermia / TBI sub-phase status (2026 split)
+    //
+    // The 2026 TCCC Guidelines treat Hypothermia (§7) and TBI (§8) as
+    // distinct sections. The legacy MARCH-H slot has been split into two
+    // sub-rows in the UI; these computed statuses drive that split. The
+    // `head` MarchPhase remains the umbrella for backward compatibility.
+
+    /// Status of the Hypothermia (H-Hypo) sub-phase per 2026 §7.
+    public var hypothermiaPhaseStatus: PhaseStatus {
+        hypothermiaPrevention != nil ? .done : .notAssessed
+    }
+
+    /// Status of the TBI (H-TBI) sub-phase per 2026 §8. Considers AVPU
+    /// (consciousness) and pupil response — both are TBI-relevant findings.
+    public var tbiPhaseStatus: PhaseStatus {
+        if consciousness != nil || pupilResponse != nil { return .done }
+        return .notAssessed
+    }
+
     /// Status indicator for a MARCH phase. Mirrors `state.py:get_phase_status`
     /// (lines 266–301).
     public func getPhaseStatus(_ phase: MarchPhase) -> PhaseStatus {
