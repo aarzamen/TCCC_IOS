@@ -502,6 +502,7 @@ final class AppState {
     func wipeSession() {
         autoCleanTask?.cancel()
         autoCleanTask = nil
+        lastCleanedAt = nil
         voiceCommandTask?.cancel()
         voiceCommandTask = nil
         pendingVoiceCommand = nil
@@ -530,6 +531,7 @@ final class AppState {
     func newPatient() {
         autoCleanTask?.cancel()
         autoCleanTask = nil
+        lastCleanedAt = nil
         voiceCommandTask?.cancel()
         voiceCommandTask = nil
         pendingVoiceCommand = nil
@@ -559,6 +561,7 @@ final class AppState {
     func endCurrentCare() {
         autoCleanTask?.cancel()
         autoCleanTask = nil
+        lastCleanedAt = nil
         voiceCommandTask?.cancel()
         voiceCommandTask = nil
         pendingVoiceCommand = nil
@@ -608,6 +611,10 @@ final class AppState {
     /// its own pass so we don't fight ourselves.
     var autoCleanTask: Task<Void, Never>?
 
+    /// Wall-clock when the last auto-clean run completed successfully.
+    /// Drives the 60s must-run fallback in `scheduleAutoClean()`.
+    var lastCleanedAt: Date?
+
     // MARK: - Voice commands (Task S3-7)
 
     /// Currently armed voice command, or nil. UI binds to this for the
@@ -627,23 +634,38 @@ final class AppState {
     /// Uses the same backend the operator picked for product generation,
     /// so behaviour stays consistent with the manual button.
     func scheduleAutoClean() {
-        autoCleanTask?.cancel()
         let lines = transcript
         guard lines.count >= 3 else { return }
+
+        let mustRun: Bool
+        if let last = lastCleanedAt {
+            mustRun = Date().timeIntervalSince(last) >= 60
+        } else {
+            mustRun = false
+        }
+
+        if !mustRun {
+            // Cancel-and-reschedule (existing behavior). Fresh commits keep
+            // pushing the deadline.
+            autoCleanTask?.cancel()
+        }
+        // If mustRun, leave autoCleanTask alone — let it land if mid-flight,
+        // or schedule a new one if cancelled. Either way, we ensure something
+        // runs within the next 5s.
+
         let backend = currentBackend
         autoCleanTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 5_000_000_000) // 5s
             guard let self, !Task.isCancelled else { return }
-            // Re-snapshot after sleep — transcript may have grown.
             let toClean = self.transcript
             guard toClean.count >= 3 else { return }
             do {
                 let cleaned = try await TranscriptCleaner(backend: backend).clean(toClean)
                 guard !Task.isCancelled else { return }
                 self.transcriptCleaned = cleaned
+                self.lastCleanedAt = Date()
             } catch {
-                // Silent failure — auto-clean is opportunistic. The manual
-                // button surfaces errors directly.
+                // Silent failure — manual button surfaces errors directly.
             }
         }
     }
