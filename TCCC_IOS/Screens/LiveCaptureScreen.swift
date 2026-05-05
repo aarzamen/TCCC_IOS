@@ -23,7 +23,12 @@ struct LiveCaptureScreen: View {
     /// transcript line and run the extraction engine. SFSpeechRecognizer
     /// won't always fire its own isFinal during continuous narration, so we
     /// don't rely on it.
-    private let silenceDebounce: Double = 1.5
+    ///
+    /// Bumped 1.5 -> 2.5s 2026-05-05 after device test: medic narration
+    /// has natural mid-sentence pauses shorter than 2s; the previous 1.5s
+    /// was committing lines mid-thought. 2.5s matches a comfortable
+    /// breath-pause boundary. Tunable later.
+    private let silenceDebounce: Double = 2.5
 
     /// Factory: returns the configured ASR backend per `state.asrBackend`.
     /// Both backends receive a `gainProvider` closure that reads the

@@ -54,6 +54,23 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// change takes effect on the next sample.
     private let gainProvider: @Sendable () -> Float
 
+    /// FluidAudio streaming chunk size. Each value corresponds to a
+    /// distinct CoreML model variant on Hugging Face — switching this
+    /// will trigger a fresh model download on next `start()`. Stick
+    /// with `.ms160` (the original default + only one we've shipped) to
+    /// avoid the re-download cost. Larger chunks raise latency between
+    /// EOU emissions but improve throughput; the user's "give me longer
+    /// chunks" feedback is addressed primarily by `eouDebounceMs`
+    /// rather than by switching the chunk-size variant.
+    private let chunkSize: StreamingChunkSize
+
+    /// Sustained-silence threshold (ms) before FluidAudio fires its
+    /// EOU callback. FluidAudio's stock default is 1280ms; we set 2000
+    /// so the medic gets natural sentence boundaries instead of
+    /// mid-thought commits. Pairs with `LiveCaptureScreen.silenceDebounce`
+    /// (a UI-side debouncer on top of FluidAudio's own EOU). 2026-05-05.
+    private let eouDebounceMs: Int
+
     /// Optional progress callback for the auto-download path.
     private var downloadProgressHandler: (@Sendable (Double) -> Void)?
 
@@ -92,10 +109,14 @@ actor ParakeetTranscriptStream: TranscriptStream {
 
     init(
         levels: AudioLevels?,
-        gainProvider: @escaping @Sendable () -> Float = { 1.0 }
+        gainProvider: @escaping @Sendable () -> Float = { 1.0 },
+        chunkSize: StreamingChunkSize = .ms160,
+        eouDebounceMs: Int = 2000
     ) {
         self.levels = levels
         self.gainProvider = gainProvider
+        self.chunkSize = chunkSize
+        self.eouDebounceMs = eouDebounceMs
     }
 
     /// Provide the directory containing the Parakeet CoreML model bundle.
@@ -118,7 +139,10 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// model is already cached or loaded, it returns immediately.
     func ensureModelsLoaded() async throws {
         if manager != nil { return }
-        let mgr = StreamingEouAsrManager()
+        let mgr = StreamingEouAsrManager(
+            chunkSize: chunkSize,
+            eouDebounceMs: eouDebounceMs
+        )
         await mgr.setPartialCallback { [weak self] partial in
             Task { await self?.emitPartial(partial) }
         }
