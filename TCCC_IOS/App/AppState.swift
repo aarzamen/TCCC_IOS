@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 import TCCCDomain
 import TCCCExtractor
 
@@ -142,11 +143,17 @@ final class AppState {
     /// `audioGainDb` from there via `MainActor.assumeIsolated` is a
     /// fatal trap. This box is the bridge: SwiftUI updates `linear`
     /// on the MainActor; the audio thread reads it without isolation.
-    /// Float reads are atomic on all Apple platforms — at worst, a
-    /// single buffer might see a slightly stale gain. The cost is
+    /// `OSAllocatedUnfairLock` provides actual race-safety — assuming
+    /// "Float reads are atomic on Apple Silicon" is a lottery ticket
+    /// the language model owes us nothing on. The lock is uncontended
+    /// in practice (one writer, one reader, ~50 Hz) so the cost is
     /// invisible to the operator.
     final class AudioGainBox: @unchecked Sendable {
-        var linear: Float = 1.0
+        private let storage = OSAllocatedUnfairLock<Float>(initialState: 1.0)
+        var linear: Float {
+            get { storage.withLock { $0 } }
+            set { storage.withLock { $0 = newValue } }
+        }
     }
     let audioGainBox = AudioGainBox()
 
