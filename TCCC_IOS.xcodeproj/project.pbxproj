@@ -46,7 +46,6 @@
 		6369F90A6238D66A43DD242E /* ConfirmationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C6B5DD035E601B88468377 /* ConfirmationAction.swift */; };
 		65723436424B03087D2796A3 /* VoiceCommandChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44D1BCE15092A382D0C8A83E /* VoiceCommandChip.swift */; };
 		689138F6639A56D78549AA6C /* FMStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B0398ABF53C55C63CA91DE /* FMStatusBadge.swift */; };
-		6CC33EC6FEA4295C9B184C26 /* RFRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 337B999E3A62ABAB82A5D1E2 /* RFRow.swift */; };
 		6CE528D3418D0AD8149078FE /* TCCCReports in Frameworks */ = {isa = PBXBuildFile; productRef = 1EBADE04B1405565EC85AC04 /* TCCCReports */; };
 		6EB4E49A727792419BEDC620 /* EncounterNarrativeGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B50A8C1C4A39B3241BFC2B /* EncounterNarrativeGenerator.swift */; };
 		79899357C672ABAFD0A67D9B /* HandoffScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9D9A775A7C3BB84A0D9A2E /* HandoffScreen.swift */; };
@@ -105,7 +104,6 @@
 		274E6A86610FEAD04C57413F /* SmallVital.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmallVital.swift; sourceTree = "<group>"; };
 		2948D10CDEC949BDE4EFD900 /* MarchRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarchRowView.swift; sourceTree = "<group>"; };
 		2FBE6D7852D92258C933FEF8 /* ThemeOptCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeOptCard.swift; sourceTree = "<group>"; };
-		337B999E3A62ABAB82A5D1E2 /* RFRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RFRow.swift; sourceTree = "<group>"; };
 		36B14D02B33CC2F5C91E8003 /* BackOfCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackOfCardView.swift; sourceTree = "<group>"; };
 		38B8FC6324D1C8E2E96EB894 /* MedevacScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedevacScreen.swift; sourceTree = "<group>"; };
 		3CAAF88DF513C78083F43399 /* SumLineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SumLineView.swift; sourceTree = "<group>"; };
@@ -207,7 +205,6 @@
 				1EED0969895F125C962A9134 /* PAWSRowView.swift */,
 				C6B68FDA05142786243C6B85 /* QuickActionsSheet.swift */,
 				04BC9CC5B5E0351D55C2A0B7 /* RecCapsule.swift */,
-				337B999E3A62ABAB82A5D1E2 /* RFRow.swift */,
 				F7AEBF56F548969E0FD0AFDA /* SettingsOverlay.swift */,
 				1439B6599811FA567A67B1C2 /* ShareSheet.swift */,
 				274E6A86610FEAD04C57413F /* SmallVital.swift */,
@@ -483,7 +480,6 @@
 				0A9AA237302FD35F3D5BC61C /* QuickActionsSheet.swift in Sources */,
 				4438165A68BB5C4EAF4461EE /* QwenLLMBackend.swift in Sources */,
 				200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */,
-				6CC33EC6FEA4295C9B184C26 /* RFRow.swift in Sources */,
 				8DC1156F7128911034EFF946 /* RadioScriptGenerator.swift in Sources */,
 				C512FA47820E29A1BFDA4901 /* RecCapsule.swift in Sources */,
 				D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */,

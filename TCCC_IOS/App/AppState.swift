@@ -437,7 +437,6 @@ final class AppState {
     var voiceCommandsEnabled: Bool = true
     var hapticFeedbackEnabled: Bool = true
     var lockOrientationEnabled: Bool = true
-    var screenBurnProtectionEnabled: Bool = true
     var autoExportOnWiredHandoffEnabled: Bool = false
 
     func wipeSession() {

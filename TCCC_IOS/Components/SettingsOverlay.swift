@@ -37,8 +37,6 @@ struct SettingsOverlay: View {
             header
             ScrollView {
                 VStack(spacing: 0) {
-                    rfSection
-                    sectionDivider
                     displayModeSection
                     sectionDivider
                     audioASRSection
@@ -110,72 +108,6 @@ struct SettingsOverlay: View {
         Rectangle()
             .fill(palette.line)
             .frame(height: Layout.hairline)
-    }
-
-    // MARK: - RF Discipline
-
-    private var rfSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("RF · Emissions Discipline")
-                    .font(.system(size: 11, weight: .heavy))
-                    .tracking(1.8)
-                    .foregroundStyle(palette.fg)
-                    .textCase(.uppercase)
-                Spacer(minLength: 0)
-                statusPill
-            }
-
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 5),
-                spacing: 6
-            ) {
-                RFRow(name: "Wi-Fi", band: "2.4 / 5 GHz", icon: "wifi.slash")
-                RFRow(name: "Bluetooth", band: "2.4 GHz", icon: "minus.diamond")
-                RFRow(name: "Cellular", band: "Multi-band", icon: "antenna.radiowaves.left.and.right.slash")
-                RFRow(name: "UWB", band: "6.5 / 8 GHz", icon: "wave.3.right")
-                RFRow(name: "NFC", band: "13.56 MHz", icon: "wave.3.right.circle")
-            }
-
-            Text("Permitted Egress · Local Only")
-                .font(.system(size: 10, weight: .heavy))
-                .tracking(1.6)
-                .foregroundStyle(palette.fg2)
-                .textCase(.uppercase)
-                .padding(.top, 4)
-
-            HStack(spacing: 6) {
-                EgressRow(name: "ANT+ Burst", band: "2.457 GHz · paired-only", icon: "dot.radiowaves.up.forward", state: state.antPlusArmed ? .armed : .disabled)
-                EgressRow(name: "Jetson Link", band: "Local · paired-only", icon: "cpu", state: state.jetsonLinkArmed ? .armed : .disabled)
-                EgressRow(name: "USB-C Wired", band: "MFi · primary handoff", icon: "bolt.horizontal.fill", state: state.usbConnected ? .connected : .armed)
-            }
-
-            Text("Hardware-disabled and signed-locked at all times during operational use. Status reflects the current MDM profile and can not be toggled from this screen.")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(palette.fg3)
-                .lineLimit(3)
-                .padding(.top, 6)
-        }
-        .padding(16)
-    }
-
-    private var statusPill: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(palette.accent)
-                .frame(width: 6, height: 6)
-            Text("RF Ghost · Confirmed")
-                .font(.system(size: 10, weight: .heavy))
-                .tracking(1.4)
-                .foregroundStyle(palette.accent)
-                .textCase(.uppercase)
-        }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .overlay(
-            Rectangle()
-                .strokeBorder(palette.accentDim, lineWidth: Layout.hairline)
-        )
     }
 
     // MARK: - Display Mode
@@ -427,7 +359,6 @@ struct SettingsOverlay: View {
             ToggleRow(label: "Voice Commands", detail: nil, isOn: Binding(get: { state.voiceCommandsEnabled }, set: { state.voiceCommandsEnabled = $0 }))
             ToggleRow(label: "Haptic Feedback", detail: nil, isOn: Binding(get: { state.hapticFeedbackEnabled }, set: { state.hapticFeedbackEnabled = $0 }))
             ToggleRow(label: "Lock Orientation (Landscape)", detail: nil, isOn: Binding(get: { state.lockOrientationEnabled }, set: { state.lockOrientationEnabled = $0 }))
-            ToggleRow(label: "Screen Burn Protection", detail: nil, isOn: Binding(get: { state.screenBurnProtectionEnabled }, set: { state.screenBurnProtectionEnabled = $0 }))
             ToggleRow(label: "Auto-Export on Wired Handoff", detail: nil, isOn: Binding(get: { state.autoExportOnWiredHandoffEnabled }, set: { state.autoExportOnWiredHandoffEnabled = $0 }))
         }
         .padding(.horizontal, 16)
@@ -448,15 +379,89 @@ struct SettingsOverlay: View {
                 columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)],
                 spacing: 6
             ) {
-                Field(label: "Callsign", value: state.operatorCallsign)
-                Field(label: "Role", value: state.operatorRole)
-                Field(label: "Unit", value: state.operatorUnit)
+                editableField(
+                    label: "Callsign",
+                    binding: Binding(get: { state.operatorCallsign }, set: { state.operatorCallsign = $0 }),
+                    keyboard: .asciiCapable,
+                    autoCap: .characters
+                )
+                editableField(
+                    label: "Role",
+                    binding: Binding(get: { state.operatorRole }, set: { state.operatorRole = $0 }),
+                    keyboard: .asciiCapable,
+                    autoCap: .characters
+                )
+                editableField(
+                    label: "Unit",
+                    binding: Binding(get: { state.operatorUnit }, set: { state.operatorUnit = $0 }),
+                    keyboard: .asciiCapable,
+                    autoCap: .characters
+                )
                 Field(label: "Device ID", value: state.operatorDeviceId)
             }
+
+            tierPickerBlock
 
             locationSourceBlock
         }
         .padding(16)
+    }
+
+    /// Operator-tier picker. `OperatorTier` is a controlled vocabulary
+    /// (ASM / CLS / CMC / CPP) and drives scope-of-practice warnings;
+    /// a segmented picker is the right input affordance.
+    @ViewBuilder
+    private var tierPickerBlock: some View {
+        Text("Tier")
+            .font(.system(size: 10, weight: .heavy))
+            .tracking(1.6)
+            .foregroundStyle(palette.fg2)
+            .textCase(.uppercase)
+            .padding(.top, 6)
+
+        Picker("Tier", selection: Binding(
+            get: { state.operatorTier },
+            set: { state.operatorTier = $0 }
+        )) {
+            ForEach(AppState.OperatorTier.allCases, id: \.self) { tier in
+                Text(tier.rawValue).tag(tier)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    /// Visual twin of `Field` (the read-only label/value tile) but
+    /// hosts an inline `TextField` so the operator can update their
+    /// profile from Settings. Border + label styling deliberately
+    /// match `Field.swift` so the section reads as one block.
+    private func editableField(
+        label: String,
+        binding: Binding<String>,
+        keyboard: UIKeyboardType,
+        autoCap: TextInputAutocapitalization
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(1.4)
+                .foregroundStyle(palette.fg2)
+                .textCase(.uppercase)
+            TextField("", text: binding)
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundStyle(palette.fg)
+                .keyboardType(keyboard)
+                .textInputAutocapitalization(autoCap)
+                .autocorrectionDisabled(true)
+                .textFieldStyle(.plain)
+                .submitLabel(.done)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(
+            Rectangle()
+                .strokeBorder(palette.line, lineWidth: Layout.hairline)
+        )
     }
 
     /// A1 hardening — explicit picker over `AppState.LocationSource`.
