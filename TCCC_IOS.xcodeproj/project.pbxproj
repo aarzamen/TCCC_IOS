@@ -34,6 +34,7 @@
 		49B7CE9FD6838E73E3EFC75B /* TCCCCardScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5199AF612A48F51F9282732A /* TCCCCardScreen.swift */; };
 		4A0F0CBCC1FA321587B4A2C5 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5228B58B0B7DEB4A7E25D6EB /* AppState.swift */; };
 		4D5964B348E60F55B966ED53 /* LFM2LLMBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1946CE8343768646DD99F1B7 /* LFM2LLMBackend.swift */; };
+		4F6590D8E866CEE9214BEF86 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA68EA014729F86EDAF38A92 /* Haptics.swift */; };
 		4FA58F736746F6C6335237B6 /* HandoffData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EE8A25877D44D109385309C /* HandoffData.swift */; };
 		54CC36D3E83CE257AF7FE4DE /* TCCCLLMBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D3107D62542750F42D865F8 /* TCCCLLMBackend.swift */; };
 		553E057ED5AAEC6B1A6AA22E /* AppleFoundationLLMBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2A7BCF4A50066EAC3F8CC8 /* AppleFoundationLLMBackend.swift */; };
@@ -167,6 +168,7 @@
 		F5F6D97B7FB9AB745F523F49 /* StatusStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusStrip.swift; sourceTree = "<group>"; };
 		F6329758947011BA2C164B43 /* AudioMeterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioMeterView.swift; sourceTree = "<group>"; };
 		F7AEBF56F548969E0FD0AFDA /* SettingsOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsOverlay.swift; sourceTree = "<group>"; };
+		FA68EA014729F86EDAF38A92 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -199,6 +201,7 @@
 				0CC8E752C934974E83313217 /* FactRow.swift */,
 				587404AC0A87B848DF7E9B6E /* Field.swift */,
 				80B0398ABF53C55C63CA91DE /* FMStatusBadge.swift */,
+				FA68EA014729F86EDAF38A92 /* Haptics.swift */,
 				AB573FE657D740D397D5C736 /* HoldToConfirmButton.swift */,
 				99C033D7A4B1BF4742D8F743 /* InterventionRow.swift */,
 				2948D10CDEC949BDE4EFD900 /* MarchRowView.swift */,
@@ -464,6 +467,7 @@
 				4FA58F736746F6C6335237B6 /* HandoffData.swift in Sources */,
 				E4B0C26E661601755A05E425 /* HandoffDestination.swift in Sources */,
 				79899357C672ABAFD0A67D9B /* HandoffScreen.swift in Sources */,
+				4F6590D8E866CEE9214BEF86 /* Haptics.swift in Sources */,
 				C43F3337B8B63F651FDF3360 /* HoldToConfirmButton.swift in Sources */,
 				3079A030E1574FDBFA01D960 /* InterventionRow.swift in Sources */,
 				4D5964B348E60F55B966ED53 /* LFM2LLMBackend.swift in Sources */,

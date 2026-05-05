@@ -642,6 +642,10 @@ struct HandoffScreen: View {
         let stamp = HandoffSummary.formatTime(Date())
 
         if dest.isFunctional {
+            // Strong success cue — the medic has gloves on and
+            // probably can't see the SYS line scroll. The
+            // notification haptic is unambiguous.
+            Haptics.notify(.success)
             state.appendSystem("TRANSMIT · \(dest.displayName) · \(stamp)")
             state.lastMedevacTransmitTime = Date()
             if dest == .qr {
@@ -651,6 +655,7 @@ struct HandoffScreen: View {
             // RF Ghost: NFC has no networking path wired. Do NOT
             // log a success-shaped TRANSMIT line — the operator could read that
             // as "the casualty packet was sent." Make the failure explicit.
+            Haptics.notify(.error)
             state.appendSystem("TRANSMIT BLOCKED · \(dest.displayName) NOT WIRED · \(stamp)")
         }
         // Reset progress shortly after completion so the button is reusable.

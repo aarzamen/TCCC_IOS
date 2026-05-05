@@ -30,6 +30,7 @@ struct ScreenPager: View {
                         let dx = value.translation.width
                         let velocity = value.predictedEndTranslation.width - value.translation.width
                         let threshold = Layout.swipeThreshold
+                        let priorScreen = state.screen
                         withAnimation(.pageTransition) {
                             dragOffset = 0
                             if dx + velocity * 0.3 < -threshold {
@@ -37,6 +38,13 @@ struct ScreenPager: View {
                             } else if dx + velocity * 0.3 > threshold {
                                 state.previousScreen()
                             }
+                        }
+                        // Light tactile confirmation that the swipe
+                        // committed to a new page. Gated on an actual
+                        // screen change so resistance-edge bounce-backs
+                        // (first / last screen) stay silent.
+                        if state.screen != priorScreen {
+                            Haptics.tap(.light)
                         }
                     }
             )

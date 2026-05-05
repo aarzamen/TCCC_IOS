@@ -46,6 +46,10 @@ struct HoldToConfirmButton: View {
             .onChanged { _ in
                 guard task == nil else { return }
                 progress = 0
+                // Subtle confirmation that the operator is holding the
+                // right control. `.light` so it doesn't compete with the
+                // `.heavy` impact that fires when the hold completes.
+                Haptics.tap(.light)
                 let start = Date()
                 task = Task { @MainActor in
                     while !Task.isCancelled {
@@ -53,6 +57,8 @@ struct HoldToConfirmButton: View {
                         let p = min(1, elapsed / holdSeconds)
                         progress = CGFloat(p)
                         if p >= 1 {
+                            // Strong tactile commit when the action fires.
+                            Haptics.tap(.heavy)
                             action()
                             progress = 0
                             task = nil

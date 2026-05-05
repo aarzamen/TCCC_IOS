@@ -26,7 +26,10 @@ struct BigButton: View {
     }
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
             VStack(spacing: 6) {
                 Image(systemName: systemImage)
                     .font(.system(size: 20, weight: .medium))

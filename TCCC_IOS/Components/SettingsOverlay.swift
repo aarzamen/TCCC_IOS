@@ -206,6 +206,7 @@ struct SettingsOverlay: View {
     private func asrBackendRow(_ backend: AppState.ASRBackend) -> some View {
         let isSelected = state.asrBackend == backend
         return Button {
+            Haptics.selection()
             state.asrBackend = backend
         } label: {
             HStack(spacing: 10) {
@@ -333,7 +334,10 @@ struct SettingsOverlay: View {
                         backend: backend,
                         isSelected: state.llmBackend == backend,
                         isDownloading: state.downloadingBackend == backend,
-                        onTap: { state.llmBackend = backend },
+                        onTap: {
+                            Haptics.selection()
+                            state.llmBackend = backend
+                        },
                         onDownload: {
                             Task { await state.downloadBackendWeights(backend) }
                         }

@@ -137,7 +137,10 @@ struct FooterHints: View {
         tint: Color,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
             VStack(spacing: 1) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))

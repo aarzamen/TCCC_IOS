@@ -192,7 +192,10 @@ struct LiveCaptureScreen: View {
         if !state.transcript.isEmpty {
             HStack(spacing: 6) {
                 if state.transcriptCleaned == nil {
-                    Button(action: handleCleanTranscript) {
+                    Button {
+                        Haptics.tap()
+                        handleCleanTranscript()
+                    } label: {
                         cleanerButtonLabel(
                             icon: isCleaningTranscript ? nil : "wand.and.stars",
                             title: isCleaningTranscript ? "Cleaning…" : "Clean transcript",
@@ -203,12 +206,16 @@ struct LiveCaptureScreen: View {
                     .disabled(isCleaningTranscript)
                 } else {
                     Button {
+                        Haptics.tap()
                         state.transcriptCleaned = nil
                     } label: {
                         cleanerButtonLabel(icon: "arrow.uturn.backward", title: "Show raw", tinted: false)
                     }
                     .buttonStyle(.plain)
-                    Button(action: handleCleanTranscript) {
+                    Button {
+                        Haptics.tap()
+                        handleCleanTranscript()
+                    } label: {
                         cleanerButtonLabel(
                             icon: "wand.and.stars",
                             title: "Re-clean",

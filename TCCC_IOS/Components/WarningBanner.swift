@@ -10,16 +10,40 @@ struct WarningBanner: View {
     let warnings: [AppState.TCCCWarning]
     @Environment(\.palette) private var palette
 
+    /// Tracks the warning set we last fired a haptic for. We notify on
+    /// every transition where a new warning enters the set (or the set
+    /// goes from empty → non-empty); identical re-renders stay silent.
+    @State private var lastNotified: Set<AppState.TCCCWarning> = []
+
     var body: some View {
-        if warnings.isEmpty {
-            EmptyView()
-        } else {
-            VStack(spacing: 4) {
-                ForEach(warnings, id: \.self) { warning in
-                    chip(for: warning)
+        Group {
+            if warnings.isEmpty {
+                EmptyView()
+            } else {
+                VStack(spacing: 4) {
+                    ForEach(warnings, id: \.self) { warning in
+                        chip(for: warning)
+                    }
                 }
             }
         }
+        .onAppear { fireIfNew() }
+        .onChange(of: warnings) { _, _ in fireIfNew() }
+    }
+
+    /// Fire `.warning` exactly once per *new* warning. Re-renders with
+    /// the same set stay silent; warnings clearing then reappearing does
+    /// re-fire (the cleared state resets `lastNotified`).
+    private func fireIfNew() {
+        let current = Set(warnings)
+        if current.isEmpty {
+            lastNotified = []
+            return
+        }
+        if !current.isSubset(of: lastNotified) {
+            Haptics.notify(.warning)
+        }
+        lastNotified = current
     }
 
     private func chip(for warning: AppState.TCCCWarning) -> some View {
