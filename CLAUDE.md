@@ -247,6 +247,65 @@ download button + gain slider.
 `xcodebuild build -scheme TCCC_IOS` is green. **697 TCCCKit
 tests, 0 failures.**
 
+**Review-hardening sprint (2026-05-05).** Branch
+`hardening-2026-05-05`, 14 commits. Addresses ChatGPT's
+post-sprint review:
+- Safety: explicit `LocationSource` (none/manual/demo) — no
+  more silent Bagram GPS default; `ProtectedWrite` helper
+  routes every casualty disk write through
+  `NSFileProtectionComplete` (HandoffData JSON/CSV/transcript
+  + Parakeet + SpeechRecognizer .wav files); ATAK / MEDHUB /
+  NFC marked non-functional with `isFunctional` flag and
+  PEND visual badge — `TRANSMIT BLOCKED · NOT WIRED` log
+  for non-functional destinations; `New Cas` in Settings now
+  uses `HoldToConfirmButton` (2 s hold) matching the WIPE
+  pattern; fabricated `Hemorrhagic shock · class III` literal
+  replaced with engine classification verbatim; synthetic
+  `MEDEVAC requested` timeline row gated on
+  `state.lastMedevacTransmitTime != nil`.
+- Clinical correctness: `MedevacValidator` and
+  `ZMISTValidator` ported from Python prototype
+  (`reports.py:20-92,584-955`) into TCCCKit's `TCCCReports`
+  module — cross-references SLM output against engine state
+  and rewrites disagreeing lines (Lines 3 / 4 / 5 for MEDEVAC,
+  per-block field replacement for ZMIST). Wired into
+  `RadioScriptGenerator` and `ZMISTNarrativeGenerator` with a
+  > 40% line-rewrite heuristic: above threshold, drop SLM
+  output and ship the deterministic `MedevacGenerator` /
+  `ZMISTGenerator` text instead. `TCCCLanguageModel` now uses
+  a fresh `LanguageModelSession` per `generate()` call so
+  context never bleeds between casualties or generation
+  kinds. All four generators (`RadioScriptGenerator`,
+  `ZMISTNarrativeGenerator`, `EncounterNarrativeGenerator`,
+  `TranscriptCleaner`) now take an injected
+  `any TCCCLLMBackend`; `AppState.currentBackend` vends the
+  right wrapper for the operator's selected backend. Settings
+  has a matching LLM backend picker.
+- Audio + concurrency: `ParakeetTranscriptStream` installs
+  the `AsyncStream` continuation BEFORE draining the pre-roll
+  buffer, so early callbacks aren't dropped; `AudioGainBox`
+  now uses `OSAllocatedUnfairLock<Float>` instead of
+  `@unchecked Sendable` over a bare Float.
+- UI: `Layout.bigButtonHeight 32 → 56` (primary action band
+  per CLAUDE.md hard constraint #4); footer hint buttons
+  `30 → 44` (with footer container raised to fit); TCCC Card
+  front/back tabs `28 → 44`. New `Layout.footerHintHeight`
+  and `toggleTabHeight = 44` constants.
+- Release engineering: `Package.resolved` no longer
+  `.gitignore`'d (committed at workspace location);
+  FluidAudio pinned `from: "0.9.1"` → `exactVersion: "0.14.4"`;
+  minimal GitHub Actions CI added (swift test + iOS Simulator
+  build on push/PR).
+
+**TCCCKit suite is now 724 tests, 0 failures** (697 prior +
+23 validator + 4 fallback heuristic). Build green on iPhone
+17 Pro simulator. **Note:** several Wave-2 commits have
+mismatched subject lines from a parallel-agent staging race
+(commits `63a00cf` / `b3d16f5` / `4c68735` / `9305029` —
+contents are correct, log messages are misleading). The
+two `commit -am` collisions are documented for reviewer
+clarity; no work was lost.
+
 ## What's left to do
 
 The features below are scaffolded or planned but not yet shipped.
