@@ -1,6 +1,7 @@
 import Foundation
 @preconcurrency import AVFAudio
 import FluidAudio
+import os
 
 /// Parakeet ASR backend — alt fallback to Apple SpeechRecognizer.
 ///
@@ -104,6 +105,16 @@ actor ParakeetTranscriptStream: TranscriptStream {
 
     private var audioFile: AVAudioFile?
     private(set) var lastRecordingURL: URL?
+
+    // MARK: - Periodic stats logger (long-form observability)
+
+    /// Dev-only breadcrumb timer. Every 5 minutes while a session is
+    /// primed/recognising, emit `os_proc_available_memory()` and the
+    /// current partial-string length to `os_log` so long-form
+    /// (30-90 min) sessions can be diagnosed post-hoc without UI
+    /// noise. Never user-facing. Per long-form plan L3.1.
+    private var statsTimer: DispatchSourceTimer?
+    private static let statsLog = OSLog(subsystem: "ai.tccc", category: "parakeet-longform")
 
     // MARK: - Init
 
@@ -210,6 +221,7 @@ actor ParakeetTranscriptStream: TranscriptStream {
             throw TranscriptStreamError.engineFailed(error.localizedDescription)
         }
         isPrimed = true
+        startStatsTimer()
     }
 
     func unprime() async {
@@ -285,10 +297,54 @@ actor ParakeetTranscriptStream: TranscriptStream {
         if tailDeadline == nil {
             tailDeadline = Date().addingTimeInterval(tailDuration)
         }
+        stopStatsTimer()
     }
 
     func stopImmediate() async {
         await teardownRecognizer()
+        stopStatsTimer()
+    }
+
+    // MARK: - Stats timer (long-form observability)
+
+    /// Schedule a 5-minute repeating timer that emits memory and
+    /// partial-string-length breadcrumbs. Idempotent — calling twice
+    /// is a no-op while a timer is already live.
+    private func startStatsTimer() {
+        guard statsTimer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
+        timer.schedule(deadline: .now() + .seconds(300), repeating: .seconds(300))
+        timer.setEventHandler { [weak self] in
+            Task { await self?.emitStats() }
+        }
+        timer.resume()
+        statsTimer = timer
+    }
+
+    /// Cancel the stats timer if running. Idempotent.
+    private func stopStatsTimer() {
+        statsTimer?.cancel()
+        statsTimer = nil
+    }
+
+    /// Emit a single breadcrumb. Reads `os_proc_available_memory()`
+    /// (bytes of headroom before iOS jetsams the app) and the current
+    /// partial-string length. Dev breadcrumb only — `os_log` default
+    /// level so it's visible in Console.app under
+    /// subsystem `ai.tccc` / category `parakeet-longform`, but not
+    /// user-facing.
+    private func emitStats() {
+        let availableBytes = os_proc_available_memory()
+        let availableMB = availableBytes / (1024 * 1024)
+        let partialLen = currentPartial.count
+        os_log(
+            "longform stats: available_mem=%lldMB partial_len=%d isRecognizing=%{bool}d",
+            log: Self.statsLog,
+            type: .default,
+            availableMB,
+            partialLen,
+            isRecognizing
+        )
     }
 
     // MARK: - Tap-callback path
