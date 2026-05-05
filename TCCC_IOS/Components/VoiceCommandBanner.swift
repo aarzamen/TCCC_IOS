@@ -54,36 +54,28 @@ struct VoiceCommandBanner: View {
 
     private func bannerCard(for pending: AppState.PendingVoiceCommand) -> some View {
         let remaining = max(0, pending.firesAt.timeIntervalSince(nowTick))
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(pending.command.bannerTitle)
-                    .font(.system(size: 22, weight: .heavy))
-                    .tracking(0.6)
-                    .textCase(.uppercase)
-                    .foregroundStyle(palette.crit)
-                Spacer(minLength: 12)
-                Text(String(format: "%.1f s", remaining))
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(palette.fg)
+                Spacer(minLength: 12)
+                Text(String(format: "%.1fs", remaining))
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .foregroundStyle(palette.fg2)
                     .monospacedDigit()
             }
-            Text(pending.command.bannerDetail)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(palette.fg2)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("Tap anywhere to cancel")
-                .font(.system(size: 11, weight: .heavy))
-                .tracking(1.4)
-                .textCase(.uppercase)
+            Text("Tap to cancel")
+                .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(palette.fg2)
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(palette.bg1)
         .overlay(
             Rectangle()
-                .strokeBorder(palette.crit, lineWidth: 2)
+                .strokeBorder(palette.line, lineWidth: 1)
         )
     }
 }

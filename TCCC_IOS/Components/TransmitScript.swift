@@ -34,9 +34,9 @@ struct TransmitScript: View {
 
     private var fallbackScriptView: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("DUSTOFF SIX, DUSTOFF SIX,")
+            Text("MEDEVAC, MEDEVAC,")
                 .foregroundStyle(palette.accent)
-            Text("THIS IS HAVOC TWO ACTUAL,")
+            Text("THIS IS MEDIC,")
                 .foregroundStyle(palette.fg)
 
             ForEach(scriptLines, id: \.self) { line in

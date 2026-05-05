@@ -46,8 +46,8 @@ struct RadioScriptGenerator {
         from form: NineLineForm,
         patients: [PatientState] = [],
         transcript: String = "",
-        callsign: String = "HAVOC TWO ACTUAL",
-        receiver: String = "DUSTOFF SIX"
+        callsign: String = "MEDIC",
+        receiver: String = "MEDEVAC"
     ) async throws -> String {
         let lines = form.entries.map { entry in
             "Line \(entry.number) (\(entry.label)): \(entry.value)"

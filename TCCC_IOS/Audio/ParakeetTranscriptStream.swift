@@ -106,7 +106,12 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// regression, mic glitch), the accumulating partial would grow
     /// unbounded over a 30-90 min recording. Force-finalize at this
     /// ceiling so memory + UI cost stay bounded.
-    private let partialStringCeiling = 2000
+    ///
+    /// Raised 2000 -> 8000 after device feedback that fast continuous
+    /// speech (a YouTube monologue, no 2 s pauses) was getting truncated
+    /// at the ceiling boundary. 8000 chars ≈ 1500 spoken words ≈ 7-8 min
+    /// of continuous fast speech — plenty of headroom while still bounded.
+    private let partialStringCeiling = 8000
 
     // MARK: - Audio file capture
 
@@ -440,9 +445,27 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// Called from FluidAudio's EOU callback when end-of-utterance is
     /// detected. Emits a final update to the stream and resets the
     /// partial accumulator.
+    ///
+    /// Defensive cumulative-vs-fragment merge:
+    /// FluidAudio's EOU callback returns the latest *utterance* recognized
+    /// by Parakeet, which under fast continuous speech (no 2 s silence to
+    /// trigger earlier EOU) can be just the last sub-utterance fragment
+    /// — e.g. two words — while our cumulative `currentPartial` holds the
+    /// full running text we've been showing in the UI for the past minute.
+    /// If the cumulative is meaningfully longer than `finalText`, prefer
+    /// it: losing 58 seconds of accurate transcription to keep two words
+    /// is the wrong trade. Worst case if FluidAudio's `finalText` *is*
+    /// already the cumulative: we commit `currentPartial` which is the
+    /// same thing modulo trailing punctuation. No data loss either way.
     private func emitFinal(_ finalText: String) {
+        let textToCommit: String
+        if currentPartial.count > finalText.count + 20 {
+            textToCommit = currentPartial
+        } else {
+            textToCommit = finalText
+        }
         continuation?.yield(
-            RecognitionUpdate(text: finalText, isFinal: true, timestamp: Date()))
+            RecognitionUpdate(text: textToCommit, isFinal: true, timestamp: Date()))
         currentPartial = ""
     }
 

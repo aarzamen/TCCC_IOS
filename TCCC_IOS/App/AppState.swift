@@ -32,8 +32,8 @@ final class AppState {
             case .liveCapture: "VOICE INTAKE"
             case .vitals:      "DD 1380 · SECTION C"
             case .tcccCard:    "DD-1380 · CASUALTY CARD"
-            case .medevac:     "DUSTOFF · 9-LINE REQUEST"
-            case .handoff:     "ROLE-1 → ROLE-2 · ENCRYPTED EXPORT"
+            case .medevac:     "9-LINE MEDEVAC"
+            case .handoff:     "ROLE-1 → ROLE-2 EXPORT"
             }
         }
     }
@@ -551,8 +551,8 @@ final class AppState {
 
     // MARK: - Settings — operator profile + system flags
 
-    var operatorCallsign: String = "HAVOC 2A"
-    var operatorRole: String = "68W · SR MEDIC"
+    var operatorCallsign: String = ""
+    var operatorRole: String = ""
     var operatorUnit: String = "2/75 RGR"
     var operatorDeviceId: String = "EUD-441-C"
 

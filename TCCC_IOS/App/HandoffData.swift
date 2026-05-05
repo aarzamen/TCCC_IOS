@@ -210,7 +210,7 @@ enum HandoffSummary {
         let mode = isLitter ? "LITTER" : "AMBULATORY"
         var parts: [String] = [classification.rawValue.uppercased(), mode]
         if classification == .urgent || classification == .urgentSurgical {
-            parts.append("DUSTOFF requested")
+            parts.append("MEDEVAC requested")
         }
         return parts.joined(separator: " · ")
     }

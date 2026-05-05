@@ -9,7 +9,7 @@ enum Theme: String, CaseIterable, Sendable, Codable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .tactical: "Tactical"
+        case .tactical: "NVG Dark"
         case .dark: "Dark"
         case .light: "Light"
         }

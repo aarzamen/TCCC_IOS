@@ -25,7 +25,7 @@ struct NineLineForm {
     static func derive(
         from patients: [PatientState],
         locationFix: AppState.LocationFix,
-        callsign: String = "DUSTOFF 6",
+        callsign: String = "MEDEVAC",
         frequency: String = "38.65 FM"
     ) -> NineLineForm {
         let urgent = patients.filter { $0.classification == .urgent || $0.classification == nil }.count
