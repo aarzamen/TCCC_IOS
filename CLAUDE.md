@@ -191,26 +191,191 @@ Out of Phase 4 scope (intentional, deferred):
   - Acetaminophen 2026 dose value extraction (drug recognized; numeric
     dose parsing not yet wired).
 
-## Active overnight pass — see NIGHT_PLAN.md
+## Sprint history (May 2026)
 
-A second overnight queue is in flight (started 2026-05-05 ~04:30
-local). Tracks: A — UI quality of life (dual Z/L time, MGRS, RAM
-indicator, default-theme flip Tactical → Dark, FM availability
-persistent badge); B — Parakeet ASR ported behind the existing
-TranscriptStream protocol as an alt-fallback (Apple Speech remains
-default); C — Qwen 3 1.7B / Liquid LFM2 1B LLM backend scaffolds
-behind a TCCCLLMBackend protocol, also "on ice" (Apple Foundation
-Models remains default).
+Two completed multi-commit sprints landed on `main` between
+2026-05-05 ~01:00 and ~06:30 local:
 
-Reference research docs already on disk:
-  - reference/rubric/extracted/dd1380_field_inventory.json
-  - reference/rubric/extracted/march_paws_vocabulary_2026.json
-  - RESEARCH_PARAKEET.md (FluidInference/FluidAudio path, recommended)
-  - RESEARCH_LLAMA32B.md (Llama 3.2 3B does NOT fit on iPhone 17 Pro
-    under MLX; AUP forbids medical/military use; pivot to Qwen 3 1.7B
-    Apache-2.0 + Liquid LFM2)
+**2026 Rubric Alignment (Phases 1-4).** Off-rubric UI pruned
+(ECG, hand-drawn map, GCS / CapRe / Temp tiles, trend graph,
+"GHOST" branding, persistent GPS in header). HeadHypothermia
+extractor split into `HypothermiaExtractor` (§7) and
+`TBIExtractor` (§8). PAWS gated on MARCH assessment. Extracted-
+fact tiles constrained to DD-1380-bindable facts (RESP NORMAL +
+BS BILATERAL demoted). 2026 vocabulary: Suzetrigine, Esketamine
+IN, Cefadroxil/Ceftriaxone, TQ reposition (`tourniquetConversion`
+intervention kind), hypertonic saline, calcium-after-transfusion,
+2026 §4 airway additions, plasma-for-isolated-TBI, ketamine
+procedural routes, Acetaminophen 2026 dose extraction. AVPU-
+before-ketamine + ASM/CLS TQ-conversion warnings via
+`AppState.TCCCWarning` + `WarningBanner`. Vital Signs Log
+rebuilt as DD 1380 §C grid (4 cols × 7 rows, rolling
+`SectionCReading` buffer). `BackOfCardView` scaffolds §D-H
+fields. Handoff exportColumn reorganized with §19 verbatim
+callout. `RubricDriftProtectionTests` loads both rubric JSONs
+from disk at test time and asserts canonical anchors.
 
-Resumption protocol if context compaction interrupts the night
-queue: see NIGHT_PLAN.md — each task is labeled (A1, A2, ..., C6)
-and each landed commit names its task ID in the subject. Pick up
-from the highest-numbered task ID in `git log --oneline -20`.
+**UI + ASR + LLM-backend night pass (Tracks A, B, C).** A1 dual
+Zulu/Lima time in StatusStrip, A2 in-house WGS-84 → MGRS encoder
+(`Packages/TCCCKit/Sources/TCCCDomain/MGRS.swift`, validated
+against GeoTrans on 49 fixtures including Norway/Svalbard
+exceptions, integrated into 9-line LINE 1), A3 RAM headroom
+chip via `os_proc_available_memory()`, A4 default theme flipped
+to Dark, A5 persistent SLM availability badge. B FluidAudio
+SPM dep + `ParakeetTranscriptStream` actor wraps
+`StreamingEouAsrManager`, auto-downloads from Hugging Face on
+first start, 30 s pre-roll + 30 s tail. C `TCCCLLMBackend`
+protocol with `AppleFoundationLLMBackend` (real),
+`LFM2LLMBackend` and `QwenLLMBackend` (stubs returning
+`.notImplemented`). Audio gain wired from a `Settings` slider
+(-20 to +20 dB) through a Sendable box that the audio thread
+reads without isolation. Settings UI surfaces backend radio +
+download button + gain slider.
+
+**Reference docs on disk** (all from sprint research):
+  - `reference/rubric/extracted/dd1380_field_inventory.json`
+  - `reference/rubric/extracted/march_paws_vocabulary_2026.json`
+  - `RESEARCH_PARAKEET.md` — FluidInference/FluidAudio path
+  - `RESEARCH_LLAMA32B.md` — Llama 3.2 3B does NOT fit on iPhone
+    17 Pro under MLX; AUP forbids medical/military use
+  - `RESEARCH_LLM_SMALL.md` — LFM2.5-1.2B-Instruct primary,
+    Qwen 3 1.7B fallback
+  - `RESEARCH_MGRS.md` + `MGRS_VALIDATION.md`
+  - `RESEARCH_RAM_API.md`
+  - `OVERNIGHT_QUEUE.md`, `NIGHT_PLAN.md` — execution logs
+
+`xcodebuild build -scheme TCCC_IOS` is green. **697 TCCCKit
+tests, 0 failures.**
+
+## What's left to do
+
+The features below are scaffolded or planned but not yet shipped.
+Listed in priority order; each item is small enough to be its own
+session.
+
+### Highest-value next features
+
+1. **Tap-to-edit cells on the §C grid.** The grid is read-only
+   today. Each row needs an inline editor: BP gets a numeric pad
+   with `\d{2,3}/\d{2,3}` formatting, AVPU a 4-button selector,
+   Pain a 0-10 stepper, Pulse / RR / SpO₂ numeric pads, Time a
+   time-picker. Add an "Add Reading" affordance to seed a fresh
+   timestamped column from the current engine snapshot.
+2. **DD-1380 PDF generator.** `PDFKit` overlay onto a clean
+   DD Form 1380 background. Map every
+   `dd1380_field_inventory.json` field to an x/y coordinate and
+   render via `PDFAnnotation`. Wire to the Handoff "DD-1380 PDF"
+   export card; flip its `isReady` from false to (`patient !=
+   nil`). A clean form image still needs to be sourced.
+3. **"READY · DD-1380 · {casualty_id}" callout.** One line of
+   text in `HandoffScreen` once (2) lands.
+4. **Validator path for SLM-generated reports.** Port the Python
+   prototype's `validate_medevac_against_state` and
+   `validate_zmist_against_state` into Swift. Run between SLM
+   generation and display; fall back to deterministic
+   `MedevacGenerator` / `ZMISTGenerator` output on validation
+   failure. Becomes more important once Qwen / LFM2 backends
+   replace Apple Foundation Models for any of the four use
+   cases.
+
+### Backend follow-throughs
+
+5. **LLM backend Settings toggle.** `AppState.llmBackend`
+   already exists with three cases; the matching Settings UI
+   has not been added (only the ASR toggle is there). Symmetric
+   to the ASR section: radio between Apple Foundation / LFM2 /
+   Qwen with status indicators.
+6. **Refactor the four generators to consume `TCCCLLMBackend`.**
+   `RadioScriptGenerator`, `EncounterNarrativeGenerator`,
+   `ZMISTNarrativeGenerator`, and `TranscriptCleaner` currently
+   instantiate `TCCCLanguageModel` directly. Once they accept a
+   backend, the LLM toggle in (5) actually swaps engines at
+   runtime.
+7. **Ship LFM2.5-1.2B-Instruct or Qwen 3 1.7B for real.** The
+   stubs throw `.notImplemented`. Bundling MLX-Swift +
+   AnyLanguageModel (or LocalLLMClient), a model file, and the
+   import affordance is the bulk of this work. Per
+   `RESEARCH_LLM_SMALL.md` recommend LFM2.5 first
+   (LFM Open License, 660 MB MLX 4-bit, 59.7 tok/s on iPhone
+   17 Pro).
+8. **Parakeet on-device verification.** The integration is
+   wired but only sim-tested. Once the operator activates
+   Parakeet, FluidAudio downloads ~300 MB on first launch
+   (one HTTPS GET, gated by Settings consent) and runs on
+   the Apple Neural Engine. Worth a side-by-side WER session
+   on combat-medic vocabulary.
+
+### Polish
+
+9. **Real swipe-up / swipe-down gestures** for Settings + Quick
+   Actions overlays. The overlays open via the footer SET / ACT
+   taps today; the pager already takes horizontal drags. A
+   vertical-only `DragGesture` that coexists with `ScrollView`
+   on the screens that scroll is the tricky bit.
+10. **Inter Tight + JetBrains Mono fonts.** Bundle the OFL TTFs
+    into `TCCC_IOS/Fonts/`, add `UIAppFonts` entries to
+    `project.yml`, update `Typography.swift`. ~30 minutes once
+    the TTFs are in hand.
+11. **Custom stroke icon library** per design package §7. ~20
+    SwiftUI `Path` shapes for medical / MEDEVAC iconography to
+    replace SF Symbols. Good parallel-agent task — dispatch
+    one agent per icon group, each writes a small component.
+12. **Multi-casualty UI.** `PatientStateEngine.snapshot()`
+    already returns a dict; the UI surfaces `PATIENT_1` only.
+    A casualty switcher in the StatusStrip would unblock
+    multi-casualty flows.
+13. **Real audio export bundle.** The Audio + Transcript card
+    today ships the `.wav` and `.txt` separately. A zipped
+    bundle with a `manifest.json` (operator + casualty ID +
+    UTC timestamp) is a small win.
+
+### Bigger lifts (out of normal session scope)
+
+14. **Real ECG sensor stream.** Needs the ANT+ chest strap →
+    Jetson Nano companion → USB-C bridge into the iPhone. The
+    `VitalsSensor` protocol is scaffolded but no hardware exists.
+15. **Engine-on-partial-text experiment.** Run the extractor on
+    partial transcripts (before debounce-commit) to surface
+    tentative facts faster. Adds UI flicker; needs A/B testing.
+
+### Code-perfection backlog
+
+16. **swift-format or SwiftLint config.** No formatter is wired.
+    Apply once as a single style-sweep commit so `git blame`
+    stays useful.
+17. **DocC pass on TCCCKit public APIs.** All public types have
+    triple-slash docs but inconsistently. `swift package
+    generate-documentation` would surface the gaps.
+18. **Test coverage report.** Run `swift test
+    --enable-code-coverage` + `xcrun llvm-cov` to find
+    uncovered lines. 697 tests is a lot; coverage % is unknown.
+19. **CI.** No CI configured. A GitHub Action that runs
+    `swift test` on push would catch regressions. The MGRS
+    drift-protection tests load JSON from
+    `reference/rubric/extracted/` via `#filePath`-relative
+    paths — those work locally but need verifying on a fresh
+    CI checkout.
+20. **DerivedData hygiene.** A small dev script that clears
+    `~/Library/Developer/Xcode/DerivedData/TCCC_IOS-*` before
+    a full rebuild reduces the stale-file noise we saw during
+    sprints.
+
+### Resumption protocol
+
+If a future session needs to pick up mid-stream after context
+compaction:
+- `git log --oneline -20` shows commits with descriptive
+  subjects (e.g. `feat(asr):`, `fix(audio):`, `feat(ui):`).
+- `OVERNIGHT_QUEUE.md` and `NIGHT_PLAN.md` document the two
+  finished sprints and explicit deferrals.
+- `RESEARCH_*.md` files cover license, performance, and
+  integration paths for the alt backends.
+- Memory notes at
+  `/Users/ama/.claude/projects/-Users-ama-TCCC-IOS/memory/`
+  point at this state.
+
+Apple Speech ASR + Apple Foundation Models remain the runtime
+defaults. Alt-backends are reachable behind Settings toggles
+and require explicit operator action. Removing or breaking
+either default would regress the working app, so defer those
+changes until the alt path is field-validated.
