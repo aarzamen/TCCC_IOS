@@ -76,15 +76,26 @@ struct LiveCaptureScreen: View {
                 trailingKickerValue: trailingKickerValue
             )
 
-            HStack(spacing: Layout.gridGap) {
-                transcriptPanel
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Column-width ratios: side panels (CAPTURE / EXTRACTED) are
+            // slim; the transcript dominates the screen so more spoken
+            // words fit before the auto-scroll pushes the latest line off
+            // the top. ~12% / ~76% / ~12% — a "roughly a quarter" of the
+            // previous equal-thirds width for the side panels.
+            GeometryReader { geo in
+                let totalGap = Layout.gridGap * 2
+                let usable = max(geo.size.width - totalGap, 0)
+                let sideWidth = usable * 0.12
+                let centerWidth = usable - (sideWidth * 2)
+                HStack(spacing: Layout.gridGap) {
+                    capturePanel
+                        .frame(width: sideWidth, height: geo.size.height)
 
-                capturePanel
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    transcriptPanel
+                        .frame(width: centerWidth, height: geo.size.height)
 
-                extractedPanel
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    extractedPanel
+                        .frame(width: sideWidth, height: geo.size.height)
+                }
             }
             .padding(Layout.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -222,7 +233,7 @@ struct LiveCaptureScreen: View {
             }
             .padding(.vertical, 6)
             .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
             .overlay(alignment: .top) {
                 Rectangle().fill(palette.line).frame(height: Layout.hairline)
             }
