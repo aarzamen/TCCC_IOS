@@ -140,13 +140,17 @@ enum HandoffSummary {
     }
 
     private static func criticalValue(for classification: Classification?) -> String {
+        // Show the engine's actual classification — do not invent a clinical
+        // diagnosis the extractor never emitted. (Previous mapping fabricated
+        // strings like "Hemorrhagic shock · class III" that never came from
+        // the patient state engine.)
         switch classification {
-        case .urgent:           "Hemorrhagic shock · class III"
-        case .urgentSurgical:   "Surgical · damage control needed"
-        case .priority:         "Stable · close monitoring"
-        case .routine:          "Stable · ambulatory"
-        case .expectant:        "Expectant · comfort care"
-        case .none:             "—"
+        case .urgent:           "URGENT"
+        case .urgentSurgical:   "URGENT SURGICAL"
+        case .priority:         "PRIORITY"
+        case .routine:          "ROUTINE"
+        case .expectant:        "EXPECTANT"
+        case .none:             "PENDING"
         }
     }
 
@@ -223,7 +227,12 @@ enum HandoffSummary {
 @MainActor
 enum HandoffTimeline {
 
-    static func events(for patient: PatientState?, sessionStart: Date, now: Date = Date()) -> [HandoffTimelineEvent] {
+    static func events(
+        for patient: PatientState?,
+        sessionStart: Date,
+        now: Date = Date(),
+        medevacTransmitted: Bool = false
+    ) -> [HandoffTimelineEvent] {
         var rows: [HandoffTimelineEvent] = []
 
         // Synthetic POI marker.
@@ -253,16 +262,20 @@ enum HandoffTimeline {
             }
         }
 
-        // Synthetic 9-Line marker — last row.
-        rows.append(
-            .init(
-                timestamp: now,
-                icon: "antenna.radiowaves.left.and.right",
-                kindLabel: "9L",
-                detail: "MEDEVAC requested",
-                isHot: true
+        // 9-Line marker — only when the operator actually transmitted.
+        // Previously this row was unconditionally appended, which made an
+        // un-sent encounter look like MEDEVAC was requested.
+        if medevacTransmitted {
+            rows.append(
+                .init(
+                    timestamp: now,
+                    icon: "antenna.radiowaves.left.and.right",
+                    kindLabel: "9L",
+                    detail: "MEDEVAC requested",
+                    isHot: true
+                )
             )
-        )
+        }
 
         return rows
     }

@@ -259,6 +259,13 @@ final class AppState {
     var sessionStart: Date = Date()
     var batteryPercent: Int = 78
 
+    /// Wall-clock timestamp of the most recent successful MEDEVAC transmit
+    /// (set by `HandoffScreen.completeTransmit` when the destination is
+    /// functional, e.g. QR · OFFLINE). `nil` until the operator has actually
+    /// sent the packet. Drives the `MEDEVAC requested` row in the Handoff
+    /// timeline so it never appears for an unsent encounter.
+    var lastMedevacTransmitTime: Date? = nil
+
     /// Replaces the silent Bagram lat/lon default. Defaults to `.none`
     /// so the 9-line LOCATION line will render UNVERIFIED until the
     /// operator explicitly opts into a source via Settings.
@@ -448,6 +455,7 @@ final class AppState {
         zmistNarrative = nil
         transcriptCleaned = nil
         vitalsLog.removeAll()
+        lastMedevacTransmitTime = nil
     }
 
     /// Begin a new casualty. Increments the casualty counter, wipes
@@ -471,6 +479,7 @@ final class AppState {
         zmistNarrative = nil
         transcriptCleaned = nil
         vitalsLog.removeAll()
+        lastMedevacTransmitTime = nil
         appendSystem("NEW CASUALTY · \(casualtyId) · \(oldId) archived")
     }
 
@@ -492,6 +501,7 @@ final class AppState {
         zmistNarrative = nil
         transcriptCleaned = nil
         vitalsLog.removeAll()
+        lastMedevacTransmitTime = nil
     }
 
     // MARK: - SLM-generated text (persists across screen switches)
