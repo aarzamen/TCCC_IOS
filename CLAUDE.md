@@ -190,3 +190,27 @@ Out of Phase 4 scope (intentional, deferred):
   - Procedural-sedation ketamine routes (W phase).
   - Acetaminophen 2026 dose value extraction (drug recognized; numeric
     dose parsing not yet wired).
+
+## Active overnight pass — see NIGHT_PLAN.md
+
+A second overnight queue is in flight (started 2026-05-05 ~04:30
+local). Tracks: A — UI quality of life (dual Z/L time, MGRS, RAM
+indicator, default-theme flip Tactical → Dark, FM availability
+persistent badge); B — Parakeet ASR ported behind the existing
+TranscriptStream protocol as an alt-fallback (Apple Speech remains
+default); C — Qwen 3 1.7B / Liquid LFM2 1B LLM backend scaffolds
+behind a TCCCLLMBackend protocol, also "on ice" (Apple Foundation
+Models remains default).
+
+Reference research docs already on disk:
+  - reference/rubric/extracted/dd1380_field_inventory.json
+  - reference/rubric/extracted/march_paws_vocabulary_2026.json
+  - RESEARCH_PARAKEET.md (FluidInference/FluidAudio path, recommended)
+  - RESEARCH_LLAMA32B.md (Llama 3.2 3B does NOT fit on iPhone 17 Pro
+    under MLX; AUP forbids medical/military use; pivot to Qwen 3 1.7B
+    Apache-2.0 + Liquid LFM2)
+
+Resumption protocol if context compaction interrupts the night
+queue: see NIGHT_PLAN.md — each task is labeled (A1, A2, ..., C6)
+and each landed commit names its task ID in the subject. Pick up
+from the highest-numbered task ID in `git log --oneline -20`.
