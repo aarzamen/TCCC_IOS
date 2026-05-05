@@ -140,6 +140,12 @@ Add a "must-run" fallback to `AppState.scheduleAutoClean()`:
 - When scheduling, check: if `lastCleanedAt == nil` OR `Date().timeIntervalSince(lastCleanedAt) >= 60`, run unconditionally instead of cancelling. Otherwise cancel-and-reschedule as today.
 - After a successful clean: `lastCleanedAt = Date()`.
 
+> **Note: this is what voice-activity detection (VAD) is for.** The 60s
+> wall-clock fallback is a coarse stand-in. The proper solution is to
+> detect actual speaker silence vs. ambient noise and fire the cleaner
+> during real pauses. VAD is deferred (see section 5); the fallback gets
+> us reliable cleaning at long-form without it.
+
 **4d. Auto-clean window.**
 
 Cleaning the entire 2000-line transcript through the LLM every minute is wasteful — older lines are already cleaned. New constant: `private let autoCleanRecentLineCount = 200`. Pass only the last N lines to `TranscriptCleaner.clean(_:)`. Older lines stay as previously cleaned. This both reduces LLM cost and keeps cleaner output stable for older content.
@@ -156,7 +162,8 @@ Cleaning the entire 2000-line transcript through the LLM every minute is wastefu
 | Apple Speech long-form auto-restart at 1-min boundary | Apple Speech is fallback-only after Parakeet became default | Future sprint, low priority |
 | Diarization (multi-speaker labels) | Single-voice scope | If multi-speaker becomes a real need |
 | App-killed-by-OS session recovery | Separate persistence story | Future sprint |
-| Background-recording battery audit + low-power mode toggle | Validate need with real-world testing first | If real-world battery drain proves problematic |
+| Background-recording battery audit + low-power mode toggle | Operator accepts the high battery cost; not optimizing | If field testing flips this preference |
+| Voice-activity detection (VAD) | The proper fix for "when to fire auto-clean" and chunk boundaries; the 60s wall-clock fallback in §4c is a stand-in. Also enables future: chunked recording rotation, silence-trimming the audio file, smarter EOU. | Future sprint |
 | Pagination / search / editable transcript | Operator UI features | Future sprint |
 
 ---
