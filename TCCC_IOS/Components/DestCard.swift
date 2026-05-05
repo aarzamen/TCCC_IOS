@@ -6,7 +6,7 @@ import SwiftUI
 /// `palette.bg2` background. Hit target ≥ 44pt per CLAUDE.md (gloved-hand).
 struct DestCard: View {
     let icon: String
-    let label: String       // "ATAK", "MEDHUB", "QR · OFFLINE", "NFC TAP"
+    let label: String       // "QR · OFFLINE", "NFC TAP"
     let isActive: Bool
     let action: () -> Void
 

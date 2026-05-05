@@ -648,7 +648,7 @@ struct HandoffScreen: View {
                 state.qrOverlayVisible = true
             }
         } else {
-            // RF Ghost: ATAK/MEDHUB/NFC have no networking path wired. Do NOT
+            // RF Ghost: NFC has no networking path wired. Do NOT
             // log a success-shaped TRANSMIT line — the operator could read that
             // as "the casualty packet was sent." Make the failure explicit.
             state.appendSystem("TRANSMIT BLOCKED · \(dest.displayName) NOT WIRED · \(stamp)")
