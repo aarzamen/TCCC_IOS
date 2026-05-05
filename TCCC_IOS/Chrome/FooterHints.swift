@@ -37,7 +37,7 @@ struct FooterHints: View {
         .padding(.vertical, 4)
         .padding(.leading, 16)
         .padding(.trailing, 16 + Layout.homeIndicatorClearance)
-        .frame(height: max(Layout.footerHintsHeight, 36))
+        .frame(height: max(Layout.footerHintsHeight, Layout.footerHintHeight + 8))
         .background(palette.bg)
         .overlay(alignment: .top) {
             Rectangle()
@@ -149,7 +149,7 @@ struct FooterHints: View {
                     .textCase(.uppercase)
             }
             .padding(.horizontal, 6)
-            .frame(minWidth: 38, minHeight: 30)
+            .frame(minWidth: 44, minHeight: Layout.footerHintHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

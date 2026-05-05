@@ -19,7 +19,9 @@ enum Layout {
     static let bracketSize: CGFloat = 12
 
     static let minHitTarget: CGFloat = 44
-    static let bigButtonHeight: CGFloat = 32
+    static let bigButtonHeight: CGFloat = 56
+    static let footerHintHeight: CGFloat = 44
+    static let toggleTabHeight: CGFloat = 44
     static let swipeThreshold: CGFloat = 50
 
     static let fastDuration: Double = 0.12

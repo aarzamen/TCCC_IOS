@@ -85,7 +85,7 @@ struct TCCCCardScreen: View {
             .foregroundStyle(isActive ? palette.accent : palette.fg2)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .frame(minHeight: 28)
+            .frame(minHeight: Layout.toggleTabHeight)
             .overlay(
                 Rectangle()
                     .strokeBorder(isActive ? palette.accent : palette.line, lineWidth: Layout.hairline)
