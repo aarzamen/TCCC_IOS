@@ -67,8 +67,11 @@ public enum MGRS {
         let eastingDigits = Int(utm.easting.truncatingRemainder(dividingBy: 100000))
         let northingDigits = Int(utm.northing.truncatingRemainder(dividingBy: 100000))
 
+        // NGA / GeoTrans convention: zone is always two digits, zero-padded
+        // (e.g. "06VUN…" not "6VUN…"). Matters for zones 1–9 — voice-readback
+        // of "zero six victor" is unambiguous, "six victor" is not.
         return String(
-            format: "%d%@%@%@%05d%05d",
+            format: "%02d%@%@%@%05d%05d",
             zone, String(band), String(eastingLetter), String(northingLetter),
             eastingDigits, northingDigits
         )
