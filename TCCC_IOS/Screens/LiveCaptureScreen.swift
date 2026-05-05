@@ -19,6 +19,14 @@ struct LiveCaptureScreen: View {
     @State private var isCleaningTranscript: Bool = false
     @State private var cleanError: String?
 
+    /// Auto-scroll-to-latest gating. Flips off when the operator drags the
+    /// transcript content downward (scrolling up through history); the
+    /// floating "LATEST" chip re-engages it. Per long-form recording plan
+    /// L4.1: short sessions are fine being yanked back to bottom on every
+    /// new line, but at 90 min the operator wants to read older content
+    /// without fighting the scroll.
+    @State private var transcriptAutoPinned: Bool = true
+
     /// Seconds of partial-result stability before we commit it as a final
     /// transcript line and run the extraction engine. SFSpeechRecognizer
     /// won't always fire its own isFinal during continuous narration, so we
@@ -181,7 +189,23 @@ struct LiveCaptureScreen: View {
                     }
                 }
             }
+            // Manual-scroll detection: an upward swipe (dragging content
+            // downward through the viewport) disengages auto-pin so the
+            // operator can read older lines without being yanked back to
+            // the bottom on the next commit. The "LATEST" chip below
+            // re-engages it. Per plan L4.1: chosen over GeometryReader
+            // offset tracking because SwiftUI's ScrollView doesn't expose
+            // the visible-rect bottom without UIScrollView introspection.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 8)
+                    .onChanged { value in
+                        if value.translation.height > 20 {
+                            transcriptAutoPinned = false
+                        }
+                    }
+            )
             .onChange(of: displayedTranscript.count) {
+                guard transcriptAutoPinned else { return }
                 if let last = displayedTranscript.last {
                     withAnimation(.standard) {
                         proxy.scrollTo(last.id, anchor: .bottom)
@@ -189,10 +213,41 @@ struct LiveCaptureScreen: View {
                 }
             }
             .onChange(of: state.partialTranscript) {
+                guard transcriptAutoPinned else { return }
                 if !state.partialTranscript.isEmpty {
                     withAnimation(.fast) {
                         proxy.scrollTo("partial", anchor: .bottom)
                     }
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if !transcriptAutoPinned && !displayedTranscript.isEmpty {
+                    Button {
+                        transcriptAutoPinned = true
+                        if let last = displayedTranscript.last {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                proxy.scrollTo(last.id, anchor: .bottom)
+                            }
+                        }
+                        Haptics.tap(.light)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.down")
+                                .font(.system(size: 10, weight: .heavy))
+                            Text("LATEST")
+                                .font(.system(size: 10, weight: .heavy))
+                                .tracking(1.2)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(palette.bg2)
+                        .overlay(
+                            Rectangle()
+                                .strokeBorder(palette.accent, lineWidth: Layout.hairline)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .padding(12)
                 }
             }
         }
