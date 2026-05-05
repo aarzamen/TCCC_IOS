@@ -18,7 +18,7 @@ final class AppState {
         var title: String {
             switch self {
             case .liveCapture: "Live Capture"
-            case .vitals:      "Vitals"
+            case .vitals:      "Vital Signs Log"
             case .tcccCard:    "TCCC Card"
             case .medevac:     "MEDEVAC"
             case .handoff:     "Handoff"
@@ -28,7 +28,7 @@ final class AppState {
         var kicker: String {
             switch self {
             case .liveCapture: "VOICE INTAKE"
-            case .vitals:      "PHYSIOLOGY · LIVE"
+            case .vitals:      "DD 1380 · SECTION C"
             case .tcccCard:    "DD-1380 · CASUALTY CARD"
             case .medevac:     "DUSTOFF · 9-LINE REQUEST"
             case .handoff:     "ROLE-1 → ROLE-2 · ENCRYPTED EXPORT"
@@ -161,6 +161,53 @@ final class AppState {
         allPatients = snapshot
         // Single-casualty UI per design §9 — surface PATIENT_1 only.
         primaryPatient = snapshot["PATIENT_1"]
+        // 2026 sprint Phase 4 — record a §C reading per snapshot. The grid
+        // shows the 4 most recent readings.
+        appendVitalsSnapshot()
+    }
+
+    // MARK: - DD 1380 §C grid (sprint Phase 4 Task 4.2)
+
+    /// One timestamped column of the DD 1380 Section C vital-sign grid.
+    /// The form supports up to 4 columns; the rolling buffer keeps the
+    /// most recent 4 readings.
+    struct SectionCReading: Sendable, Identifiable, Hashable {
+        let id: UUID
+        let timestamp: Date
+        let vitals: Vitals
+        let avpu: String?
+
+        init(timestamp: Date, vitals: Vitals, avpu: String?) {
+            self.id = UUID()
+            self.timestamp = timestamp
+            self.vitals = vitals
+            self.avpu = avpu
+        }
+    }
+
+    /// Up-to-4-entry rolling buffer. New readings append; older ones are
+    /// dropped from the head when count exceeds 4.
+    var vitalsLog: [SectionCReading] = []
+
+    /// Append a snapshot of the current patient's vitals + AVPU. Skips if
+    /// nothing has changed since the last entry (the engine fires on every
+    /// processed sentence, not every reading).
+    private func appendVitalsSnapshot() {
+        guard let p = primaryPatient else { return }
+        let reading = SectionCReading(
+            timestamp: Date(),
+            vitals: p.vitals,
+            avpu: p.march.consciousness
+        )
+        if let last = vitalsLog.last,
+           last.vitals == reading.vitals,
+           last.avpu == reading.avpu {
+            return
+        }
+        vitalsLog.append(reading)
+        if vitalsLog.count > 4 {
+            vitalsLog.removeFirst(vitalsLog.count - 4)
+        }
     }
 
     func loadDemoTranscript(_ text: String) async {
@@ -225,6 +272,7 @@ final class AppState {
         encounterNarrative = nil
         zmistNarrative = nil
         transcriptCleaned = nil
+        vitalsLog.removeAll()
     }
 
     /// Begin a new casualty. Increments the casualty counter, wipes
@@ -247,6 +295,7 @@ final class AppState {
         encounterNarrative = nil
         zmistNarrative = nil
         transcriptCleaned = nil
+        vitalsLog.removeAll()
         appendSystem("NEW CASUALTY · \(casualtyId) · \(oldId) archived")
     }
 
@@ -267,6 +316,7 @@ final class AppState {
         encounterNarrative = nil
         zmistNarrative = nil
         transcriptCleaned = nil
+        vitalsLog.removeAll()
     }
 
     // MARK: - SLM-generated text (persists across screen switches)

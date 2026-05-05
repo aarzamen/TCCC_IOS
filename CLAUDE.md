@@ -118,3 +118,75 @@ For the package alone (faster iteration):
 cd /Users/ama/TCCC_IOS/Packages/TCCCKit
 swift test
 ```
+
+## 2026 Rubric Alignment Sprint (May 2026)
+
+Ground-truth references:
+  - `reference/rubric/extracted/dd1380_field_inventory.json` — 50 DD 1380
+    fields across sections A–H with field types, allowed values, regex
+    validation, parent-field linkage, and format constraints.
+  - `reference/rubric/extracted/march_paws_vocabulary_2026.json` — verbatim
+    findings, interventions, decision thresholds, negation phrases, and
+    2026-change flags for every MARCH/PAWS phase per the 01 May 2026 TCCC
+    Guidelines.
+
+Both extracted directly from JTS/CoTCCC sources (DD 1380 form, Skill
+Card SC-55, 2026 TCCC Guidelines HTML chapters). Verbatim — not
+RAG-paraphrased. **These are the audit reference for what stays, what
+goes, and what gets added in this codebase. New UI elements must trace
+to a field in one of these two files, or they don't ship.**
+
+Phase 1 deletions: ECGWave, MapPlotView, GCS / CAP RE / TEMP tiles, the
+15-min trend graph (and `VitalsHistory`), GHOST branding (renamed to
+OFFLINE), persistent GPS in the status strip, the diagonal-slashes
+mini-icon cluster. Posterior body silhouette added to `BodyMap` so the
+diagram matches the DD 1380 §B body picture.
+
+Phase 2 state fixes: PAWS gated on MARCH (`MARCHState.allPhasesAssessed`);
+HeadHypothermiaExtractor split into HypothermiaExtractor (§7) +
+TBIExtractor (§8); ExtractedFact tile derivation constrained to
+DD-1380-bindable facts (RESP NORMAL, BS BILATERAL EQUAL demoted —
+they inform MARCH-R phase status but bind to no DD 1380 field);
+AVPU-before-ketamine and ASM/CLS-TQ-conversion warnings via the new
+`AppState.TCCCWarning` enum + `WarningBanner` component. New typed
+`AppState.OperatorTier` enum (ASM / CLS / CMC / CPP); new
+`InterventionKind.tourniquetConversion`.
+
+Phase 3 vocabulary: Suzetrigine + Esketamine IN added to PAWS analgesia;
+Cefadroxil / Cephalexin / Ceftriaxone added to PAWS antibiotics;
+HemorrhageExtractor recognizes 2026 §6 TQ reposition language and emits
+`.tourniquetConversion` distinctly from initial application;
+CirculationExtractor recognizes calcium-after-transfusion;
+TBIExtractor adds hypertonic saline + posturing + asymmetric pupils;
+AirwayExtractor adds 2026 §4 (flagged NEW) recovery position, suction,
+EtCO2 capnography, and bougie-aided open / standard open surgical
+technique refinements to cric. All new patterns covered by
+`Phase3VocabularyTests.swift`.
+
+Phase 4 reframe: Vitals screen renamed to "Vital Signs Log" / kicker
+"DD 1380 · Section C". Layout rebuilt as a 4-column × 7-row §C grid
+backed by a rolling 4-entry buffer (`AppState.SectionCReading`). New
+`BackOfCardView` on the TCCC Card screen toggles between front (§A–C)
+and back (§D–H) — every DD 1380 field scaffolded with best-effort
+population from `PatientState`. Handoff exportColumn reorganized into
+"Primary · DD 1380" and "Supplementary Exports" groups with the §19
+"Forward documentation with the casualty to the next level of care"
+verbatim callout. CSV export converted to current-snapshot stub
+(deferred until §C grid persistence has columns to emit).
+
+**Principle.** The DD 1380 is not a feature. It is the deliverable per
+2026 §19 Documentation of Care. Every shipping UI element either
+populates a DD 1380 field or drives a phase-status change in MARCH /
+PAWS. If it does neither, it is decoration and decoration borrows
+authority from medical-monitor / EHR aesthetics that this device
+cannot actually claim.
+
+Out of Phase 4 scope (intentional, deferred):
+  - Tap-to-edit cells on the §C grid (read-only for now; engine snapshots
+    populate it).
+  - DD 1380 PDF generation via PDFKit overlay (still PEND).
+  - "READY · DD-1380" complete-state marker — fires once PDF is wired.
+  - Plasma-for-isolated-TBI extractor pattern (no `tbiSeverity` state field).
+  - Procedural-sedation ketamine routes (W phase).
+  - Acetaminophen 2026 dose value extraction (drug recognized; numeric
+    dose parsing not yet wired).

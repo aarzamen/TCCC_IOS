@@ -56,6 +56,7 @@
 		B7BEE994DB134BDC44A28680 /* NineLineRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2F816A4303D35399BBA567 /* NineLineRow.swift */; };
 		BD117DBEF33C429693F8CDB9 /* TCCCDomain in Frameworks */ = {isa = PBXBuildFile; productRef = CC65DA259DE892E2BB91FEA0 /* TCCCDomain */; };
 		BD7A4C23586CB96972781B6D /* MarchRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2948D10CDEC949BDE4EFD900 /* MarchRowView.swift */; };
+		BF2105108173A5C0767D3995 /* BackOfCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B14D02B33CC2F5C91E8003 /* BackOfCardView.swift */; };
 		C2857D2977856447A6679591 /* MedRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140881810FD1F888CCCF60A2 /* MedRowView.swift */; };
 		C512FA47820E29A1BFDA4901 /* RecCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04BC9CC5B5E0351D55C2A0B7 /* RecCapsule.swift */; };
 		C5A3D28A8BACDBB1F7CBD170 /* TCCCLanguageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8DD000AEA797F182C96445E /* TCCCLanguageModel.swift */; };
@@ -91,6 +92,7 @@
 		2948D10CDEC949BDE4EFD900 /* MarchRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarchRowView.swift; sourceTree = "<group>"; };
 		2FBE6D7852D92258C933FEF8 /* ThemeOptCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeOptCard.swift; sourceTree = "<group>"; };
 		337B999E3A62ABAB82A5D1E2 /* RFRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RFRow.swift; sourceTree = "<group>"; };
+		36B14D02B33CC2F5C91E8003 /* BackOfCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackOfCardView.swift; sourceTree = "<group>"; };
 		38B8FC6324D1C8E2E96EB894 /* MedevacScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedevacScreen.swift; sourceTree = "<group>"; };
 		3CAAF88DF513C78083F43399 /* SumLineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SumLineView.swift; sourceTree = "<group>"; };
 		3E1035E8B149E396C8EED9FC /* TranscriptLineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptLineView.swift; sourceTree = "<group>"; };
@@ -200,6 +202,7 @@
 		1F593FCD09EBB28D17FCFA5E /* Screens */ = {
 			isa = PBXGroup;
 			children = (
+				36B14D02B33CC2F5C91E8003 /* BackOfCardView.swift */,
 				1D9D9A775A7C3BB84A0D9A2E /* HandoffScreen.swift */,
 				44F2B33AA3BB5856ECC1D263 /* LiveCaptureScreen.swift */,
 				38B8FC6324D1C8E2E96EB894 /* MedevacScreen.swift */,
@@ -403,6 +406,7 @@
 				4A0F0CBCC1FA321587B4A2C5 /* AppState.swift in Sources */,
 				5D18A9F14A3C03D8184C9A49 /* AudioLevels.swift in Sources */,
 				0A854C4EC5C0B63AFBDAFCFB /* AudioMeterView.swift in Sources */,
+				BF2105108173A5C0767D3995 /* BackOfCardView.swift in Sources */,
 				17188C8A87B777FCDD8A6308 /* BigButton.swift in Sources */,
 				E3A9865C23E78EF08438BBCA /* BigVital.swift in Sources */,
 				CA4EC2183B056422C16E94E5 /* BodyMap.swift in Sources */,

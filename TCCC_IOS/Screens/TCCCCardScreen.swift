@@ -5,6 +5,8 @@ struct TCCCCardScreen: View {
     let state: AppState
     @Environment(\.palette) private var palette
 
+    @State private var showBackOfCard: Bool = false
+
     private var patient: PatientState? { state.primaryPatient }
 
     private var medRows: [Intervention] {
@@ -17,30 +19,54 @@ struct TCCCCardScreen: View {
             PageHeader(
                 screen: .tcccCard,
                 total: AppState.Screen.allCases.count,
-                trailingKickerLabel: "STATUS",
-                trailingKickerValue: cardStatus
+                trailingKickerLabel: showBackOfCard ? "VIEW" : "STATUS",
+                trailingKickerValue: showBackOfCard ? "BACK · §D-H" : cardStatus
             )
 
-            HStack(spacing: Layout.gridGap) {
-                casualtyPanel
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                marchPanel
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                VStack(spacing: Layout.gridGap) {
-                    if !state.pendingWarnings.isEmpty {
-                        WarningBanner(warnings: state.pendingWarnings)
-                    }
-                    pawsPanel
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    medsPanel
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Quick toggle between front and back of card.
+            HStack(spacing: 8) {
+                Button {
+                    showBackOfCard = false
+                } label: {
+                    sideTabLabel("FRONT · §A-C", isActive: !showBackOfCard)
                 }
+                .buttonStyle(.plain)
+                Button {
+                    showBackOfCard = true
+                } label: {
+                    sideTabLabel("BACK · §D-H", isActive: showBackOfCard)
+                }
+                .buttonStyle(.plain)
+                Spacer()
+            }
+            .padding(.horizontal, Layout.outerPadding)
+            .padding(.top, 6)
+
+            if showBackOfCard {
+                BackOfCardView(state: state)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                HStack(spacing: Layout.gridGap) {
+                    casualtyPanel
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    marchPanel
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    VStack(spacing: Layout.gridGap) {
+                        if !state.pendingWarnings.isEmpty {
+                            WarningBanner(warnings: state.pendingWarnings)
+                        }
+                        pawsPanel
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        medsPanel
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .padding(Layout.outerPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(Layout.outerPadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             FooterHints(
                 state: state,
@@ -49,6 +75,21 @@ struct TCCCCardScreen: View {
             )
         }
         .background(palette.bg)
+    }
+
+    private func sideTabLabel(_ text: String, isActive: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .heavy))
+            .tracking(1.6)
+            .textCase(.uppercase)
+            .foregroundStyle(isActive ? palette.accent : palette.fg2)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .frame(minHeight: 28)
+            .overlay(
+                Rectangle()
+                    .strokeBorder(isActive ? palette.accent : palette.line, lineWidth: Layout.hairline)
+            )
     }
 
     // MARK: - Casualty panel

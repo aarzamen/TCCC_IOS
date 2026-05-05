@@ -382,13 +382,24 @@ struct HandoffScreen: View {
     }
 
     private var exportCardsBlock: some View {
+        // 2026 sprint Phase 4 Task 4.4 — DD 1380 is the **primary**
+        // deliverable per §19 Documentation of Care. Layout reflects that:
+        // a labeled "Primary" group with the DD-1380 PDF card on top, a
+        // divider, then a "Supplementary Exports" group for JSON / Audio /
+        // Vitals. The §19 verbatim callout runs below.
         VStack(spacing: 6) {
+            exportSubhead("Primary · DD 1380")
             ExportCard(
                 icon: "doc.richtext",
                 title: "DD-1380 PDF",
                 detail: "Pending PDFKit",
                 isReady: false
             )
+
+            section19Callout
+                .padding(.vertical, 4)
+
+            exportSubhead("Supplementary Exports")
             ExportCard(
                 icon: "curlybraces",
                 title: "JSON Encounter",
@@ -411,6 +422,39 @@ struct HandoffScreen: View {
                 action: { shareVitalsCSV() }
             )
         }
+    }
+
+    private func exportSubhead(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 9, weight: .heavy))
+            .tracking(1.6)
+            .textCase(.uppercase)
+            .foregroundStyle(palette.fg2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// 2026 §19 Documentation of Care — verbatim callout. This is the
+    /// load-bearing rubric mandate: the DD 1380 isn't an artifact, it IS
+    /// the deliverable.
+    private var section19Callout: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("§19 · DOCUMENTATION OF CARE")
+                .font(.system(size: 9, weight: .heavy))
+                .tracking(1.4)
+                .foregroundStyle(palette.accent)
+                .textCase(.uppercase)
+            Text("Forward documentation with the casualty to the next level of care.")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(palette.fg)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(
+            Rectangle()
+                .strokeBorder(palette.accent.opacity(0.6), lineWidth: Layout.hairline)
+        )
     }
 
     // MARK: - Share actions

@@ -1,15 +1,20 @@
 import SwiftUI
 import TCCCDomain
 
-/// Screen 02 — Vitals.
+/// Screen 02 — Vital Signs Log (DD 1380 Section C grid).
 ///
-/// **Phase 1 (rubric-aligned) layout — placeholder.** This screen is
-/// scheduled for full rebuild in Phase 4 as a DD 1380 Section C grid (4
-/// timestamped columns × 7 rows). For now: HR / BP / SpO₂ in a BigVital
-/// strip, RR as a single SmallVital, plus the existing Interventions
-/// panel. ECG, GCS, Temp, Cap-Refill, and the 15-min trend graph were
-/// deleted in the 2026 rubric-alignment sprint — none of them bind to
-/// DD 1380 fields.
+/// Layout per the 2026 sprint Phase 4 reframe:
+///   - 4 timestamped columns × 7 rows
+///   - Rows: Time, Pulse (Rate & Loc), Blood Pressure, Respiratory Rate,
+///     Pulse Ox % O2 Sat, AVPU, Pain Scale (0-10)
+///   - Empty columns render placeholder dashes
+///
+/// Reference: reference/rubric/extracted/dd1380_field_inventory.json fields
+/// with section_identifier "C".
+///
+/// **Editing is read-only for now.** Future work: tap-to-edit cells plus a
+/// "Add Reading" affordance to capture a new timestamped column. The
+/// engine's auto-snapshot covers the read-path until then.
 struct VitalsScreen: View {
     let state: AppState
     @Environment(\.palette) private var palette
@@ -22,27 +27,28 @@ struct VitalsScreen: View {
             .filter { InterventionRow.nonMedicationKinds.contains($0.kind) }
     }
 
+    /// Always exactly 4 column slots — pads with nil for missing readings.
+    private var fourColumns: [AppState.SectionCReading?] {
+        var cols: [AppState.SectionCReading?] = state.vitalsLog.map { $0 }
+        while cols.count < 4 { cols.append(nil) }
+        return cols
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             PageHeader(
                 screen: .vitals,
                 total: AppState.Screen.allCases.count,
-                trailingKickerLabel: "LAST UPDATE",
-                trailingKickerValue: lastUpdateLabel
+                trailingKickerLabel: "READINGS",
+                trailingKickerValue: "\(state.vitalsLog.count) / 4"
             )
 
-            GeometryReader { geo in
-                let totalGap = Layout.gridGap
-                let usable = geo.size.width - totalGap
-                // 1.10 / 1.00 split — set via layout playground.
-                let wL = usable * (1.10 / 2.10)
-                let wR = usable - wL
-                HStack(alignment: .top, spacing: totalGap) {
-                    leftColumn
-                        .frame(width: wL, height: geo.size.height)
-                    rightColumn
-                        .frame(width: wR, height: geo.size.height)
-                }
+            HStack(alignment: .top, spacing: Layout.gridGap) {
+                sectionCPanel
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                interventionsPanel
+                    .frame(width: 240, alignment: .top)
+                    .frame(maxHeight: .infinity)
             }
             .padding(Layout.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -56,104 +62,145 @@ struct VitalsScreen: View {
         .background(palette.bg)
     }
 
-    // MARK: - Left column
+    // MARK: - DD 1380 §C grid
 
-    private var leftColumn: some View {
-        VStack(spacing: Layout.gridGap) {
-            bigVitalStrip
-            respCard
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var bigVitalStrip: some View {
-        // 3-col grid 1.00 / 1.50 / 1.00 — set via layout playground.
-        // BP is 1.5x wider than HR/SpO₂ to fit "80/40 mmHg · PAL" without
-        // forcing minimumScaleFactor on the value font.
-        GeometryReader { geo in
-            let gaps = Layout.gridGap * 2
-            let usable = geo.size.width - gaps
-            let wHR = usable * (1.0 / 3.5)
-            let wBP = usable * (1.5 / 3.5)
-            let wSP = usable - wHR - wBP
-            HStack(spacing: Layout.gridGap) {
-                hrCard.frame(width: wHR, height: geo.size.height)
-                bpCard.frame(width: wBP, height: geo.size.height)
-                spo2Card.frame(width: wSP, height: geo.size.height)
+    private var sectionCPanel: some View {
+        Panel(
+            "DD 1380 · Section C",
+            titleIcon: "tablecells",
+            action: gridAction,
+            padded: false
+        ) {
+            ScrollView {
+                VStack(spacing: 0) {
+                    headerRow
+                    rowDivider
+                    cRow(label: "Time",       values: fourColumns.map { columnTimeString($0) })
+                    rowDivider
+                    cRow(label: "Pulse",      values: fourColumns.map { pulseValue($0) })
+                    rowDivider
+                    cRow(label: "Blood Pressure", values: fourColumns.map { bpValue($0) })
+                    rowDivider
+                    cRow(label: "Respiratory Rate", values: fourColumns.map { rrValue($0) })
+                    rowDivider
+                    cRow(label: "SpO₂ %",     values: fourColumns.map { spo2Value($0) })
+                    rowDivider
+                    cRow(label: "AVPU",       values: fourColumns.map { avpuValue($0) })
+                    rowDivider
+                    cRow(label: "Pain (0-10)", values: fourColumns.map { _ in "—" })
+                }
             }
         }
-        .frame(height: 137)
     }
 
-    private var hrCard: some View {
-        let hr = patient?.vitals.hr
-        let value = hr.map { "\($0)" } ?? "—"
-        let status: BigVital.Status = hrStatus(hr)
-        let sub: String = hrSubline(hr)
-        return BigVital(
-            label: "Heart Rate",
-            value: value,
-            unit: "BPM",
-            sub: sub,
-            status: status,
-            icon: "heart.fill"
-        )
+    private var gridAction: String {
+        state.vitalsLog.isEmpty ? "AWAITING DATA" : "READ-ONLY · DRAFT"
     }
 
-    private var bpCard: some View {
-        let bp = patient?.vitals.bp
-        let value: String = bp.map {
-            $0.palpated ? "\($0.systolic)/P" : "\($0.systolic)/\($0.diastolic)"
-        } ?? "—"
-        let unit: String = (bp?.palpated == true) ? "mmHg · PAL" : "mmHg"
-        let status: BigVital.Status = bpStatus(bp?.systolic)
-        let sub: String = bpSubline(bp?.systolic)
-        return BigVital(
-            label: "Blood Pressure",
-            value: value,
-            unit: unit,
-            sub: sub,
-            status: status,
-            icon: "waveform.path.ecg"
-        )
-    }
+    // MARK: - Grid header
 
-    private var spo2Card: some View {
-        let spo2 = patient?.vitals.spo2
-        let value = spo2.map { "\($0)" } ?? "—"
-        let status: BigVital.Status = spo2Status(spo2)
-        let sub: String = spo2Subline(spo2)
-        return BigVital(
-            label: "SpO₂",
-            value: value,
-            unit: "%",
-            sub: sub,
-            status: status,
-            icon: "lungs.fill"
-        )
-    }
-
-    private var respCard: some View {
-        let rr = patient?.vitals.rr
-        return SmallVital(
-            label: "Resp",
-            value: rr.map { "\($0)" } ?? "—",
-            unit: "/min",
-            isWarn: respIsWarn(rr),
-            icon: "wind"
-        )
-    }
-
-    // MARK: - Right column
-
-    private var rightColumn: some View {
-        VStack(spacing: Layout.gridGap) {
-            interventionsPanel
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+    private var headerRow: some View {
+        HStack(spacing: 0) {
+            cellLabel("ROW", isHeader: true)
+                .frame(width: rowLabelWidth, alignment: .leading)
+            ForEach(0..<4, id: \.self) { idx in
+                colDivider
+                cellLabel("COL \(idx + 1)", isHeader: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(palette.bg2)
     }
+
+    private func cRow(label: String, values: [String]) -> some View {
+        HStack(spacing: 0) {
+            cellLabel(label.uppercased(), isHeader: false)
+                .frame(width: rowLabelWidth, alignment: .leading)
+            ForEach(0..<min(values.count, 4), id: \.self) { idx in
+                colDivider
+                Text(values[idx])
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .foregroundStyle(values[idx] == "—" ? palette.fg3 : palette.fg)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+    }
+
+    private func cellLabel(_ text: String, isHeader: Bool) -> some View {
+        Text(text)
+            .font(.system(size: isHeader ? 9 : 10, weight: .heavy))
+            .tracking(1.4)
+            .foregroundStyle(isHeader ? palette.fg2 : palette.fg1)
+            .textCase(.uppercase)
+    }
+
+    private var colDivider: some View {
+        Rectangle()
+            .fill(palette.line)
+            .frame(width: Layout.hairline)
+            .frame(maxHeight: .infinity)
+            .padding(.horizontal, 6)
+    }
+
+    private var rowDivider: some View {
+        Rectangle()
+            .fill(palette.line)
+            .frame(height: Layout.hairline)
+    }
+
+    private let rowLabelWidth: CGFloat = 110
+
+    // MARK: - Row formatting
+
+    private func columnTimeString(_ r: AppState.SectionCReading?) -> String {
+        guard let r else { return "—" }
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: r.timestamp)
+    }
+
+    private func pulseValue(_ r: AppState.SectionCReading?) -> String {
+        guard let r, let hr = r.vitals.hr else { return "—" }
+        return "\(hr) bpm"
+    }
+
+    private func bpValue(_ r: AppState.SectionCReading?) -> String {
+        guard let r, let bp = r.vitals.bp else { return "—" }
+        let suffix = bp.palpated ? " P" : ""
+        return "\(bp.systolic)/\(bp.diastolic)\(suffix)"
+    }
+
+    private func rrValue(_ r: AppState.SectionCReading?) -> String {
+        guard let r, let rr = r.vitals.rr else { return "—" }
+        return "\(rr)"
+    }
+
+    private func spo2Value(_ r: AppState.SectionCReading?) -> String {
+        guard let r, let spo2 = r.vitals.spo2 else { return "—" }
+        return "\(spo2)%"
+    }
+
+    private func avpuValue(_ r: AppState.SectionCReading?) -> String {
+        guard let r, let avpu = r.avpu else { return "—" }
+        // DD 1380 allowed values are A/V/P/U single letters.
+        let letter: String
+        switch avpu.lowercased() {
+        case "alert":         letter = "A"
+        case "voice":         letter = "V"
+        case "pain":          letter = "P"
+        case "unresponsive":  letter = "U"
+        default:              letter = avpu.prefix(1).uppercased()
+        }
+        return letter
+    }
+
+    // MARK: - Interventions panel (preserved from Phase 1)
 
     private var interventionsPanel: some View {
         Panel(
@@ -194,74 +241,12 @@ struct VitalsScreen: View {
                 .tracking(1.6)
                 .foregroundStyle(palette.fg2)
                 .textCase(.uppercase)
-            Text("TQ · dressings · CS · NDC · IV / IO · NPA · splint")
+            Text("TQ · dressings · CS · NDC · IV / IO · NPA")
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
                 .foregroundStyle(palette.fg3)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, minHeight: 80)
         .padding()
-    }
-
-    // MARK: - Status helpers
-
-    private func hrStatus(_ hr: Int?) -> BigVital.Status {
-        guard let hr else { return .normal }
-        if hr > 130 || hr < 50 { return .crit }
-        if hr > 110 || hr < 60 { return .warn }
-        return .normal
-    }
-
-    private func hrSubline(_ hr: Int?) -> String {
-        guard let hr else { return "Awaiting reading" }
-        if hr > 130 { return "↑ Tachycardia" }
-        if hr > 110 { return "Mild tachycardia" }
-        if hr < 50  { return "↓ Bradycardia" }
-        if hr < 60  { return "Mild bradycardia" }
-        return "Sinus"
-    }
-
-    private func bpStatus(_ systolic: Int?) -> BigVital.Status {
-        guard let s = systolic else { return .normal }
-        if s < 90 || s > 180 { return .crit }
-        if s < 100 || s > 160 { return .warn }
-        return .normal
-    }
-
-    private func bpSubline(_ systolic: Int?) -> String {
-        guard let s = systolic else { return "Awaiting reading" }
-        if s < 90  { return "↓ Hypotension" }
-        if s < 100 { return "Borderline low" }
-        if s > 180 { return "↑ Hypertension" }
-        if s > 160 { return "Elevated" }
-        return "Within range"
-    }
-
-    private func spo2Status(_ spo2: Int?) -> BigVital.Status {
-        guard let s = spo2 else { return .normal }
-        if s < 90 { return .crit }
-        if s < 95 { return .warn }
-        return .normal
-    }
-
-    private func spo2Subline(_ spo2: Int?) -> String {
-        guard let s = spo2 else { return "Awaiting reading" }
-        if s < 90 { return "Hypoxic — supplement O₂" }
-        if s < 95 { return "Room air" }
-        return "Adequate"
-    }
-
-    private func respIsWarn(_ rr: Int?) -> Bool {
-        guard let rr else { return false }
-        return rr > 24 || rr < 10
-    }
-
-    // MARK: - Header status
-
-    private var lastUpdateLabel: String {
-        guard let ts = patient?.timestampLastUpdate else { return "—" }
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss"
-        return f.string(from: Date(timeIntervalSince1970: ts))
     }
 }
