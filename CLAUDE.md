@@ -110,10 +110,22 @@ cd /Users/ama/TCCC_IOS
 xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
-  -configuration Debug build CODE_SIGNING_ALLOWED=NO
+  -configuration Debug build CODE_SIGNING_ALLOWED=NO \
+  -skipMacroValidation
 ```
 
-For the package alone (faster iteration):
+`-skipMacroValidation` is required because `huggingface/AnyLanguageModel` (added during the LLM-backends sprint, exposed via the `Packages/TCCCLLM/` shim) ships Swift macros that need explicit trust. The IDE lets you click "Trust & Enable" once; from the CLI the flag is the only path. Without it, every build will error with `error: Macro "AnyLanguageModelMacros" from package "AnyLanguageModel" must be enabled before it can be used`.
+
+On a fresh machine, you'll also need to download the Metal toolchain once before the first build (MLX-Swift's GPU kernels compile through it):
+
+```bash
+xcodebuild -downloadComponent MetalToolchain
+```
+
+(One-time, ~688 MB.)
+
+The package-only test path is unaffected:
+
 ```bash
 cd /Users/ama/TCCC_IOS/Packages/TCCCKit
 swift test
