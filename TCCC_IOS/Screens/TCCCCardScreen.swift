@@ -107,7 +107,7 @@ struct TCCCCardScreen: View {
                 ) {
                     Field(label: "Name", value: state.casualtyName)
                     Field(label: "Unit", value: state.casualtyUnit)
-                    Field(label: "Svc #", value: state.casualtyServiceNumberMasked)
+                    Field(label: "ZAP #", value: state.casualtyServiceNumberMasked)
                     Field(label: "Allrg", value: state.casualtyAllergies)
                 }
 
