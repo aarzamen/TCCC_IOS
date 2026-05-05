@@ -261,11 +261,15 @@ actor ParakeetTranscriptStream: TranscriptStream {
         if let audioURL, let format = inputFormat {
             do {
                 try ProtectedWrite.createEmpty(at: audioURL)
+                // AAC encode-on-write. AVFoundation handles PCM -> AAC internally for
+                // .m4a output. If a future iOS release introduces frame-boundary errors
+                // at AAC's 1024-sample input boundary vs our 4096-sample tap buffer,
+                // fall back to an explicit AVAudioConverter with an inputBlock loop.
                 let file = try AVAudioFile(
                     forWriting: audioURL,
-                    settings: format.settings,
-                    commonFormat: format.commonFormat,
-                    interleaved: format.isInterleaved
+                    settings: AppState.aacOutputSettings,
+                    commonFormat: .pcmFormatFloat32,
+                    interleaved: false
                 )
                 self.audioFile = file
                 self.lastRecordingURL = audioURL
