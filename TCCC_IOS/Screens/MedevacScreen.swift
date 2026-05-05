@@ -76,7 +76,7 @@ struct MedevacScreen: View {
                 // Persistent SLM availability badge — operator sees current
                 // truth before tapping Generate. Per night-pass A5.
                 HStack(spacing: 0) {
-                    FMStatusBadge()
+                    FMStatusBadge(state: state)
                     Spacer()
                 }
                 TransmitScript(

@@ -161,7 +161,7 @@ struct HandoffScreen: View {
         HStack(spacing: 6) {
             // Persistent SLM availability badge — supersedes the one-shot
             // error pop. Per night-pass A5.
-            FMStatusBadge()
+            FMStatusBadge(state: state)
             slmButton(
                 title: state.encounterNarrative == nil ? "Narrative" : "Regen",
                 icon: "wand.and.stars",
