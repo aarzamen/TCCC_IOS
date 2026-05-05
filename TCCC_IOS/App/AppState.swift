@@ -126,7 +126,9 @@ final class AppState {
     /// 0 dB is unchanged, +6 dB is ~2× louder, +12 dB is ~4× louder,
     /// -6 dB is half as loud. Applied uniformly to both ASR
     /// backends in their audio-tap callbacks before recognition.
-    var audioGainDb: Float = 0.0
+    var audioGainDb: Float = 0.0 {
+        didSet { audioGainBox.linear = powf(10.0, audioGainDb / 20.0) }
+    }
 
     /// Linear gain multiplier derived from `audioGainDb`. Closures in
     /// the audio actors snapshot this at each tap callback so changes
@@ -134,6 +136,19 @@ final class AppState {
     var audioGainLinear: Float {
         powf(10.0, audioGainDb / 20.0)
     }
+
+    /// Sendable, non-isolated gain accessor. The audio tap callback
+    /// runs on AVAudioEngine's render thread (not MainActor); reading
+    /// `audioGainDb` from there via `MainActor.assumeIsolated` is a
+    /// fatal trap. This box is the bridge: SwiftUI updates `linear`
+    /// on the MainActor; the audio thread reads it without isolation.
+    /// Float reads are atomic on all Apple platforms — at worst, a
+    /// single buffer might see a slightly stale gain. The cost is
+    /// invisible to the operator.
+    final class AudioGainBox: @unchecked Sendable {
+        var linear: Float = 1.0
+    }
+    let audioGainBox = AudioGainBox()
 
     // MARK: - Parakeet model lifecycle (B2)
 

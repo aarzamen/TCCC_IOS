@@ -31,16 +31,15 @@ struct LiveCaptureScreen: View {
     /// live Settings slider value on every audio buffer — so changing
     /// the slider takes effect on the next sample, no restart needed.
     private func makeRecognizer() -> any TranscriptStream {
-        // Capture state weakly; the closure may outlive the screen but
-        // not the AppState (state is owned at the app level).
+        // Capture the gain box (Sendable, nonisolated). The audio tap
+        // callback runs on AVAudioEngine's render thread; we MUST NOT
+        // touch MainActor-isolated AppState properties from there.
+        // The box is updated by AppState.audioGainDb's didSet on the
+        // MainActor side; the audio thread reads `linear` directly.
         let appState = state
+        let gainBox = state.audioGainBox
         let gainProvider: @Sendable () -> Float = {
-            // AppState is @MainActor — but Float is value-type so this
-            // unsafe-read is actually safe in practice. For strict
-            // correctness we'd jump to MainActor, but that adds latency
-            // to a 1ms-budget audio path. The cost of a stale-by-one-
-            // buffer gain reading is invisible to the operator.
-            MainActor.assumeIsolated { appState.audioGainLinear }
+            gainBox.linear
         }
         switch state.asrBackend {
         case .appleSpeech:
