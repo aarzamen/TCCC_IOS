@@ -35,6 +35,30 @@ targets:
     platform: iOS
     sources:
       - path: TCCC_IOS
+    info:
+      path: TCCC_IOS/Generated/Info.plist
+      properties:
+        CFBundleDisplayName: "Swift TCCC"
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        ITSAppUsesNonExemptEncryption: false
+        LSRequiresIPhoneOS: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen:
+          UIColorName: ""
+          UIImageName: ""
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations~iphone:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIBackgroundModes:
+          - audio
+        NSMicrophoneUsageDescription: "Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device."
+        NSSpeechRecognitionUsageDescription: "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device."
+        NSPhotoLibraryAddUsageDescription: "Save the offline QR code of the encounter to Photos so you can scan it from another device when no wired handoff is available."
     dependencies:
       - package: TCCCKit
         product: TCCCDomain
@@ -53,13 +77,4 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.aarzamen.TCCCai
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_STRICT_CONCURRENCY: complete
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        INFOPLIST_KEY_UIRequiresFullScreen: YES
-        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
-        INFOPLIST_KEY_CFBundleDisplayName: "Swift TCCC"
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device."
-        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device."
-        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Save the offline QR code of the encounter to Photos so you can scan it from another device when no wired handoff is available."
-        GENERATE_INFOPLIST_FILE: YES
+        GENERATE_INFOPLIST_FILE: NO

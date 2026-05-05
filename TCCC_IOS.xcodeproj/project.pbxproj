@@ -100,6 +100,7 @@
 		140881810FD1F888CCCF60A2 /* MedRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedRowView.swift; sourceTree = "<group>"; };
 		1439B6599811FA567A67B1C2 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		1611CD2F2C6FBCA090FA9463 /* DemoScenarios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoScenarios.swift; sourceTree = "<group>"; };
+		17CB6FB9F4CA69777CE69A91 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1946CE8343768646DD99F1B7 /* LFM2LLMBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LFM2LLMBackend.swift; sourceTree = "<group>"; };
 		1D9D9A775A7C3BB84A0D9A2E /* HandoffScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffScreen.swift; sourceTree = "<group>"; };
 		1DA3636AE0ECFB9FA1857EFB /* MemoryStat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryStat.swift; sourceTree = "<group>"; };
@@ -242,6 +243,14 @@
 			path = Screens;
 			sourceTree = "<group>";
 		};
+		41B7F8B57B6CBD4391CC913D /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				17CB6FB9F4CA69777CE69A91 /* Info.plist */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
 		67F66EB7E7D4C4A7E25E39D4 /* Chrome */ = {
 			isa = PBXGroup;
 			children = (
@@ -331,6 +340,7 @@
 				67F66EB7E7D4C4A7E25E39D4 /* Chrome */,
 				14F3326E92FAEBD459679368 /* Components */,
 				B57939935A7DD27029A794DB /* Design */,
+				41B7F8B57B6CBD4391CC913D /* Generated */,
 				87A645BEFD6B3BA10E36A7F8 /* Intelligence */,
 				DFB9F4FCBA71D7CB5E1FF523 /* Pager */,
 				1F593FCD09EBB28D17FCFA5E /* Screens */,
@@ -598,16 +608,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Swift TCCC";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save the offline QR code of the encounter to Photos so you can scan it from another device when no wired handoff is available.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UIRequiresFullScreen = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TCCC_IOS/Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -624,16 +626,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Swift TCCC";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save the offline QR code of the encounter to Photos so you can scan it from another device when no wired handoff is available.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UIRequiresFullScreen = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TCCC_IOS/Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
