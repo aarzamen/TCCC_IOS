@@ -3,10 +3,11 @@ import TCCCDomain
 
 /// Screen 02 — Vital Signs Log (DD 1380 Section C grid).
 ///
-/// Layout per the 2026 sprint Phase 4 reframe:
-///   - 4 timestamped columns × 7 rows
-///   - Rows: Time, Pulse (Rate & Loc), Blood Pressure, Respiratory Rate,
-///     Pulse Ox % O2 Sat, AVPU, Pain Scale (0-10)
+/// Layout per the 2026 sprint Phase 4 reframe (post-device-iteration 2026-05-05):
+///   - 4 timestamped columns × 6 rows (Pain Scale moved to its own
+///     dedicated strip below the grid for legibility)
+///   - Rows: Time, Pulse (Rate & Loc), BP, RR, Pulse Ox % O2 Sat, AVPU
+///   - Pain Scale (0-10) lives in `painStrip` below — two-line dedicated row
 ///   - Empty columns render placeholder dashes
 ///
 /// Reference: reference/rubric/extracted/dd1380_field_inventory.json fields
@@ -71,26 +72,62 @@ struct VitalsScreen: View {
             action: gridAction,
             padded: false
         ) {
-            ScrollView {
-                VStack(spacing: 0) {
-                    headerRow
-                    rowDivider
-                    cRow(label: "Time",       values: fourColumns.map { columnTimeString($0) })
-                    rowDivider
-                    cRow(label: "Pulse",      values: fourColumns.map { pulseValue($0) })
-                    rowDivider
-                    cRow(label: "Blood Pressure", values: fourColumns.map { bpValue($0) })
-                    rowDivider
-                    cRow(label: "Respiratory Rate", values: fourColumns.map { rrValue($0) })
-                    rowDivider
-                    cRow(label: "SpO₂ %",     values: fourColumns.map { spo2Value($0) })
-                    rowDivider
-                    cRow(label: "AVPU",       values: fourColumns.map { avpuValue($0) })
-                    rowDivider
-                    cRow(label: "Pain (0-10)", values: fourColumns.map { _ in "—" })
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        headerRow
+                        rowDivider
+                        cRow(label: "Time",   values: fourColumns.map { columnTimeString($0) })
+                        rowDivider
+                        cRow(label: "Pulse",  values: fourColumns.map { pulseValue($0) })
+                        rowDivider
+                        cRow(label: "BP",     values: fourColumns.map { bpValue($0) })
+                        rowDivider
+                        cRow(label: "RR",     values: fourColumns.map { rrValue($0) })
+                        rowDivider
+                        cRow(label: "SpO₂ %", values: fourColumns.map { spo2Value($0) })
+                        rowDivider
+                        cRow(label: "AVPU",   values: fourColumns.map { avpuValue($0) })
+                    }
                 }
+
+                rowDivider
+                painStrip
             }
         }
+    }
+
+    // MARK: - Pain (0-10) dedicated bottom strip
+
+    /// Two-line strip pinned beneath the §C grid. Top line is the "PAIN (0-10)"
+    /// label; bottom line is the current value (or "—" placeholder). Frees the
+    /// other six rows from being squashed against a Pain row that almost always
+    /// reads "—" because PatientState.paws.pain is the data source, not the
+    /// timestamped vitals log.
+    private var painStrip: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("PAIN (0-10)")
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(1.6)
+                .foregroundStyle(palette.fg2)
+                .textCase(.uppercase)
+            Text(painValue)
+                .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                .foregroundStyle(painValue == "—" ? palette.fg3 : palette.fg)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(palette.bg2)
+    }
+
+    private var painValue: String {
+        guard let raw = patient?.paws.pain, !raw.isEmpty else { return "—" }
+        // Surface a clean numeric value if the engine extracted one; otherwise
+        // pass the verbatim string (e.g., "moderate").
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        return trimmed
     }
 
     private var gridAction: String {

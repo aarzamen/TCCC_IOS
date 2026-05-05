@@ -3,12 +3,16 @@ import TCCCDomain
 
 /// Single intervention row used in the Screen 02 INTERVENTIONS panel.
 ///
-/// 4-column grid: 54pt timestamp / 18pt icon / 60pt kind label / 1fr description.
-/// 1px bottom hairline drawn by the parent stack. Hot rows tint with `palette.bg2`
-/// and accent the icon + kind label.
+/// Post-device-iteration 2026-05-05: single kind-specific icon pinned to the
+/// LEFT edge, then the timestamp, then the full description with no width cap.
+/// Drops the redundant uppercase kind label that used to flank the icon and
+/// scrunched descriptions like "Tourniquet Applied" off the right edge.
 ///
-/// Kind labels mirror `MedRowView.swift` but trimmed to non-medication kinds:
-/// TQ / DRESSING / CS / NDC / IV / IO / NPA / SPLINT.
+/// 3-column grid: 18pt icon / 54pt timestamp / 1fr description.
+/// 1px bottom hairline drawn by the parent stack. Hot rows tint with `palette.bg2`
+/// and accent the icon.
+///
+/// `kindLabel` retained as a static helper for non-row contexts (e.g., reports).
 struct InterventionRow: View {
     let intervention: Intervention
     let isHot: Bool
@@ -21,25 +25,17 @@ struct InterventionRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: kindIcon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(isHot ? palette.accent : palette.fg2)
+                .frame(width: 20, alignment: .leading)
+                .padding(.top, 1)
+
             Text(timestampShort)
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .foregroundStyle(palette.fg2)
-                .frame(width: 54, alignment: .leading)
-
-            Image(systemName: kindIcon)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(isHot ? palette.accent : palette.fg2)
-                .frame(width: 18, alignment: .leading)
-                .padding(.top, 1)
-
-            Text(kindLabel)
-                .font(.system(size: 9, weight: .semibold))
-                .tracking(1.4)
-                .foregroundStyle(isHot ? palette.accent : palette.fg2)
-                .textCase(.uppercase)
-                .frame(width: 60, alignment: .leading)
-                .padding(.top, 2)
+                .frame(width: 50, alignment: .leading)
 
             Text(intervention.description)
                 .font(.system(size: 13, weight: .medium))
