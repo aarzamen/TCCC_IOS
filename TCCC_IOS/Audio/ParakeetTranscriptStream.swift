@@ -234,19 +234,20 @@ actor ParakeetTranscriptStream: TranscriptStream {
             }
         }
 
-        // Drain pre-roll into the manager + audio file.
+        let (stream, continuation) = AsyncStream<RecognitionUpdate>.makeStream()
+        self.continuation = continuation
+        self.tailDeadline = nil
+        self.isRecognizing = true
+        self.currentPartial = ""
+
+        // Drain pre-roll AFTER the continuation is wired so any callbacks that
+        // fire during/after drain land somewhere instead of being dropped.
         if let manager {
             for buf in ringBuffer {
                 try? await manager.appendAudio(buf)
                 try? audioFile?.write(from: buf)
             }
         }
-
-        let (stream, continuation) = AsyncStream<RecognitionUpdate>.makeStream()
-        self.continuation = continuation
-        self.tailDeadline = nil
-        self.isRecognizing = true
-        self.currentPartial = ""
 
         return stream
     }
