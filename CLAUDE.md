@@ -337,6 +337,22 @@ session.
 15. **Engine-on-partial-text experiment.** Run the extractor on
     partial transcripts (before debounce-commit) to surface
     tentative facts faster. Adds UI flicker; needs A/B testing.
+16. **Resurrect Superplayground.** A debug-only in-app design
+    playground was scaffolded on `origin/claude/review-security-
+    tccc-VND9T` at commit `4bb8a22` and never merged. It adds
+    `.playgroundEditable(_:)` hooks across chrome + components
+    plus a three-tab editor (Icons / Color / Sizing) under a
+    gitignored `TCCC_IOS/_Playground/` directory; the editor lets
+    you iterate values on device and bake the chosen ones into
+    committed source. The branch is 11 commits behind main and
+    pre-dates the rubric sprint, so half the hooks point at
+    components since deleted (ECGWave, MapPlotView, TrendChart).
+    Cherry-pick path: pull only the 7 new files in
+    `Packages/TCCCKit/Sources/TCCCDesign/Playground/` plus
+    `DesignTokens.generated.swift` + `Concentric.swift` +
+    `SidedBorder.swift`, then wire the modifiers fresh on the
+    current chrome (StatusStrip / Panel / PageHeader /
+    FooterHints / BigVital / SmallVital / BodyMap).
 
 ### Code-perfection backlog
 
