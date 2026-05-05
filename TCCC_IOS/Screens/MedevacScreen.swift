@@ -18,8 +18,7 @@ struct MedevacScreen: View {
             : Array(patients)
         return NineLineForm.derive(
             from: source,
-            gpsLatitude: state.gpsLatitude,
-            gpsLongitude: state.gpsLongitude
+            locationFix: state.locationFix
         )
     }
 

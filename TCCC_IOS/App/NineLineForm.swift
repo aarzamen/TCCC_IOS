@@ -2,7 +2,10 @@ import Foundation
 import TCCCDomain
 
 struct NineLineEntry: Identifiable {
-    enum Status { case ok, warn, crit, auto }
+    /// Line-1 source-aware statuses:
+    /// - `.demo`    — populated from training/demo coordinates; not real-fix.
+    /// - `.pending` — no usable location source; operator must provide one.
+    enum Status { case ok, warn, crit, auto, demo, pending }
 
     let number: Int
     let label: String
@@ -21,8 +24,7 @@ struct NineLineForm {
 
     static func derive(
         from patients: [PatientState],
-        gpsLatitude: Double,
-        gpsLongitude: Double,
+        locationFix: AppState.LocationFix,
         callsign: String = "DUSTOFF 6",
         frequency: String = "38.65 FM"
     ) -> NineLineForm {
@@ -35,15 +37,28 @@ struct NineLineForm {
 
         var entries: [NineLineEntry] = []
 
-        // Line 1 — Location
-        let mgrs = formattedLocation(lat: gpsLatitude, lon: gpsLongitude)
+        // Line 1 — Location.
+        // We refuse to fabricate a position when no source is set.
+        // `.demo` still renders coordinates but flags status so the UI
+        // and any radio-script consumer can warn that this is training
+        // data, not a real fix. `.manual` shows EDIT instead of GPS in
+        // the badge column (`isAuto = false`).
+        let line1Value: String
+        let line1Status: NineLineEntry.Status
+        if let lat = locationFix.latitude, let lon = locationFix.longitude, locationFix.isUsable {
+            line1Value = formattedLocation(lat: lat, lon: lon)
+            line1Status = locationFix.source == .demo ? .demo : .auto
+        } else {
+            line1Value = "UNVERIFIED — set location"
+            line1Status = .pending
+        }
         entries.append(.init(
             number: 1,
             label: "LOCATION",
-            value: mgrs,
+            value: line1Value,
             icon: "mappin.and.ellipse",
-            status: .auto,
-            isAuto: true
+            status: line1Status,
+            isAuto: locationFix.source != .manual
         ))
 
         // Line 2 — Frequency / Callsign

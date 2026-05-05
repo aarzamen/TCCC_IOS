@@ -58,10 +58,12 @@ struct NineLineRow: View {
 
     private var statusColor: Color {
         switch entry.status {
-        case .crit: palette.crit
-        case .warn: palette.warn
-        case .auto: palette.fg
-        case .ok:   palette.fg
+        case .crit:    palette.crit
+        case .warn:    palette.warn
+        case .auto:    palette.fg
+        case .ok:      palette.fg
+        case .demo:    palette.warn   // training coords — visually warn-tier
+        case .pending: palette.crit   // unverified — surface as crit
         }
     }
 

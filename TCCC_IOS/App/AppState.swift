@@ -221,12 +221,41 @@ final class AppState {
     }
     var llmBackend: LLMBackend = .appleFoundation
 
+    /// Provenance of the casualty location used for 9-line LINE 1.
+    /// Modeled explicitly so the UI can render a `NO FIX` / `MANUAL` /
+    /// `DEMO` badge and the 9-line refuses to populate Line 1 unless
+    /// the source is usable. The Bagram-area lat/lon that used to be
+    /// hardcoded silently is now only reachable via `.demo`.
+    enum LocationSource: String, Codable, Sendable, CaseIterable, Identifiable {
+        case none      // no fix — Line 1 must be marked UNVERIFIED
+        case manual    // operator entered MGRS / lat-lon manually
+        case demo      // bundled demo coordinates (training only)
+        var id: String { rawValue }
+        var badge: String {
+            switch self {
+            case .none:   "NO FIX"
+            case .manual: "MANUAL"
+            case .demo:   "DEMO"
+            }
+        }
+    }
+
+    struct LocationFix: Codable, Sendable, Equatable {
+        var source: LocationSource
+        var latitude: Double?
+        var longitude: Double?
+        /// True when source != .none AND lat/lon are non-nil.
+        var isUsable: Bool { source != .none && latitude != nil && longitude != nil }
+    }
+
     var casualtyId: String = "C-04"
     var sessionStart: Date = Date()
     var batteryPercent: Int = 78
 
-    var gpsLatitude: Double = 34.5267
-    var gpsLongitude: Double = 69.1729
+    /// Replaces the silent Bagram lat/lon default. Defaults to `.none`
+    /// so the 9-line LOCATION line will render UNVERIFIED until the
+    /// operator explicitly opts into a source via Settings.
+    var locationFix: LocationFix = LocationFix(source: .none, latitude: nil, longitude: nil)
 
     var transcript: [TranscriptLine] = []
     var partialTranscript: String = ""

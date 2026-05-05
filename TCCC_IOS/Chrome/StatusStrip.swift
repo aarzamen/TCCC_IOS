@@ -13,6 +13,8 @@ struct StatusStrip: View {
                 RFGhostBadge(state: state.rfState)
                 divider
                 casualtyCell
+                divider
+                locationSourceCell
                 Spacer(minLength: 0)
                 divider
                 pageIndicatorCell
@@ -103,6 +105,32 @@ struct StatusStrip: View {
         let h = elapsed / 3600
         let m = (elapsed % 3600) / 60
         return String(format: "+%02d:%02d", h, m)
+    }
+
+    /// Location-source provenance badge — `NO FIX` / `MANUAL` / `DEMO`.
+    /// Per A1 hardening: the 9-line LINE 1 is the loudest data we send
+    /// to the inbound bird. The operator should see the source of truth
+    /// for that coordinate at all times. Color-coded: `.demo` warn,
+    /// `.manual` neutral, `.none` crit.
+    private var locationSourceCell: some View {
+        let source = state.locationFix.source
+        let color: Color
+        switch source {
+        case .none:   color = palette.crit
+        case .demo:   color = palette.warn
+        case .manual: color = palette.fg2
+        }
+        return HStack(spacing: 6) {
+            Image(systemName: "location.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(color)
+            Text(source.badge)
+                .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                .tracking(1.0)
+                .foregroundStyle(color)
+        }
+        .padding(.horizontal, 10)
+        .frame(minWidth: 78)
     }
 
     private var pageIndicatorCell: some View {
