@@ -1,28 +1,34 @@
 import Foundation
 
-/// **Stub** — Qwen 3 1.7B backend.
+/// Qwen 3 1.7B backend (MLX 4-bit, ~968 MB on disk).
 ///
-/// Per night-pass Track C / RESEARCH_LLM_SMALL.md, Qwen 3 1.7B is
-/// the Apache-2.0 fallback for the alt-LLM slot:
-///   - Apache 2.0 (cleanest license; no AUP traps)
-///   - Available in MLX Q4 (~1.0 GB) and Q5 (~1.2 GB)
-///   - 39.5 tok/s on iPhone 17 Pro
-///   - 73.98 IFEval
+/// Per `RESEARCH_LLM_SMALL.md` §6, Qwen 3 1.7B is the Apache-2.0 fallback
+/// for the alt-LLM slot:
+///   - Apache 2.0 — cleanest license, no AUP traps (in contrast to Llama's
+///     AUP, which forbids both medical and military use)
+///   - 39.5 tok/s on iPhone 17 Pro (vs 59.7 for LFM2.5 1.2B — slower)
+///   - 73.98 IFEval (vs LFM2's 74.89 — close, slightly behind)
+///   - Larger parameter count brings stronger general reasoning but also
+///     a heavier KV cache. Treated as the contingency backend if Liquid's
+///     license terms become untenable, or if field testing reveals LFM2
+///     drift on combat-medic vocabulary that Qwen handles better.
 ///
-/// **On ice.** Same shape as LFM2LLMBackend — implementation lands
-/// the moment a Q4/Q5 GGUF or MLX bundle is on the device.
-///
-/// We keep both LFM2 and Qwen stubs in the binary so swapping
-/// "primary alt" between them is a one-line backend-enum change in
-/// AppState.llmBackend, not a code rewrite, when the operator field-
-/// tests preference shifts.
+/// Weights download from `mlx-community/Qwen3-1.7B-4bit` on first use, or
+/// via the Settings "Download" affordance.
 actor QwenLLMBackend: TCCCLLMBackend {
 
-    let displayName = "Qwen 3 1.7B"
+    private static let name = "Qwen 3 1.7B"
+    private static let model = "mlx-community/Qwen3-1.7B-4bit"
 
-    var availability: BackendAvailability { .modelNotProvided }
+    private let backend = MLXBackend(displayName: name, modelId: model)
+
+    nonisolated let displayName = QwenLLMBackend.name
+
+    var availability: BackendAvailability {
+        get async { await backend.availability }
+    }
 
     func generate(instructions: String, prompt: String) async throws -> String {
-        throw BackendError.notImplemented(backend: displayName)
+        try await backend.generate(instructions: instructions, prompt: prompt)
     }
 }

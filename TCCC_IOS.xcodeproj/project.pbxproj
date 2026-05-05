@@ -42,6 +42,7 @@
 		59B76D40E7C2FC6C97543EFD /* SpeechRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 760440A05970E300FA8EE623 /* SpeechRecognizer.swift */; };
 		5D18A9F14A3C03D8184C9A49 /* AudioLevels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814714063444A46EFF4A5946 /* AudioLevels.swift */; };
 		5E335E98466F27FE4BB04476 /* TCCCExtractor in Frameworks */ = {isa = PBXBuildFile; productRef = A15CAC0CB421F5287463F2D1 /* TCCCExtractor */; };
+		600E655D057BE15E389CC357 /* MLXBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129984C4E0F1CB5E8FF56A58 /* MLXBackend.swift */; };
 		61490C4F3F48390EE2EA2AC0 /* TranscriptLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5279A4A90D8BE4BEC038F0A8 /* TranscriptLine.swift */; };
 		61CF016631D41CBACEE66692 /* TranscriptCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 771B01601872B488CF2B1B0C /* TranscriptCleaner.swift */; };
 		6369F90A6238D66A43DD242E /* ConfirmationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C6B5DD035E601B88468377 /* ConfirmationAction.swift */; };
@@ -94,6 +95,7 @@
 		0CC8E752C934974E83313217 /* FactRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FactRow.swift; sourceTree = "<group>"; };
 		0D3107D62542750F42D865F8 /* TCCCLLMBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCCLLMBackend.swift; sourceTree = "<group>"; };
 		0EE8A25877D44D109385309C /* HandoffData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffData.swift; sourceTree = "<group>"; };
+		129984C4E0F1CB5E8FF56A58 /* MLXBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXBackend.swift; sourceTree = "<group>"; };
 		140881810FD1F888CCCF60A2 /* MedRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedRowView.swift; sourceTree = "<group>"; };
 		1439B6599811FA567A67B1C2 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		1611CD2F2C6FBCA090FA9463 /* DemoScenarios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoScenarios.swift; sourceTree = "<group>"; };
@@ -256,6 +258,7 @@
 				8A2A7BCF4A50066EAC3F8CC8 /* AppleFoundationLLMBackend.swift */,
 				B4B50A8C1C4A39B3241BFC2B /* EncounterNarrativeGenerator.swift */,
 				1946CE8343768646DD99F1B7 /* LFM2LLMBackend.swift */,
+				129984C4E0F1CB5E8FF56A58 /* MLXBackend.swift */,
 				F5D4C6D20902E00D65E368B1 /* QwenLLMBackend.swift */,
 				EC7666599E263562C0948458 /* RadioScriptGenerator.swift */,
 				E8DD000AEA797F182C96445E /* TCCCLanguageModel.swift */,
@@ -470,6 +473,7 @@
 				4D5964B348E60F55B966ED53 /* LFM2LLMBackend.swift in Sources */,
 				1A7250023CAD5E01EC0C1B5A /* Layout.swift in Sources */,
 				053C6224571C815A36C1D8D1 /* LiveCaptureScreen.swift in Sources */,
+				600E655D057BE15E389CC357 /* MLXBackend.swift in Sources */,
 				BD7A4C23586CB96972781B6D /* MarchRowView.swift in Sources */,
 				C2857D2977856447A6679591 /* MedRowView.swift in Sources */,
 				FF806D8C2DBF0764539D33EF /* MedevacScreen.swift in Sources */,
