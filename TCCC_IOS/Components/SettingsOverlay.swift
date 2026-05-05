@@ -43,6 +43,8 @@ struct SettingsOverlay: View {
                     sectionDivider
                     audioASRSection
                     sectionDivider
+                    llmBackendSection
+                    sectionDivider
                     systemSection
                     sectionDivider
                     operatorSection
@@ -374,6 +376,43 @@ struct SettingsOverlay: View {
         }
     }
 
+    // MARK: - LLM Backend (B3)
+    //
+    // Symmetric to the ASR backend section above. Three radio cards —
+    // Apple Foundation Models (default, real), Liquid LFM2.5 1.2B (alt,
+    // on ice), Qwen 3 1.7B (alt, on ice). Each row reads its backend's
+    // `availability` and renders a status pill. LFM2 + Qwen currently
+    // return `.modelNotProvided` from their stubs; they're still
+    // selectable so the operator can see "NOT PROVIDED" intentionally
+    // (and the four generators will later refuse to run rather than
+    // silently fall back).
+
+    private var llmBackendSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("LLM · Backend")
+                .font(.system(size: 11, weight: .heavy))
+                .tracking(1.8)
+                .foregroundStyle(palette.fg)
+                .textCase(.uppercase)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(AppState.LLMBackend.allCases) { backend in
+                    LLMBackendRow(
+                        backend: backend,
+                        isSelected: state.llmBackend == backend,
+                        onTap: { state.llmBackend = backend }
+                    )
+                }
+            }
+
+            Text("Apple Foundation Models is the runtime default. LFM2 and Qwen are on ice — model weights not bundled. Selection still surfaces availability for diagnostic visibility.")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(palette.fg3)
+                .lineLimit(3)
+        }
+        .padding(16)
+    }
+
     // MARK: - System
 
     private var systemSection: some View {
@@ -602,5 +641,104 @@ struct SettingsOverlay: View {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"
         return f.string(from: Date())
+    }
+}
+
+// MARK: - LLMBackendRow (B3)
+
+/// One radio card in the LLM Backend picker. Owns its own
+/// `BackendAvailability` state so we can read it async without
+/// blocking the parent view's render. The row mirrors the visual
+/// shape of `asrBackendRow` in `SettingsOverlay`.
+private struct LLMBackendRow: View {
+    let backend: AppState.LLMBackend
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    @Environment(\.palette) private var palette
+    @State private var availability: BackendAvailability = .unknown
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 10) {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(isSelected ? palette.accent : palette.fg2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(backend.displayName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(palette.fg)
+                    Text(subtitle)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(palette.fg3)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                statusPill
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .background(isSelected ? palette.bg2 : Color.clear)
+            .overlay(
+                Rectangle()
+                    .strokeBorder(isSelected ? palette.accent : palette.line, lineWidth: Layout.hairline)
+            )
+        }
+        .buttonStyle(.plain)
+        .task(id: backend) {
+            availability = await Self.readAvailability(for: backend)
+        }
+    }
+
+    private var subtitle: String {
+        switch backend {
+        case .appleFoundation:
+            "On-device · default · ships with iOS 26 on eligible devices"
+        case .lfm2:
+            "On-device · LFM Open License · model weights not bundled"
+        case .qwen3:
+            "On-device · Apache-2.0 · model weights not bundled"
+        }
+    }
+
+    @ViewBuilder
+    private var statusPill: some View {
+        let (label, fg) = pillContent
+        Text(label)
+            .font(.system(size: 9, weight: .heavy, design: .monospaced))
+            .tracking(1.2)
+            .foregroundStyle(fg)
+            .padding(.vertical, 3)
+            .padding(.horizontal, 6)
+            .overlay(
+                Rectangle()
+                    .strokeBorder(fg.opacity(0.6), lineWidth: Layout.hairline)
+            )
+    }
+
+    private var pillContent: (String, Color) {
+        switch availability {
+        case .available:         ("READY", palette.ok)
+        case .downloading:       ("DOWNLOADING", palette.warn)
+        case .modelNotProvided:  ("NOT PROVIDED", palette.fg3)
+        case .deviceNotEligible: ("INELIGIBLE", palette.crit)
+        case .disabled:          ("DISABLED", palette.fg3)
+        case .unknown:           ("UNKNOWN", palette.fg3)
+        }
+    }
+
+    /// Construct a fresh backend instance and read its availability.
+    /// Backends are stateless wrappers — instantiation is cheap and
+    /// matches the pattern AppState's future `currentBackend` (Task B2)
+    /// would use.
+    private static func readAvailability(for backend: AppState.LLMBackend) async -> BackendAvailability {
+        switch backend {
+        case .appleFoundation:
+            return await AppleFoundationLLMBackend().availability
+        case .lfm2:
+            return await LFM2LLMBackend().availability
+        case .qwen3:
+            return await QwenLLMBackend().availability
+        }
     }
 }
