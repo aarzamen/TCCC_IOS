@@ -83,9 +83,6 @@ final class AppState {
     var quickActionsOpen: Bool = false
 
     var rfState: RFState = .ghost
-    var antPlusArmed: Bool = true
-    var jetsonLinkArmed: Bool = true
-    var usbConnected: Bool = false
 
     /// ASR backend selection per night-pass Track B (2026-05-05).
     /// Apple Speech is the proven default. Parakeet is on ice — the
