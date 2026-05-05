@@ -1,4 +1,7 @@
 import SwiftUI
+import TCCCDesign
+
+// PLAYGROUND HOOK — see superplayground.md.
 
 /// 15-minute trend plot for HR / BP-systolic / SpO₂.
 ///
@@ -66,6 +69,13 @@ struct TrendChart: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .playgroundEditable(
+            ElementID(screen: .vitals, category: .trendChart, slot: "primary"),
+            hint: ElementHint(
+                label: "Vitals trend chart",
+                supports: [.visibility, .frame]
+            )
+        )
     }
 
     // MARK: - Legend

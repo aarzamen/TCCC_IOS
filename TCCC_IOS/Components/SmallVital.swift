@@ -1,4 +1,7 @@
 import SwiftUI
+import TCCCDesign
+
+// PLAYGROUND HOOK — see superplayground.md.
 
 /// Small vitals card — bottom row on Screen 02 (RESP, GCS, TEMP, CAP RE).
 ///
@@ -66,6 +69,13 @@ struct SmallVital: View {
         .overlay(
             Rectangle()
                 .strokeBorder(palette.line, lineWidth: Layout.hairline)
+        )
+        .playgroundEditable(
+            ElementID(screen: .vitals, category: .smallVital, slot: label),
+            hint: ElementHint(
+                label: "Small vital · \(label)",
+                supports: [.visibility, .text, .icon, .frame]
+            )
         )
     }
 }

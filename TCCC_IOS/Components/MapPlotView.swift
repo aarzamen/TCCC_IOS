@@ -1,4 +1,10 @@
 import SwiftUI
+import TCCCDesign
+
+// PLAYGROUND HOOK — see superplayground.md.
+// MapPlotView renders cosmetic terrain — no real GPS, no real tile
+// data. Visibility hook lets you delete it without disturbing the
+// 9-Line surrounding layout.
 
 struct MapPlotView: View {
     @Environment(\.palette) private var palette
@@ -139,5 +145,12 @@ struct MapPlotView: View {
                 .padding(.trailing, 6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .playgroundEditable(
+            ElementID(screen: .medevac, category: .mapPlot, slot: "main"),
+            hint: ElementHint(
+                label: "Tactical map (decorative)",
+                supports: [.visibility, .frame]
+            )
+        )
     }
 }

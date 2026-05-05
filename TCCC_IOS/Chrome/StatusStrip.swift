@@ -1,4 +1,7 @@
 import SwiftUI
+import TCCCDesign
+
+// PLAYGROUND HOOK — see superplayground.md.
 
 struct StatusStrip: View {
     let state: AppState
@@ -26,6 +29,10 @@ struct StatusStrip: View {
                 .fill(palette.line)
                 .frame(height: Layout.hairline)
         }
+        .playgroundEditable(
+            ElementID.statusStrip("strip"),
+            hint: ElementHint(label: "Status strip", supports: [.visibility, .frame])
+        )
     }
 
     private var divider: some View {

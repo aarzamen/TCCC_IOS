@@ -20,3 +20,9 @@ Package.resolved
 
 # Reference materials are local-only
 reference/design_mockup/
+
+# Superplayground — debug-only design tool, never committed.
+# See superplayground.md for the architecture and how to restore.
+TCCC_IOS/_Playground/
+_PlaygroundPresets/
+*.playground-preset.json

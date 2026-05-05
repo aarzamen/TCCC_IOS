@@ -1,4 +1,11 @@
 import SwiftUI
+import TCCCDesign
+
+// PLAYGROUND HOOK — see superplayground.md.
+// `.playgroundOverlay()` wraps the root with the design playground's
+// entry gesture and inspector overlay when the playground is booted.
+// Compiles to a pass-through when it is not (release builds, clean
+// clones).
 
 struct ContentView: View {
     let state: AppState
@@ -39,6 +46,7 @@ struct ContentView: View {
         .animation(.fast, value: state.settingsOpen)
         .animation(.fast, value: state.quickActionsOpen)
         .animation(.fast, value: state.pendingConfirmation?.id)
+        .playgroundOverlay()
     }
 }
 

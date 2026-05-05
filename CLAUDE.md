@@ -8,6 +8,34 @@ Native SwiftUI port of the TCCC_FEB_2026 Python prototype. Combat-medic document
 - **Design brief**: `reference/design_mockup/design_handoff_tccc_ios/README.md`. Open `reference/.../design/TCCC.ai standalone.html` in a desktop browser, navigate the 5 screens with arrow keys. Treat as load-bearing for visual structure and the hard constraints below. Some functionality in the prototype was speculatively assumed (ANT+ sensors, ATAK/MEDHUB, MDM radio kill) — those are aspirational, not blocking.
 - **Port notes**: `reference/python_source_notes.md` (created during Phase 0) — line-by-line map from Python source to Swift port targets.
 
+## Superplayground (debug-only design tool)
+
+The repo carries a runtime design playground. It is **debug-only and
+gitignored**. See `superplayground.md` at the repo root for the architecture,
+gitignore strategy, and bake-to-source contract. Three things future-you /
+future-Claude must know:
+
+1. **`.playgroundEditable(_:)` modifiers throughout the chrome are not dead
+   code.** They're free no-ops at runtime when the playground is disabled and
+   are how the playground discovers editable elements. Don't strip them.
+   Look for the `// PLAYGROUND HOOK` comment at the top of any file with hooks.
+2. **Raw colors and sizes belong in `DesignTokens.generated.swift` (baked) or
+   `Theme.swift` / `Layout.swift` (hand-written defaults), never in component
+   files.** If you see a hex literal or a magic number drifting back into a
+   component, that is exactly the regression the playground exists to
+   prevent — fix it.
+3. **Concentric corner radii are enforced** via `Concentric.inner(of:inset:)`
+   in `TCCCDesign/Concentric.swift`. When wrapping a rounded element in
+   another rounded element, use the helper. Don't hardcode inner radii.
+   `RoundedRectangle.tccc(_:)` is the standard initializer (always
+   `.continuous` style); don't use the bare `cornerRadius:` initializer.
+
+The playground itself is built across `Packages/TCCCKit/Sources/TCCCDesign/Playground/`
+(committed primitives), `TCCC_IOS/_Playground/` (gitignored editor UI), and
+`DesignTokens.generated.swift` (committed bake target). To enable: uncomment
+`SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG PLAYGROUND_ENABLED"` in
+`project.yml`'s Debug config and ensure `_Playground/` is restored on disk.
+
 ## Hard product constraints (non-negotiable)
 
 If you're about to add a package, framework, or import, check it against these first:

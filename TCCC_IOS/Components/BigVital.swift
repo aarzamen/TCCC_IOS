@@ -1,4 +1,7 @@
 import SwiftUI
+import TCCCDesign
+
+// PLAYGROUND HOOK — see superplayground.md.
 
 /// Large vitals card used in Screen 02 (Vitals) — primary trio: HR, BP, SpO₂.
 ///
@@ -61,6 +64,13 @@ struct BigVital: View {
         .overlay(
             Rectangle()
                 .strokeBorder(palette.line, lineWidth: Layout.hairline)
+        )
+        .playgroundEditable(
+            ElementID(screen: .vitals, category: .bigVital, slot: label),
+            hint: ElementHint(
+                label: "Big vital · \(label)",
+                supports: [.visibility, .text, .icon, .frame]
+            )
         )
     }
 

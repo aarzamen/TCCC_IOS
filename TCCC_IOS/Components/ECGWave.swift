@@ -1,4 +1,12 @@
 import SwiftUI
+import TCCCDesign
+
+// PLAYGROUND HOOK — see superplayground.md.
+// This component is the canonical example of why the playground exists:
+// it's a synthetic waveform presented with clinical-grade calibration,
+// in an app whose user (a Role 1 medic) does not carry continuous ECG
+// hardware. The visibility hook lets you delete it without touching
+// the surrounding screen layout.
 
 /// Synthetic ECG Lead II waveform with a 20pt graticule.
 ///
@@ -58,6 +66,13 @@ struct ECGWave: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+        .playgroundEditable(
+            ElementID(screen: .vitals, category: .ecg, slot: "wave"),
+            hint: ElementHint(
+                label: "ECG synthetic waveform",
+                supports: [.visibility, .frame]
+            )
+        )
     }
 
     // MARK: - Graticule

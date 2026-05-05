@@ -1,4 +1,7 @@
 import SwiftUI
+import TCCCDesign
+
+// PLAYGROUND HOOK — see superplayground.md.
 
 /// Footer chrome — always present at the bottom of every screen. Hosts:
 ///   - swipe affordances (← prev screen / next screen →)
@@ -44,6 +47,10 @@ struct FooterHints: View {
                 .fill(palette.line)
                 .frame(height: Layout.hairline)
         }
+        .playgroundEditable(
+            ElementID.footerHints("bar"),
+            hint: ElementHint(label: "Footer hints", supports: [.visibility, .frame])
+        )
     }
 
     // MARK: - Sides

@@ -19,6 +19,14 @@ targets:
     platform: iOS
     sources:
       - path: TCCC_IOS
+        excludes:
+          - "_Playground/**"
+      # Superplayground — debug-only design tool. Files are gitignored;
+      # `optional: true` means xcodegen tolerates the directory being absent
+      # on clean clones. To enable: restore _Playground/ on disk AND set
+      # PLAYGROUND_ENABLED in the Debug config below. See superplayground.md.
+      - path: TCCC_IOS/_Playground
+        optional: true
     dependencies:
       - package: TCCCKit
         product: TCCCDomain
@@ -43,3 +51,14 @@ targets:
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device."
         INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Save the offline QR code of the encounter to Photos so you can scan it from another device when no wired handoff is available."
         GENERATE_INFOPLIST_FILE: YES
+      configs:
+        # Superplayground gating. To enable the design playground, uncomment
+        # the SWIFT_ACTIVE_COMPILATION_CONDITIONS line AND restore the
+        # _Playground/ directory. To disable, leave commented. Release builds
+        # never set this. See superplayground.md.
+        Debug:
+          # SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG PLAYGROUND_ENABLED"
+          # PLAYGROUND-ONLY: read access to the photo library for the custom
+          # image picker. Remove with the rest of the playground when done.
+          # INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "PLAYGROUND ONLY: pick custom images for design exploration. Never used in release builds."
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG"

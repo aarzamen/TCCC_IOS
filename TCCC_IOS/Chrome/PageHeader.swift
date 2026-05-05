@@ -1,4 +1,7 @@
 import SwiftUI
+import TCCCDesign
+
+// PLAYGROUND HOOK — see superplayground.md.
 
 /// Compact single-line page header for landscape iPhone.
 ///
@@ -13,6 +16,25 @@ struct PageHeader: View {
     let trailingKickerValue: String?
 
     @Environment(\.palette) private var palette
+    @Environment(\.playgroundProvider) private var provider
+
+    private var elementID: ElementID {
+        ElementID.pageHeader(playgroundScreen)
+    }
+
+    private var playgroundScreen: ElementID.Screen {
+        switch screen {
+        case .liveCapture: .liveCapture
+        case .vitals:      .vitals
+        case .tcccCard:    .tcccCard
+        case .medevac:     .medevac
+        case .handoff:     .handoff
+        }
+    }
+
+    private var resolvedTitle: String {
+        PlaygroundOverrides.string(elementID, default: screen.title, provider: provider)
+    }
 
     init(
         screen: AppState.Screen,
@@ -31,7 +53,7 @@ struct PageHeader: View {
             indexLabel
                 .fixedSize(horizontal: true, vertical: false)
 
-            Text(screen.title)
+            Text(resolvedTitle)
                 .font(.system(size: 16, weight: .heavy))
                 .tracking(0.6)
                 .foregroundStyle(palette.fg)
@@ -75,6 +97,13 @@ struct PageHeader: View {
                 .fill(palette.line)
                 .frame(height: Layout.hairline)
         }
+        .playgroundEditable(
+            elementID,
+            hint: ElementHint(
+                label: screen.title,
+                supports: [.visibility, .text, .frame]
+            )
+        )
     }
 
     private var indexLabel: some View {

@@ -1,5 +1,8 @@
 import SwiftUI
+import TCCCDesign
 import TCCCDomain
+
+// PLAYGROUND HOOK — see superplayground.md.
 
 struct BodyMap: View {
     let patient: PatientState?
@@ -89,6 +92,13 @@ struct BodyMap: View {
                 .padding(.trailing, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .playgroundEditable(
+            ElementID(screen: .tcccCard, category: .bodyMap, slot: "main"),
+            hint: ElementHint(
+                label: "Body diagram",
+                supports: [.visibility, .frame]
+            )
+        )
     }
 
     private func drawMarkers(
