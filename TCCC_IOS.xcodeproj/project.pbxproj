@@ -57,6 +57,7 @@
 		86BA530C6C55B2B98D486750 /* FooterHints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2CCE67936451614B668080 /* FooterHints.swift */; };
 		89EF0B5DE8FDC850975E7017 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAA6C0033E6E1A9DB176C2E /* Theme.swift */; };
 		8BFDC48A15257D335AA6FDC2 /* ProtectedWrite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F553E30B771457479876540 /* ProtectedWrite.swift */; };
+		8CB8BA9DB46E4431796898B0 /* AudioCaptureConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCDF83068970EBBEC7419F91 /* AudioCaptureConfig.swift */; };
 		8DC1156F7128911034EFF946 /* RadioScriptGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC7666599E263562C0948458 /* RadioScriptGenerator.swift */; };
 		8EC8E02D86C55CAAB3BA7DA4 /* DestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E59FC65329AC434413958DE /* DestCard.swift */; };
 		9959847700098A8A614CA581 /* TCCCDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 1E9168029DF6BAD8005DF319 /* TCCCDesign */; };
@@ -164,6 +165,7 @@
 		C6B68FDA05142786243C6B85 /* QuickActionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsSheet.swift; sourceTree = "<group>"; };
 		D1E92BC23E69C490B140D2E2 /* ZMISTNarrativeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZMISTNarrativeGenerator.swift; sourceTree = "<group>"; };
 		D67CD12F7F9F83C6D0D2AAA0 /* ExportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportCard.swift; sourceTree = "<group>"; };
+		DCDF83068970EBBEC7419F91 /* AudioCaptureConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureConfig.swift; sourceTree = "<group>"; };
 		DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCC_IOSApp.swift; sourceTree = "<group>"; };
 		E8DD000AEA797F182C96445E /* TCCCLanguageModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCCLanguageModel.swift; sourceTree = "<group>"; };
 		EC7666599E263562C0948458 /* RadioScriptGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioScriptGenerator.swift; sourceTree = "<group>"; };
@@ -303,6 +305,7 @@
 		9F25F086BF1BAD127F5DBE51 /* Audio */ = {
 			isa = PBXGroup;
 			children = (
+				DCDF83068970EBBEC7419F91 /* AudioCaptureConfig.swift */,
 				814714063444A46EFF4A5946 /* AudioLevels.swift */,
 				232370BA9225A54377B43108 /* AudioSessionCoordinator.swift */,
 				742A5F531208D6CFD94F99E1 /* ParakeetTranscriptStream.swift */,
@@ -462,6 +465,7 @@
 			files = (
 				4A0F0CBCC1FA321587B4A2C5 /* AppState.swift in Sources */,
 				553E057ED5AAEC6B1A6AA22E /* AppleFoundationLLMBackend.swift in Sources */,
+				8CB8BA9DB46E4431796898B0 /* AudioCaptureConfig.swift in Sources */,
 				5D18A9F14A3C03D8184C9A49 /* AudioLevels.swift in Sources */,
 				0A854C4EC5C0B63AFBDAFCFB /* AudioMeterView.swift in Sources */,
 				27A0A3C2D7235CEDE2CD642A /* AudioSessionCoordinator.swift in Sources */,

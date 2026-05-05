@@ -318,19 +318,6 @@ final class AppState {
 
     let audioLevels = AudioLevels()
 
-    /// AAC encoder settings used by both `SpeechRecognizer` and
-    /// `ParakeetTranscriptStream`. Voice-quality bitrate (32 kbps) at the
-    /// 16 kHz mono sample rate the iPhone mic captures at — yields ~25 MB/hr
-    /// vs ~115 MB/hr for the prior WAV PCM format. AAC is the format
-    /// `UIActivityViewController` and `Files.app` both render natively for
-    /// `.m4a`.
-    static let aacOutputSettings: [String: Any] = [
-        AVFormatIDKey: kAudioFormatMPEG4AAC,
-        AVSampleRateKey: 16_000,
-        AVNumberOfChannelsKey: 1,
-        AVEncoderBitRateKey: 32_000,
-    ]
-
     /// Build a fresh audio capture URL inside Documents. The recognizer will
     /// open this for writing on the next start().
     func newAudioCaptureURL() -> URL {
