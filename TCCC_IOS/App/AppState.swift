@@ -695,6 +695,14 @@ final class AppState {
     /// (newPatient / endCurrentCare / wipeSession).
     var voiceCommandTask: Task<Void, Never>?
 
+    /// Cap on how many recent transcript lines the auto-clean pass sends
+    /// to the SLM. At ~10 words/line, 200 lines ≈ a few thousand tokens —
+    /// well within model context, but bounded so a 90-minute recording
+    /// doesn't grow the prompt unboundedly. Older lines are preserved
+    /// from the previous cleaned snapshot (or the raw transcript) and
+    /// re-attached as the leading prefix.
+    private static let autoCleanWindow = 200
+
     /// Schedule an auto-clean pass over the committed transcript. Cancels
     /// any in-flight schedule so a fresh final-commit always wins. Backs
     /// off if the transcript is too short (< 3 lines) to bother with.
@@ -727,9 +735,17 @@ final class AppState {
             let toClean = self.transcript
             guard toClean.count >= 3 else { return }
             do {
-                let cleaned = try await TranscriptCleaner(backend: backend).clean(toClean)
+                let recent = Array(toClean.suffix(Self.autoCleanWindow))
+                let cleaned = try await TranscriptCleaner(backend: backend).clean(recent)
                 guard !Task.isCancelled else { return }
-                self.transcriptCleaned = cleaned
+                let leadingCount = max(0, toClean.count - recent.count)
+                let leading: [TranscriptLine]
+                if let prior = self.transcriptCleaned, prior.count >= leadingCount {
+                    leading = Array(prior.prefix(leadingCount))
+                } else {
+                    leading = Array(toClean.prefix(leadingCount))
+                }
+                self.transcriptCleaned = leading + cleaned
                 self.lastCleanedAt = Date()
             } catch {
                 // Silent failure — manual button surfaces errors directly.
