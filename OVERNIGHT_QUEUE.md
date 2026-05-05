@@ -43,17 +43,50 @@ In foreground, sequentially, each one its own commit on `main`:
    intentionally uses landscape lock; Apple's 26.0 deprecation note
    says it'll be ignored, not removed.
 
-In parallel, two research agents writing reports (you'll read them in
-the morning):
+In parallel, two research agents wrote reports (read them first):
 
-- `RESEARCH_PARAKEET.md` — NVIDIA Parakeet English-only ASR feasibility
-  on iOS. License, model size, conversion path (CoreML / MLX), latency
-  on M-class chips, RF Ghost compliance.
-- `RESEARCH_LLAMA32B.md` — Llama 3.2 ~3B (you wrote "3.2B" — I'm
-  assuming you meant the 3B variant from the 3.2 family, which is
-  what's tractable on a phone) at Q4_K_M and Q5_K_M on iPhone 17 Pro.
-  Throughput, memory headroom (12 GB unified), MLX-Swift vs
-  llama.cpp tradeoffs, integration with `TCCCLanguageModel` protocol.
+### `RESEARCH_PARAKEET.md` — green light, beaten path
+- **Recommended:** drop `FluidInference/FluidAudio` (Apache 2.0 Swift
+  SDK, iOS 17+, runs on ANE) into the project; bundle
+  `parakeet-tdt-0.6b-v2` (English, CC-BY-4.0, ~1.69% LibriSpeech-clean
+  WER, ~66 MB ANE working memory).
+- Wraps cleanly behind the existing `TranscriptStream` protocol —
+  `ParakeetTranscriptStream` actor adapts FluidAudio's
+  `StreamingEouAsrManager` to the existing pipeline. ~1 day MVP.
+- One license caveat: the streaming EOU 120M variant ships under
+  NVIDIA Open Model License (not CC-BY-4.0); still permits
+  personal+commercial use but with different attribution wording.
+- iPhone 17 Pro ANE benchmarks (Argmax) show Parakeet v3 running
+  ~4.3× faster on ANE than GPU. Quality bump over Apple Speech is
+  expected to be largest on military / drug-name vocabulary.
+
+### `RESEARCH_LLAMA32B.md` — yellow zone, two surprises
+**(a) Llama 3.2 3B does not actually fit on the iPhone 17 Pro under
+MLX.** Public March 2026 benchmark (Takkar): the 3B model exceeded
+the iOS jetsam memory ceiling on a 12 GB device. **Llama 3.2 1B at
+4-bit ran cleanly at ~58 tok/s with ~253 ms TTFT** and is the safer
+target if quality is acceptable.
+**(b) The Llama 3.2 Acceptable Use Policy explicitly forbids
+"military, warfare" applications and "unauthorized or unlicensed
+practice of… medical/health."** TCCC.ai is on both forks of that
+prohibition. A serious deployment would need either a Meta
+authorization, a non-Llama base model, or acceptance that this is a
+personal research artifact never distributed.
+
+**Better swap target identified: Qwen 3 1.7B (Apache 2.0).**
+Comparable quality, no AUP problem, lighter memory footprint.
+
+**Integration path:** `mattt/AnyLanguageModel` is API-compatible with
+the existing `FoundationModels` `LanguageModelSession` shape — swap
+is essentially one line per backend choice. Production-credible
+even pre-1.0.
+
+**Revised recommendation (overrides what I drafted earlier in this
+file):** keep Apple Foundation Models as the default; add an
+`AnyLanguageModel` abstraction so Qwen 3 1.7B or Llama 3.2 1B can be
+tried as side-by-side options. Park Llama 3.2 3B until iPhone 18 Pro
+ships with more RAM (or a higher jetsam budget) AND there's a path
+through the AUP.
 
 ## On-device transcription quality plan
 
@@ -79,17 +112,27 @@ the Apple Foundation Model — Llama 3.2B (3B params at Q5) on the
 17 Pro would give you stronger reasoning, longer context, and full
 control over the system prompt.
 
-**My recommendation** (subject to your judgment when you read the
-research docs): **start with Architecture B**. The Foundation Model
-is already wired and working; swapping in Llama 3.2B GGUF via
-`llama.cpp.swift` or `MLXLLM` is a localized change. Architecture A
-unlocks more quality but is multi-day work.
+**My recommendation, post-research:** **start with Architecture A
+(Parakeet)**. The Llama agent's two findings (3B doesn't fit; AUP
+forbids medical/military) flip the original ranking. Apple Speech
+quality is the actual bottleneck per your own statement, and
+Parakeet directly addresses it with measurably lower WER. The
+post-hoc cleanup model can be revisited later with Qwen 3 1.7B
+or Llama 3.2 1B once it has a real value proposition over the
+already-working Foundation Model.
 
-Architecture B can be implemented in ~half a day:
-1. Add `MLXLLM` (Apple) or `llama.cpp` Swift bindings as an SPM dep
-2. Bundle a Q4 or Q5 Llama 3.2 3B GGUF / .npz in the app
-3. Wrap it in a `TCCCLanguageModel`-conforming actor
-4. Pick model at AppState startup based on availability
+Architecture A (Parakeet) — ~1 day MVP:
+1. Add `FluidInference/FluidAudio` as an SPM dep (Apache 2.0)
+2. Download / bundle `parakeet-tdt-0.6b-v2` CoreML build
+3. Implement `ParakeetTranscriptStream` actor against the existing
+   `TranscriptStream` protocol. Adapter wraps FluidAudio's
+   `StreamingEouAsrManager`.
+4. Wire backend selection in AppState — Apple Speech remains the
+   default, Parakeet is opt-in via Settings until field-tested.
+
+Architecture B (Llama post-cleanup) — deferred until Qwen 3 1.7B
+or Llama 3.2 1B is proven. Foundation Model already covers this
+adequately for now.
 
 ## Boring backlog (not executed tonight — too risky to do unsupervised)
 
