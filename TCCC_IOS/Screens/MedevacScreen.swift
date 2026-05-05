@@ -74,15 +74,23 @@ struct MedevacScreen: View {
 
     private var transmitPanel: some View {
         Panel("Voice Ready-Transmit", titleIcon: "antenna.radiowaves.left.and.right", padded: true) {
-            TransmitScript(
-                entries: form.entries,
-                onReview: handleReview,
-                onTransmit: handleTransmit,
-                onGenerate: handleGenerate,
-                generatedScript: generatedScript,
-                isGenerating: isGenerating,
-                generationError: generationError
-            )
+            VStack(spacing: 8) {
+                // Persistent SLM availability badge — operator sees current
+                // truth before tapping Generate. Per night-pass A5.
+                HStack(spacing: 0) {
+                    FMStatusBadge()
+                    Spacer()
+                }
+                TransmitScript(
+                    entries: form.entries,
+                    onReview: handleReview,
+                    onTransmit: handleTransmit,
+                    onGenerate: handleGenerate,
+                    generatedScript: generatedScript,
+                    isGenerating: isGenerating,
+                    generationError: generationError
+                )
+            }
         }
     }
 

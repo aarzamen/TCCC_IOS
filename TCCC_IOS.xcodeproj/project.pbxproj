@@ -39,6 +39,7 @@
 		61CF016631D41CBACEE66692 /* TranscriptCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 771B01601872B488CF2B1B0C /* TranscriptCleaner.swift */; };
 		6369F90A6238D66A43DD242E /* ConfirmationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C6B5DD035E601B88468377 /* ConfirmationAction.swift */; };
 		65723436424B03087D2796A3 /* VoiceCommandChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44D1BCE15092A382D0C8A83E /* VoiceCommandChip.swift */; };
+		689138F6639A56D78549AA6C /* FMStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B0398ABF53C55C63CA91DE /* FMStatusBadge.swift */; };
 		6CC33EC6FEA4295C9B184C26 /* RFRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 337B999E3A62ABAB82A5D1E2 /* RFRow.swift */; };
 		6CE528D3418D0AD8149078FE /* TCCCReports in Frameworks */ = {isa = PBXBuildFile; productRef = 1EBADE04B1405565EC85AC04 /* TCCCReports */; };
 		6EB4E49A727792419BEDC620 /* EncounterNarrativeGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B50A8C1C4A39B3241BFC2B /* EncounterNarrativeGenerator.swift */; };
@@ -119,6 +120,7 @@
 		771B01601872B488CF2B1B0C /* TranscriptCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptCleaner.swift; sourceTree = "<group>"; };
 		77292E524CA7F6BE07FFBF4A /* Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Layout.swift; sourceTree = "<group>"; };
 		7FE3B8D34AC99C28F9DB2B61 /* PlaceholderBody.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderBody.swift; sourceTree = "<group>"; };
+		80B0398ABF53C55C63CA91DE /* FMStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMStatusBadge.swift; sourceTree = "<group>"; };
 		814714063444A46EFF4A5946 /* AudioLevels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLevels.swift; sourceTree = "<group>"; };
 		84A41719AFED4D0129CE5D26 /* WarningBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarningBanner.swift; sourceTree = "<group>"; };
 		889BC4CCB1DCCF36AE02E788 /* TransmitScript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransmitScript.swift; sourceTree = "<group>"; };
@@ -178,6 +180,7 @@
 				D67CD12F7F9F83C6D0D2AAA0 /* ExportCard.swift */,
 				0CC8E752C934974E83313217 /* FactRow.swift */,
 				587404AC0A87B848DF7E9B6E /* Field.swift */,
+				80B0398ABF53C55C63CA91DE /* FMStatusBadge.swift */,
 				99C033D7A4B1BF4742D8F743 /* InterventionRow.swift */,
 				2948D10CDEC949BDE4EFD900 /* MarchRowView.swift */,
 				140881810FD1F888CCCF60A2 /* MedRowView.swift */,
@@ -423,6 +426,7 @@
 				6EB4E49A727792419BEDC620 /* EncounterNarrativeGenerator.swift in Sources */,
 				D672BC6DF18D9F64F6834439 /* ExportCard.swift in Sources */,
 				B3A9BDA0AF96DA35F6C13E61 /* ExtractedFact.swift in Sources */,
+				689138F6639A56D78549AA6C /* FMStatusBadge.swift in Sources */,
 				2DB8ED3856F8A0E263A4A795 /* FactRow.swift in Sources */,
 				03123FCFDF4C95F89710CE1B /* Field.swift in Sources */,
 				86BA530C6C55B2B98D486750 /* FooterHints.swift in Sources */,

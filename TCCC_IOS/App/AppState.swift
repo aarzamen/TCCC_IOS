@@ -73,7 +73,11 @@ final class AppState {
     }
 
     var screen: Screen = .liveCapture
-    var theme: Theme = .tactical
+    /// Default theme is **Dark** per night-pass A4 (2026-05-05). Tactical
+    /// (deep near-black + desaturated red) remains a selectable option in
+    /// Settings — only the initial value flipped. The previous default
+    /// drew complaints in non-NVG conditions ("red hell theme").
+    var theme: Theme = .dark
     var settingsOpen: Bool = false
     var quickActionsOpen: Bool = false
 

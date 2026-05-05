@@ -5,25 +5,28 @@ struct StatusStrip: View {
     @Environment(\.palette) private var palette
 
     var body: some View {
-        HStack(spacing: 0) {
-            recCell
-            divider
-            RFGhostBadge(state: state.rfState)
-            divider
-            casualtyCell
-            Spacer(minLength: 0)
-            divider
-            pageIndicatorCell
-            divider
-            batteryCell
-        }
-        .frame(height: Layout.statusStripHeight)
-        .padding(.leading, Layout.dynamicIslandClearance)
-        .background(palette.bg)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(palette.line)
-                .frame(height: Layout.hairline)
+        // Tick the wall-clock once a second so Z/L times stay current.
+        TimelineView(.periodic(from: .now, by: 1.0)) { context in
+            HStack(spacing: 0) {
+                recCell(now: context.date)
+                divider
+                RFGhostBadge(state: state.rfState)
+                divider
+                casualtyCell
+                Spacer(minLength: 0)
+                divider
+                pageIndicatorCell
+                divider
+                batteryCell
+            }
+            .frame(height: Layout.statusStripHeight)
+            .padding(.leading, Layout.dynamicIslandClearance)
+            .background(palette.bg)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(palette.line)
+                    .frame(height: Layout.hairline)
+            }
         }
     }
 
@@ -33,23 +36,43 @@ struct StatusStrip: View {
             .frame(width: Layout.hairline)
     }
 
-    private var recCell: some View {
+    /// REC cell — recording dot + dual wall-clock (Zulu / Lima).
+    /// Per night-pass A1: military medics work both Zulu (UTC, used in
+    /// 9-line MEDEVAC + ZMIST timestamps) and Lima (local, used for
+    /// situational awareness). Both visible avoids the Z-vs-L confusion
+    /// that's a known incident vector in joint-ops documentation.
+    private func recCell(now: Date) -> some View {
         HStack(spacing: 6) {
             RecDot()
-            Text(elapsedTimer)
-                .tccc(.timer)
-                .foregroundStyle(palette.fg)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("\(Self.zuluFormatter.string(from: now))Z")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(palette.fg)
+                Text("\(Self.lima(for: now))L")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(palette.fg2)
+            }
         }
         .padding(.horizontal, 10)
         .frame(minWidth: 96)
     }
 
-    private var elapsedTimer: String {
-        let elapsed = Int(Date().timeIntervalSince(state.sessionStart))
-        let h = elapsed / 3600
-        let m = (elapsed % 3600) / 60
-        let s = elapsed % 60
-        return String(format: "%02d:%02d:%02d", h, m, s)
+    private static let zuluFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HHmm"
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        return f
+    }()
+
+    private static let limaFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HHmm"
+        // System default time zone (Lima = local).
+        return f
+    }()
+
+    private static func lima(for date: Date) -> String {
+        limaFormatter.string(from: date)
     }
 
     private var casualtyCell: some View {
@@ -57,12 +80,27 @@ struct StatusStrip: View {
             Image(systemName: "person.fill")
                 .font(.system(size: 12))
                 .foregroundStyle(palette.fg2)
-            Text(state.casualtyId)
-                .tccc(.timer)
-                .foregroundStyle(palette.fg)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(state.casualtyId)
+                    .tccc(.timer)
+                    .foregroundStyle(palette.fg)
+                Text(elapsedSession)
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundStyle(palette.fg3)
+            }
         }
         .padding(.horizontal, 10)
-        .frame(minWidth: 78)
+        .frame(minWidth: 86)
+    }
+
+    /// Session-elapsed timer — moved from REC cell to casualty cell as a
+    /// sub-line per night-pass A1. Useful for "how long has this casualty
+    /// been with me" visibility without crowding the wall-clock.
+    private var elapsedSession: String {
+        let elapsed = Int(Date().timeIntervalSince(state.sessionStart))
+        let h = elapsed / 3600
+        let m = (elapsed % 3600) / 60
+        return String(format: "+%02d:%02d", h, m)
     }
 
     private var pageIndicatorCell: some View {
