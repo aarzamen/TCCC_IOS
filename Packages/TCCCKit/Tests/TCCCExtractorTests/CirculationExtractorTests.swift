@@ -201,6 +201,28 @@ final class CirculationExtractorTests: XCTestCase {
         XCTAssertNotEqual(s.march.circulationIntervention, "IV access")
     }
 
+    // Mirrors Python _FALSE_POSITIVE_CORPUS entry "adventure adventure adventure":
+    // confirms no extractor regex misfires on the substring (no \bvent\b
+    // currently exists, but this asserts that fact and traps any future
+    // regression where an extractor adds one without word-boundary discipline).
+    func testAdventureDoesNotTriggerIv() {
+        let s = extractor.apply(
+            emptyState(),
+            context: makeContext(sentence: "adventure adventure adventure")
+        )
+        XCTAssertNotEqual(s.march.circulationIntervention, "IV access")
+        XCTAssertFalse(s.interventions.contains { $0.kind == .ivAccess })
+    }
+
+    func testEventDoesNotTriggerIv() {
+        let s = extractor.apply(
+            emptyState(),
+            context: makeContext(sentence: "event event event")
+        )
+        XCTAssertNotEqual(s.march.circulationIntervention, "IV access")
+        XCTAssertFalse(s.interventions.contains { $0.kind == .ivAccess })
+    }
+
     // MARK: - Intervention deduplication
 
     func testIvDeduplicationAcrossSentences() {

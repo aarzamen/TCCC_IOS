@@ -20,3 +20,9 @@ Package.resolved
 
 # Reference materials are local-only
 reference/design_mockup/
+
+# Rubric source bundles (Apple Books exports, ~235 MB) are local-only —
+# the curated extracts in reference/rubric/extracted/ ARE tracked, since
+# the codebase binds to them as ground truth for the 2026 sprint.
+reference/rubric/*
+!reference/rubric/extracted/

@@ -1,0 +1,539 @@
+{
+  "_meta": {
+    "title": "DD Form 1380 Field Inventory",
+    "form_revision": "DD Form 1380, JUN 2014",
+    "extraction_date": "2026-05-05",
+    "primary_sources": [
+      "tccc-card-form-1380-en.pdf (the blank form)",
+      "tccc-cpp-skill-card-55-dd-1380-tccc-casualty-card-en.pdf (section overlay A-H)",
+      "Casualty Documentation DD1380 / chapter 2 — INSTRUCTIONS FOR USING DD FORM 1380 (JTS/CoTCCC verbatim)"
+    ],
+    "section_overlay": {
+      "A": "Front header: Battle Roster, EVAC, Name, Last 4, Gender, Date, Time, Service, Unit, Allergies",
+      "B": "Mechanism of Injury, body diagram, four TQ corners (R Arm, L Arm, R Leg, L Leg)",
+      "C": "Signs & Symptoms vital signs grid",
+      "D": "Back header: Battle Roster + EVAC repeated from front",
+      "E": "Treatments: C(TQ + Dressing), A(Airway), B(Breathing), C(Fluid + Blood Product)",
+      "F": "MEDS (Analgesic, Antibiotic, Other) + OTHER row (Combat-Pill-Pack, Eye-Shield, Splint, Hypothermia-Prevention)",
+      "G": "NOTES freeform",
+      "H": "First Responder: Name, Last 4"
+    },
+    "domain_notes": [
+      "Battle Roster format: 2014-era policy specifies last-4-of-SSN, but current field convention uses last-4-of-DoD-ID-number (post-SSN-phase-out). Also called ZAP number or Kill Card Number. Per-unit SOP may differ. The regex validates format only — initials + 4 digits — agnostic to which 4 digits.",
+      "AVPU on the printed form has dropdown indicators next to each cell. Allowed values are A, V, P, U.",
+      "The form has up to 4 columns of vital sign readings. Each column is a timestamped snapshot. The grid is modeled here as one row per vital, with an implicit array structure for the 4 timestamped readings."
+    ]
+  },
+  "fields": [
+    {
+      "section_identifier": "A",
+      "field_label": "BATTLE ROSTER #:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "First initial + last initial + last four of DoD ID number (formerly last four of SSN per 2014 policy). Per-unit SOP may differ. Also known as ZAP number or Kill Card Number. Convention only — not standardized DoD-wide.",
+      "regex_validation": "^[A-Z]{2}\\d{4}$",
+      "parent_field": null
+    },
+    {
+      "section_identifier": "A",
+      "field_label": "EVAC:",
+      "field_type": "checkbox",
+      "allowed_values": ["Urgent", "Priority", "Routine"],
+      "requirement": "Required",
+      "format_constraints": "Mark an X on the casualty's evacuation priority/precedence. Urgent = evac <1 hr. Priority = evac <4 hrs. Routine = evac <24 hrs.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "A",
+      "field_label": "NAME (Last, First):",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "Last, First.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "A",
+      "field_label": "LAST 4:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "Last four numbers of casualty's Social Security number (2014 policy) or DoD ID number (current convention).",
+      "regex_validation": "^\\d{4}$",
+      "parent_field": null
+    },
+    {
+      "section_identifier": "A",
+      "field_label": "GENDER:",
+      "field_type": "checkbox",
+      "allowed_values": ["M", "F"],
+      "requirement": "Required",
+      "format_constraints": "Mark an X for Male (M) or Female (F).",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "A",
+      "field_label": "DATE (DD-MMM-YY):",
+      "field_type": "date",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "Date of injury in DD-MMM-YR format. Example: 29-JUN-13.",
+      "regex_validation": "^\\d{2}-[A-Z]{3}-\\d{2}$",
+      "parent_field": null
+    },
+    {
+      "section_identifier": "A",
+      "field_label": "TIME:",
+      "field_type": "time",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "24-hour time of injury, suffixed with L (local) or Z (zulu). Example: 1300Z.",
+      "regex_validation": "^\\d{4}[LZ]$",
+      "parent_field": null
+    },
+    {
+      "section_identifier": "A",
+      "field_label": "SERVICE:",
+      "field_type": "text",
+      "allowed_values": ["USA", "USAF", "USCG", "USN", "USMC", "US CIV", "NON US"],
+      "requirement": "Required",
+      "format_constraints": "Casualty's branch of service (USA, USAF, USCG, USN, USMC). For U.S. civilians, write US CIV. For non-U.S. personnel, write NON US or a standard abbreviation for casualty's nationality.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "A",
+      "field_label": "UNIT:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "Casualty's unit name.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "A",
+      "field_label": "ALLERGIES:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "Casualty's known drug allergies. If no drug allergies, write NKDA (no known drug allergies).",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "Mechanism of Injury:",
+      "field_type": "multi-checkbox",
+      "allowed_values": ["Artillery", "Blunt", "Burn", "Fall", "Grenade", "GSW", "IED", "Landmine", "MVC", "RPG", "Other"],
+      "requirement": "Required",
+      "format_constraints": "Mark an X on the mechanism or cause of injury. Mark all that apply. If multiple mechanisms of injury and multiple injuries, draw a line between the mechanism of injury and the anatomical site of the injury.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "Mechanism of Injury — Other (specify):",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Free text describing the mechanism of injury when 'Other' is selected.",
+      "regex_validation": null,
+      "parent_field": "Mechanism of Injury:"
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "Injury:",
+      "field_type": "body-diagram",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "Mark an X at the site of the injury(ies) on the body picture (front and back silhouettes). For burn injuries, circle the burn percentage(s) on the figure.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "TQ: R Arm TYPE:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "If a tourniquet is applied to the right arm, write type of tourniquet used.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "TQ: R Arm TIME:",
+      "field_type": "time",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Time of tourniquet application. Same time format convention as the casualty's injury time.",
+      "regex_validation": null,
+      "parent_field": "TQ: R Arm TYPE:"
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "TQ: L Arm TYPE:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "If a tourniquet is applied to the left arm, write type of tourniquet used.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "TQ: L Arm TIME:",
+      "field_type": "time",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Time of tourniquet application.",
+      "regex_validation": null,
+      "parent_field": "TQ: L Arm TYPE:"
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "TQ: R Leg TYPE:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "If a tourniquet is applied to the right leg, write type of tourniquet used.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "TQ: R Leg TIME:",
+      "field_type": "time",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Time of tourniquet application.",
+      "regex_validation": null,
+      "parent_field": "TQ: R Leg TYPE:"
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "TQ: L Leg TYPE:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "If a tourniquet is applied to the left leg, write type of tourniquet used.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "B",
+      "field_label": "TQ: L Leg TIME:",
+      "field_type": "time",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Time of tourniquet application.",
+      "regex_validation": null,
+      "parent_field": "TQ: L Leg TYPE:"
+    },
+    {
+      "section_identifier": "C",
+      "field_label": "Time",
+      "field_type": "vital-row",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "Time of vital sign reading. The grid supports up to 4 timestamped column readings.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "C",
+      "field_label": "Pulse (Rate & Location)",
+      "field_type": "vital-row",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Pulse rate and anatomical location (e.g., 110 radial, weak carotid).",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "C",
+      "field_label": "Blood Pressure",
+      "field_type": "vital-row",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Systolic / Diastolic. Pre-printed slash on the form.",
+      "regex_validation": "^\\d{2,3}/\\d{2,3}$",
+      "parent_field": null
+    },
+    {
+      "section_identifier": "C",
+      "field_label": "Respiratory Rate",
+      "field_type": "vital-row",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Breaths per minute.",
+      "regex_validation": "^\\d{1,3}$",
+      "parent_field": null
+    },
+    {
+      "section_identifier": "C",
+      "field_label": "Pulse Ox % O2 Sat",
+      "field_type": "vital-row",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Oxygen saturation percentage.",
+      "regex_validation": "^\\d{1,3}$",
+      "parent_field": null
+    },
+    {
+      "section_identifier": "C",
+      "field_label": "AVPU",
+      "field_type": "vital-row",
+      "allowed_values": ["A", "V", "P", "U"],
+      "requirement": "Required",
+      "format_constraints": "Level of consciousness. A = Alert, V = responds to Verbal stimulus, P = responds to Pain stimulus, U = Unresponsive. Required to be documented prior to administering ketamine per 2026 TCCC Guidelines section 11.",
+      "regex_validation": "^[AVPU]$",
+      "parent_field": null
+    },
+    {
+      "section_identifier": "C",
+      "field_label": "Pain Scale (0-10)",
+      "field_type": "vital-row",
+      "allowed_values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "requirement": "Required",
+      "format_constraints": "Numeric rating scale. 0 = no pain, 10 = worst pain.",
+      "regex_validation": "^(10|[0-9])$",
+      "parent_field": null
+    },
+    {
+      "section_identifier": "D",
+      "field_label": "BATTLE ROSTER #:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "Same format as front-of-card Battle Roster. Repeated on back of card for continuity if cards are separated.",
+      "regex_validation": "^[A-Z]{2}\\d{4}$",
+      "parent_field": null
+    },
+    {
+      "section_identifier": "D",
+      "field_label": "EVAC:",
+      "field_type": "checkbox",
+      "allowed_values": ["Urgent", "Priority", "Routine"],
+      "requirement": "Required",
+      "format_constraints": "Same as front-of-card EVAC. Repeated on back of card for continuity.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "E",
+      "field_label": "C: TQ-",
+      "field_type": "multi-checkbox",
+      "allowed_values": ["Extremity", "Junctional", "Truncal"],
+      "requirement": "Optional",
+      "format_constraints": "Mark X for Circulation hemorrhage control TQ category.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "E",
+      "field_label": "Treatment Type — TQ",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Write name of TQ(s) used (e.g., CAT, SOFTT-W).",
+      "regex_validation": null,
+      "parent_field": "C: TQ-"
+    },
+    {
+      "section_identifier": "E",
+      "field_label": "Dressing-",
+      "field_type": "multi-checkbox",
+      "allowed_values": ["Hemostatic", "Pressure", "Other"],
+      "requirement": "Optional",
+      "format_constraints": "Mark X for dressing category.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "E",
+      "field_label": "Treatment Type — Dressing",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Write name of dressing(s) used (e.g., Combat Gauze, Celox, ChitoGauze, XStat, iTClamp).",
+      "regex_validation": null,
+      "parent_field": "Dressing-"
+    },
+    {
+      "section_identifier": "E",
+      "field_label": "A:",
+      "field_type": "multi-checkbox",
+      "allowed_values": ["Intact", "NPA", "CRIC", "ET-Tube", "SGA"],
+      "requirement": "Optional",
+      "format_constraints": "Mark X for Airway interventions. Intact = no intervention required. NPA = nasopharyngeal airway. CRIC = cricothyroidotomy. ET-Tube = endotracheal tube. SGA = supraglottic airway.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "E",
+      "field_label": "Treatment Type — Airway",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Write type of airway device(s) used.",
+      "regex_validation": null,
+      "parent_field": "A:"
+    },
+    {
+      "section_identifier": "E",
+      "field_label": "B:",
+      "field_type": "multi-checkbox",
+      "allowed_values": ["O2", "Needle-D", "Chest-Tube", "Chest-Seal"],
+      "requirement": "Optional",
+      "format_constraints": "Mark X for Breathing interventions. O2 = oxygen. Needle-D = needle decompression. Chest-Tube = thoracostomy tube. Chest-Seal = chest seal (vented preferred per 2026 guidelines).",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "E",
+      "field_label": "Treatment Type — Breathing",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Write type of breathing device(s) used.",
+      "regex_validation": null,
+      "parent_field": "B:"
+    },
+    {
+      "section_identifier": "E",
+      "field_label": "C: Fluid",
+      "field_type": "treatment-row",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Circulation resuscitation. Repeating row with columns: Name, Volume, Route, Time. Multiple fluid entries allowed per casualty.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "E",
+      "field_label": "C: Blood Product",
+      "field_type": "treatment-row",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Circulation resuscitation. Repeating row with columns: Name, Volume, Route, Time. Per 2026 guidelines order-of-preference: cold-stored low-titer O whole blood, pre-screened low-titer O fresh whole blood, plasma+RBC+platelets 1:1:1, plasma+RBC 1:1, plasma alone, RBCs alone.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "F",
+      "field_label": "MEDS: Analgesic",
+      "field_type": "treatment-row",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Repeating row: Name, Dose, Route, Time. Examples on form: Ketamine, Fentanyl, Morphine. Per 2026 CWMP: Acetaminophen 1000-1300mg PO q8h, Meloxicam 15mg PO QD, Suzetrigine 100mg PO once then 50mg PO q12h.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "F",
+      "field_label": "MEDS: Antibiotic",
+      "field_type": "treatment-row",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Repeating row: Name, Dose, Route, Time. Examples on form: Moxifloxacin, Ertapenem. Per 2026 guidelines: Cefadroxil 1g PO QD if able PO; Ceftriaxone 2g IV/IO/IM QD if unable PO.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "F",
+      "field_label": "MEDS: Other",
+      "field_type": "treatment-row",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Repeating row: Name, Dose, Route, Time. Example on form: TXA. Per 2026 guidelines: 2g TXA via slow IV/IO push if hemorrhagic shock or significant TBI, NOT later than 3 hours after injury.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "F",
+      "field_label": "OTHER: Combat-Pill-Pack",
+      "field_type": "checkbox",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Mark X if combat pill pack (CWMP) administered.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "F",
+      "field_label": "OTHER: Eye-Shield",
+      "field_type": "multi-checkbox",
+      "allowed_values": {"checked": "boolean", "side": ["R", "L", "both"]},
+      "requirement": "Optional",
+      "format_constraints": "Mark X if eye shield applied. Mark right (R) or left (L) sub-checkbox. Both may be marked for bilateral eye injury.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "F",
+      "field_label": "OTHER: Splint",
+      "field_type": "checkbox",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Mark X if splint applied. Type of splint (SAM, traction, Sager, improvised) goes in Notes if needed — the form does not have a dedicated splint Type field.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "F",
+      "field_label": "OTHER: Hypothermia-Prevention",
+      "field_type": "checkbox",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Mark X if hypothermia prevention measures applied.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "F",
+      "field_label": "Hypothermia-Prevention Type",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Type of hypothermia-prevention device used (e.g., HPMK, Blizzard Survival Blanket, Heat-Reflective Shell, hooded sleeping bag with vapor barrier).",
+      "regex_validation": null,
+      "parent_field": "OTHER: Hypothermia-Prevention"
+    },
+    {
+      "section_identifier": "G",
+      "field_label": "NOTES:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Optional",
+      "format_constraints": "Record any other pertinent information and/or clarifications. If more space is needed, attach another DD Form 1380 to the original; label the second card #2 and include the casualty's name and unit.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "H",
+      "field_label": "FIRST RESPONDER NAME (Last, First):",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "Print the first responder's name (Last, First). Per JTS definition: medical or non-medical personnel who provided initial/immediate self-aid, buddy aid, point-of-injury care, and/or tactical field care.",
+      "regex_validation": null,
+      "parent_field": null
+    },
+    {
+      "section_identifier": "H",
+      "field_label": "FIRST RESPONDER LAST 4:",
+      "field_type": "text",
+      "allowed_values": null,
+      "requirement": "Required",
+      "format_constraints": "Last four numbers of first responder's Social Security number (2014 policy) or DoD ID number (current convention).",
+      "regex_validation": "^\\d{4}$",
+      "parent_field": null
+    }
+  ]
+}

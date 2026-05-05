@@ -1,0 +1,339 @@
+{
+  "_meta": {
+    "title": "MARCH-PAWS Canonical Vocabulary, 2026 TCCC Guidelines",
+    "guideline_revision": "01 May 2026",
+    "extraction_date": "2026-05-05",
+    "primary_sources": [
+      "tccc guidelines 2026/chapter2/*.html — Tactical Field Care, sections 1-20",
+      "tccc guidelines 2026/chapter5/index.html — Summary of 2026 Changes"
+    ],
+    "extraction_method": "direct verbatim from source HTML, no paraphrase or RAG retrieval",
+    "intended_consumer": "TCCCKit Swift extractors — pattern updates for MARCH/PAWS phase recognition",
+    "naming_note": "The 2026 guidelines use numeric section labels (3, 4, 5, ...) rather than the literal MARCH-PAWS letter mnemonic. The mapping is: M=3, A=4, R=5, C=6, H=7+8 (Hypothermia + TBI). PAWS does not appear as a literal acronym in the 2026 guidelines but the four phases map to: P=11 (Analgesia), A=12 (Antibiotics), W=13 (Inspect and dress wounds), S=16 (Splints).",
+    "summary_of_2026_changes": {
+      "care_under_fire": "essentially unchanged from 2024",
+      "section_2_triage": "removed weapons/comms-removal directive; references new Supplement A — Triage in TCCC",
+      "section_4_airway_management": "FLAGGED AS NEW in chapter structure — substantially revised airway management section",
+      "section_5_respiration": "TBI oxygen saturation target changed from >90% to ≥92%",
+      "section_6_bleeding": "tourniquet REPOSITION (apply second TQ to skin then loosen first) replaces 2024 'replace' language; ASM/CLS personnel should not attempt TQ conversion beyond 2 hours without higher-level direction",
+      "section_8_tbi": "separated mild from moderate/severe; SBP target changed from 100-110 to >100 mmHg; crystalloid bolus replaced with 1-2 units of plasma if no hemorrhage; EtCO2 target 35-45 mmHg or 10 breaths/min if no EtCO2 monitoring",
+      "section_9_eye": "antibiotic changed from moxifloxacin CWMP to ceftriaxone 2g IV/IM or cefadroxil 1g PO",
+      "section_11_analgesia": "CWMP acetaminophen 1000-1300mg q8h; SUZETRIGINE added; OTFC/fentanyl removed; ketamine simplified; esketamine IN added",
+      "section_12_antibiotics": "moxifloxacin/ertapenem replaced with cefadroxil PO or ceftriaxone IV/IO/IM"
+    }
+  },
+  "MARCH": {
+    "M": {
+      "letter": "M",
+      "name": "Massive Hemorrhage",
+      "section_number": "3",
+      "tier_application": ["Care Under Fire", "Tactical Field Care", "TACEVAC"],
+      "assessment_findings": [
+        {"term": "unrecognized hemorrhage", "verbatim": "Assess for unrecognized hemorrhage and control all sources of bleeding.", "is_negation": false, "new_in_2026": false},
+        {"term": "life-threatening external hemorrhage", "verbatim": "use a CoTCCC-recommended limb tourniquet to control life-threatening external hemorrhage that is anatomically amenable to tourniquet use", "is_negation": false, "new_in_2026": false},
+        {"term": "traumatic amputation", "verbatim": "use a CoTCCC-recommended limb tourniquet ... or for any traumatic amputation", "is_negation": false, "new_in_2026": false},
+        {"term": "compressible hemorrhage not amenable to limb tourniquet", "verbatim": "For compressible (external) hemorrhage not amenable to limb tourniquet use or as an adjunct to tourniquet removal, use Combat Gauze", "is_negation": false, "new_in_2026": false},
+        {"term": "hemorrhagic shock", "verbatim": "altered mental status in the absence of brain injury and/or weak or absent radial pulse", "is_negation": false, "new_in_2026": false, "is_definition": true}
+      ],
+      "interventions": [
+        {"name": "limb tourniquet", "verbatim": "CoTCCC-recommended limb tourniquet", "device_specs": "Apply directly to the skin 2-3 inches above the bleeding site. If bleeding is not controlled with the first tourniquet, apply a second tourniquet side-by-side with the first.", "alternatives": ["second tourniquet side-by-side"], "new_in_2026": false},
+        {"name": "Combat Gauze", "verbatim": "Combat Gauze as the CoTCCC hemostatic dressing of choice", "device_specs": "Apply with at least 3 minutes of direct pressure", "alternatives": ["Celox Gauze", "ChitoGauze", "XStat", "iTClamp"], "new_in_2026": false},
+        {"name": "XStat", "verbatim": "XStat (Best for deep, narrow-tract junctional wounds)", "device_specs": "Direct pressure optional; not to be removed in the field", "alternatives": [], "new_in_2026": false},
+        {"name": "iTClamp", "verbatim": "iTClamp (may be used alone or in conjunction with hemostatic dressing or XStat)", "device_specs": "Does not require additional direct pressure. DO NOT APPLY on or near the eye or eyelid (within 1cm of the orbit). Used as primary option for head/neck wounds where edges can be re-approximated.", "alternatives": [], "new_in_2026": false},
+        {"name": "junctional tourniquet", "verbatim": "If the bleeding site is amenable to use of a junctional tourniquet, immediately apply a junctional tourniquet", "device_specs": "Apply hemostatic dressings with direct pressure if a junctional tourniquet is not available or while the junctional tourniquet is being readied for use", "alternatives": ["hemostatic dressing with direct pressure"], "new_in_2026": false}
+      ],
+      "decision_thresholds": [
+        {"criterion": "tourniquet placement above bleeding", "threshold": "2-3 inches above the bleeding site, directly to skin", "verbatim_anchor": "Apply directly to the skin 2-3 inches above the bleeding site"},
+        {"criterion": "second tourniquet placement", "threshold": "side-by-side with the first, if bleeding not controlled", "verbatim_anchor": "If bleeding is not controlled with the first tourniquet, apply a second tourniquet side-by-side with the first"},
+        {"criterion": "hemostatic dressing pressure duration", "threshold": "at least 3 minutes", "verbatim_anchor": "Hemostatic dressings should be applied with at least 3 minutes of direct pressure (optional for XStat)"},
+        {"criterion": "iTClamp orbit exclusion zone", "threshold": "within 1cm of the orbit — do not apply", "verbatim_anchor": "DO NOT APPLY on or near the eye or eyelid (within 1cm of the orbit)"},
+        {"criterion": "hemorrhagic shock recognition", "threshold": "altered mental status (without brain injury) AND/OR weak or absent radial pulse", "verbatim_anchor": "altered mental status in the absence of brain injury and/or weak or absent radial pulse"}
+      ],
+      "documentation_requirements": [
+        "Mark all tourniquets with time of application using permanent marker",
+        "Note tourniquets applied, time of application, time of re-application, time of conversion, and time of removal on TCCC Casualty Card"
+      ],
+      "negation_phrases": ["no traumatic amputation", "not amenable to tourniquet use", "not amenable to limb tourniquet use", "no obvious bleeding", "no external bleeding", "bleeding is not controlled", "bleeding controlled", "not bleeding"]
+    },
+    "A": {
+      "letter": "A",
+      "name": "Airway Management",
+      "section_number": "4",
+      "tier_application": ["Tactical Field Care", "TACEVAC"],
+      "new_in_2026": true,
+      "_2026_note": "Airway Management section is flagged NEW in the chapter structure. Substantially revised from prior versions.",
+      "assessment_findings": [
+        {"term": "unobstructed airway", "verbatim": "Assess for unobstructed airway", "is_negation": false, "new_in_2026": false},
+        {"term": "traumatic airway obstruction", "verbatim": "If there is a traumatic airway obstruction or impending traumatic obstruction, prepare for possible direct airway intervention", "is_negation": false, "new_in_2026": false},
+        {"term": "unmanageable airway obstruction", "verbatim": "the casualty's airway obstruction (e.g. facial fractures, direct airway injury, blood, deformation or burns) is unmanageable", "is_negation": false, "new_in_2026": false}
+      ],
+      "interventions": [
+        {"name": "conscious casualty positioning", "verbatim": "Allow a conscious casualty to assume any position that best protects the airway, to include sitting up and/or leaning forward", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "recovery position", "verbatim": "Place unconscious casualty in the recovery position, head tilted back; chin away from chest", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "suction", "verbatim": "Use suction if available and appropriate", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "surgical cricothyroidotomy", "verbatim": "perform a surgical cricothyroidotomy", "device_specs": "Bougie-aided open or standard open surgical technique using a flanged and cuffed airway cannula of less than 10 mm outer diameter, 6-7 mm internal diameter, and 5-8 cm of intratracheal length. Verify placement with continuous EtCO2 capnography. Use lidocaine if the casualty is conscious.", "alternatives": ["bougie-aided open", "standard open"], "new_in_2026": false}
+      ],
+      "decision_thresholds": [
+        {"criterion": "cricothyroidotomy device size", "threshold": "<10mm OD, 6-7mm ID, 5-8cm intratracheal length", "verbatim_anchor": "flanged and cuffed airway cannula of less than 10 mm outer diameter, 6-7 mm internal diameter, and 5-8 cm of intratracheal length"},
+        {"criterion": "cervical spine stabilization for penetrating trauma", "threshold": "not necessary", "verbatim_anchor": "Cervical spine stabilization is not necessary for casualties who have sustained only penetrating trauma"}
+      ],
+      "documentation_requirements": [],
+      "negation_phrases": ["airway is patent", "no airway obstruction", "not unconscious", "patent airway", "airway intact"]
+    },
+    "R": {
+      "letter": "R",
+      "name": "Respiration / Breathing",
+      "section_number": "5",
+      "tier_application": ["Tactical Field Care", "TACEVAC"],
+      "assessment_findings": [
+        {"term": "tension pneumothorax suspicion criteria", "verbatim": "significant torso trauma or primary blast injury and one or more of the following: Severe or progressive respiratory distress; Severe or progressive tachypnea; Absent or markedly decreased breath sounds on one side of the chest; Hemoglobin oxygen saturation < 90% on pulse oximetry; Shock; Traumatic cardiac arrest without obviously fatal wounds", "is_negation": false, "new_in_2026": false, "is_definition": true},
+        {"term": "open chest wound", "verbatim": "All open and/or sucking chest wounds should be treated by immediately applying a vented chest seal", "is_negation": false, "new_in_2026": false},
+        {"term": "moderate/severe TBI oxygen target", "verbatim": "Casualties with moderate/severe TBI should be given supplemental oxygen when available to maintain an oxygen saturation ≥ 92 %", "is_negation": false, "new_in_2026": true, "_2026_change": "target changed from >90% to ≥92%"},
+        {"term": "impaired ventilation with hypoxia", "verbatim": "If the casualty has impaired ventilation and uncorrectable hypoxia with decreasing oxygen saturation below 90% (or below 92% with moderate/severe TBI), consider insertion of a properly sized Nasopharyngeal Airway, and ventilate using a 1000ml resuscitator Bag-Valve-Mask", "is_negation": false, "new_in_2026": false}
+      ],
+      "interventions": [
+        {"name": "needle decompression (NDC)", "verbatim": "Decompress the chest on the side of the injury with a 14-gauge or a 10-gauge, 3.25-inch needle/catheter unit", "device_specs": "5th ICS in AAL or 2nd ICS in MCL. If MCL site, do not insert needle medial to nipple line. Insert at angle perpendicular to chest wall, just over top of lower rib at insertion site. Insert all the way to hub, hold 5-10 seconds. After NDC, remove needle and leave catheter in place.", "alternatives": [], "new_in_2026": false},
+        {"name": "vented chest seal", "verbatim": "applying a vented chest seal to cover the defect", "device_specs": "If a vented chest seal is not available, use a non-vented chest seal. Monitor for development of subsequent tension pneumothorax. If casualty develops increasing hypoxia, respiratory distress, or hypotension and tension pneumothorax suspected, treat by burping or removing the dressing or by needle decompression.", "alternatives": ["non-vented chest seal"], "new_in_2026": false},
+        {"name": "bilateral NDC for traumatic cardiac arrest", "verbatim": "If a casualty has significant torso trauma or primary blast injury and is in traumatic cardiac arrest (no pulse, no respirations, no response to painful stimuli, no other signs of life), decompress both sides of the chest before discontinuing treatment", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "pulse oximetry", "verbatim": "Initiate pulse oximetry. All individuals with moderate/severe TBI should be monitored with pulse oximetry. Readings may be misleading in the settings of shock or marked hypothermia.", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "Nasopharyngeal Airway with Bag-Valve-Mask ventilation", "verbatim": "consider insertion of a properly sized Nasopharyngeal Airway, and ventilate using a 1000ml resuscitator Bag-Valve-Mask", "device_specs": "1000ml BVM", "alternatives": [], "new_in_2026": false},
+        {"name": "continuous EtCO2 and SpO2 monitoring", "verbatim": "Use continuous EtCO2 and SpO2 monitoring to help assess airway patency", "device_specs": null, "alternatives": [], "new_in_2026": false}
+      ],
+      "decision_thresholds": [
+        {"criterion": "tension pneumothorax SpO2 threshold", "threshold": "< 90% on pulse oximetry", "verbatim_anchor": "Hemoglobin oxygen saturation < 90% on pulse oximetry"},
+        {"criterion": "NDC needle size", "threshold": "14-gauge or 10-gauge, 3.25-inch", "verbatim_anchor": "14-gauge or a 10-gauge, 3.25-inch needle/catheter unit"},
+        {"criterion": "NDC sites", "threshold": "5th ICS AAL or 2nd ICS MCL", "verbatim_anchor": "Either the 5th intercostal space (ICS) in the anterior axillary line (AAL) or the 2nd ICS in the mid-clavicular line (MCL)"},
+        {"criterion": "NDC hold duration", "threshold": "5-10 seconds at hub depth", "verbatim_anchor": "Insert the needle/catheter unit all the way to the hub and hold it in place for 5-10 seconds"},
+        {"criterion": "NDC success — SpO2", "threshold": "increases to 90% or greater", "verbatim_anchor": "Hemoglobin oxygen saturation increases to 90% or greater"},
+        {"criterion": "moderate/severe TBI oxygen target", "threshold": "≥ 92%", "verbatim_anchor": "maintain an oxygen saturation ≥ 92 %", "new_in_2026": true},
+        {"criterion": "impaired ventilation hypoxia threshold", "threshold": "below 90% (or below 92% with moderate/severe TBI)", "verbatim_anchor": "decreasing oxygen saturation below 90% (or below 92% with moderate/severe TBI)"}
+      ],
+      "documentation_requirements": [],
+      "negation_phrases": ["no signs of pneumothorax", "no pneumothorax", "bilateral breath sounds clear", "bilateral breath sounds equal", "breath sounds bilateral", "no respiratory distress", "no chest trauma", "chest is intact", "no torso trauma", "no pulse, no respirations", "no respirations", "no other signs of life", "absent breath sounds"]
+    },
+    "C": {
+      "letter": "C",
+      "name": "Circulation",
+      "section_number": "6",
+      "tier_application": ["Tactical Field Care", "TACEVAC"],
+      "assessment_findings": [
+        {"term": "suspected pelvic fracture indications", "verbatim": "Severe blunt force or blast injury with one or more of the following indications: Pelvic pain; Any major lower limb amputation or near amputation; Physical exam findings suggestive of a pelvic fracture; Unconsciousness; Shock", "is_negation": false, "new_in_2026": false, "is_definition": true},
+        {"term": "hemorrhagic shock", "verbatim": "altered mental status in the absence of brain injury and/or weak or absent radial pulse", "is_negation": false, "new_in_2026": false, "is_definition": true},
+        {"term": "TXA indications", "verbatim": "presents with hemorrhagic shock, one or more major amputations, penetrating torso trauma, or evidence of severe bleeding ... OR If the casualty has signs or symptoms of significant TBI or has altered mental status associated with blast injury or blunt trauma", "is_negation": false, "new_in_2026": false},
+        {"term": "refractory shock", "verbatim": "If a casualty in shock is not responding to fluid resuscitation, consider untreated tension pneumothorax as a possible cause of refractory shock. Thoracic trauma, persistent respiratory distress, absent breath sounds, and hemoglobin oxygen saturation < 90% support this diagnosis.", "is_negation": false, "new_in_2026": false}
+      ],
+      "interventions": [
+        {"name": "pelvic binder", "verbatim": "A pelvic binder should be applied for cases of suspected pelvic fracture", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "tourniquet reposition", "verbatim": "reposition any limb tourniquet placed over the uniform by applying a second one directly to the skin 2-3 inches above the bleeding site, then loosening the first tourniquet", "device_specs": null, "alternatives": [], "new_in_2026": true, "_2026_change": "REPOSITION (apply second TQ first, then loosen first) replaces 2024 'replace' language"},
+        {"name": "tourniquet conversion", "verbatim": "Limb tourniquets and junctional tourniquets should be converted to hemostatic or pressure dressings as soon as possible if three criteria are met: the casualty is not in shock; it is possible to monitor the wound closely for bleeding; and the tourniquet is not being used to control bleeding from an amputated extremity.", "device_specs": "Convert in less than 2 hours if bleeding can be controlled with other means. Do not remove a tourniquet that has been in place more than 6 hours unless close monitoring and lab capability are available. ASM/CLS personnel should not attempt conversion beyond 2 hours post-application without higher-level direction.", "alternatives": [], "new_in_2026": true, "_2026_change": "ASM/CLS scope-of-practice safeguard added"},
+        {"name": "IV/IO access", "verbatim": "Intravenous (IV) or intraosseous (IO) access is indicated if the casualty is in hemorrhagic shock or at significant risk of shock", "device_specs": "An 18-gauge IV or saline lock is preferred. If vascular access is needed but not quickly obtainable via the IV route, use the IO route.", "alternatives": ["18-gauge IV", "saline lock", "IO"], "new_in_2026": false},
+        {"name": "Tranexamic Acid (TXA)", "verbatim": "Administer 2 gm of tranexamic acid via slow IV or IO push as soon as possible but NOT later than 3 hours after injury", "device_specs": "2g via slow IV or IO push", "alternatives": [], "new_in_2026": false},
+        {"name": "fluid resuscitation — order of preference", "verbatim": "1. Cold stored low titer O whole blood; 2. Pre-screened low titer O fresh whole blood; 3. Plasma, red blood cells (RBCs) and platelets in a 1:1:1 ratio; 4. Plasma and RBCs in a 1:1 ratio; 5. Plasma or RBCs alone", "device_specs": "If blood products transfused, administer 1 g calcium (30 ml of 10% calcium gluconate or 10 ml of 10% calcium chloride) IV/IO after first transfused product", "alternatives": [], "new_in_2026": false},
+        {"name": "calcium administration after transfusion", "verbatim": "administer one gram of calcium (30 ml of 10% calcium gluconate or 10 ml of 10% calcium chloride) IV/IO after the first transfused product", "device_specs": "1g calcium IV/IO", "alternatives": ["30 ml 10% calcium gluconate", "10 ml 10% calcium chloride"], "new_in_2026": false}
+      ],
+      "decision_thresholds": [
+        {"criterion": "TQ conversion criteria — shock state", "threshold": "casualty is not in shock", "verbatim_anchor": "the casualty is not in shock"},
+        {"criterion": "TQ conversion time limit", "threshold": "convert in less than 2 hours; do not remove if more than 6 hours unless close monitoring + lab", "verbatim_anchor": "Every effort should be made to convert tourniquets in less than 2 hours if bleeding can be controlled with other means. Do not remove a tourniquet that has been in place more than 6 hours unless close monitoring and lab capability are available."},
+        {"criterion": "ASM/CLS TQ conversion scope", "threshold": "should not attempt conversion beyond 2 hours post-application without higher-level direction", "verbatim_anchor": "TCCC ASM/CLS trained personnel, should not attempt tourniquet conversion beyond 2 hours post-application unless directed by TCCC CMC/CPP personnel or other advanced medical personnel", "new_in_2026": true},
+        {"criterion": "TXA administration window", "threshold": "as soon as possible but NOT later than 3 hours after injury", "verbatim_anchor": "Administer 2 gm of tranexamic acid via slow IV or IO push as soon as possible but NOT later than 3 hours after injury"},
+        {"criterion": "fluid resuscitation endpoint", "threshold": "palpable radial pulse, improved mental status, or systolic BP of 100 mmHg", "verbatim_anchor": "Continue resuscitation until a palpable radial pulse, improved mental status or systolic BP of 100 mmHg is present"},
+        {"criterion": "TBI BP target", "threshold": "systolic BP greater than 100 mmHg", "verbatim_anchor": "If a casualty with an altered mental status due to suspected TBI has a weak or absent radial pulse, resuscitate as necessary to restore and maintain a normal radial pulse. If BP monitoring is available, maintain a target systolic BP greater than 100 mmHg.", "new_in_2026": true, "_2026_change": "target changed from 100-110 to >100 mmHg"},
+        {"criterion": "preferred IV gauge", "threshold": "18-gauge", "verbatim_anchor": "An 18-gauge IV or saline lock is preferred"}
+      ],
+      "documentation_requirements": [
+        "Note time of TQ removal on TCCC Casualty Card if reassessment determines prior TQ not needed",
+        "Mark all TQs with time of application using permanent marker on TQ AND casualty card",
+        "Note: time of application; time of re-application; time of conversion; time of removal"
+      ],
+      "negation_phrases": ["no traumatic amputation", "absence of brain injury", "weak or absent radial pulse", "absent radial pulse", "not responding to fluid resuscitation", "no IV fluids are immediately necessary", "if not in shock", "casualty is not in shock", "no shock", "no evidence of hemorrhage", "TQ not needed", "no pulse", "no pelvic pain"]
+    },
+    "H_hypothermia": {
+      "letter": "H",
+      "name": "Hypothermia Prevention",
+      "section_number": "7",
+      "tier_application": ["Tactical Field Care", "TACEVAC"],
+      "_note": "MARCH H is hypothermia prevention. The 2026 guidelines treat TBI as a separate section (8) but it shares the H letter in the MARCH-PAWS mnemonic for some training materials. Both phases captured here; TBI is in H_tbi key.",
+      "assessment_findings": [
+        {"term": "trauma or burn casualty heat loss risk", "verbatim": "Take early and aggressive steps to prevent further body heat loss and add external heat, when possible, for both trauma and severely burned casualties", "is_negation": false, "new_in_2026": false}
+      ],
+      "interventions": [
+        {"name": "minimize cold exposure", "verbatim": "Minimize casualty's exposure to cold ground, wind and air temperatures. Place insulation material between the casualty and any cold surface as soon as possible. Keep protective gear on or with the casualty if feasible.", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "replace wet clothing", "verbatim": "Replace wet clothing with dry clothing, if possible, and protect from further heat loss", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "active heating blanket placement", "verbatim": "Place an active heating blanket on the casualty's anterior torso and under the arms in the axillae", "device_specs": "To prevent burns, do not place any active heating source directly on the skin or wrap around the torso", "alternatives": [], "new_in_2026": false},
+        {"name": "exterior impermeable enclosure bag", "verbatim": "Enclose the casualty with the exterior impermeable enclosure bag", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "insulated enclosure system upgrade", "verbatim": "upgrade hypothermia enclosure system to a well-insulated enclosure system using a hooded sleeping bag or other readily available insulation inside the enclosure bag/external vapor barrier shell", "device_specs": null, "alternatives": ["hooded sleeping bag"], "new_in_2026": false},
+        {"name": "battery-powered fluid warmer", "verbatim": "Use a battery-powered warming device to deliver IV/IO resuscitation fluids, in accordance with current CoTCCC guidelines, at flow rate up to 150 ml/min with a 38°C output temperature", "device_specs": "Up to 150 ml/min, 38°C output temp", "alternatives": [], "new_in_2026": false},
+        {"name": "evacuation platform wind/precip protection", "verbatim": "Protect the casualty from exposure to wind and precipitation on any evacuation platform", "device_specs": null, "alternatives": [], "new_in_2026": false}
+      ],
+      "decision_thresholds": [
+        {"criterion": "fluid warmer flow rate", "threshold": "up to 150 ml/min", "verbatim_anchor": "flow rate up to 150 ml/min"},
+        {"criterion": "fluid warmer output temperature", "threshold": "38°C", "verbatim_anchor": "38°C output temperature"}
+      ],
+      "documentation_requirements": [],
+      "negation_phrases": ["no hypothermia", "warm and dry", "skin warm", "skin warm and dry"]
+    },
+    "H_tbi": {
+      "letter": "H",
+      "name": "Traumatic Brain Injury",
+      "section_number": "8",
+      "tier_application": ["Tactical Field Care", "TACEVAC"],
+      "_note": "Distinct section in 2026 guidelines. Substantially revised in 2026.",
+      "new_in_2026": true,
+      "_2026_changes": [
+        "separated mild TBI/concussion from moderate/severe TBI",
+        "moderate/severe TBI defined as inability to follow simple instructions beyond 10 minutes post injury with suspected head injury and no alternative cause",
+        "evacuation to neurosurgical capability ideally within 5 hours",
+        "SBP target changed from 100-110 mmHg to >100 mmHg or normal radial pulse",
+        "crystalloid bolus replaced with 1-2 units of plasma if no hemorrhage",
+        "EtCO2 target 35-45 mmHg, or 10 breaths/min if EtCO2 monitoring unavailable",
+        "added detailed penetrating TBI / open skull fracture care; clarified that these are NOT automatically expectant"
+      ],
+      "assessment_findings": [
+        {"term": "moderate/severe TBI definition", "verbatim": "Unable to follow simple instructions (thumbs up, two fingers or blink) beyond 10 minutes post injury AND suspected head injury without alternative cause", "is_negation": false, "new_in_2026": true, "is_definition": true},
+        {"term": "mild TBI/concussion deferral", "verbatim": "Evaluation and treatment of suspected mild TBI/concussion is generally best deferred to Prolonged Casualty Care or subsequent phases of care", "is_negation": false, "new_in_2026": false},
+        {"term": "herniation signs", "verbatim": "asymmetric or fixed/dilated pupil(s), or posturing", "is_negation": false, "new_in_2026": false, "is_definition": true}
+      ],
+      "interventions": [
+        {"name": "supplemental oxygen for TBI", "verbatim": "Prevent hypoxemia (goal oxygen saturation ≥ 92%) and provide airway and respiratory interventions per TCCC Guidelines in Section (4) and (5). Administer supplemental oxygen if available.", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "BP management for TBI", "verbatim": "Prevent hypotension and target a systolic blood pressure greater than 100 mmHg OR, if measurement capability is absent, target a normal radial pulse", "device_specs": null, "alternatives": [], "new_in_2026": true},
+        {"name": "plasma for isolated TBI", "verbatim": "If no evidence of hemorrhage, administer 1-2 units of plasma. Plasma is not indicated for mild TBI /concussion.", "device_specs": "1-2 units plasma", "alternatives": [], "new_in_2026": true},
+        {"name": "ventilation targeting EtCO2", "verbatim": "If patient is ventilated and end-tidal CO2 monitoring is available, target an EtCO2 of 35-45 mmHg. If ventilating a patient and EtCO2 monitoring not available, provide low tidal volume ventilation at 10 breaths per minute (one breath every 6 seconds).", "device_specs": "EtCO2 35-45 mmHg, or 10 breaths/min (1 breath / 6 sec)", "alternatives": [], "new_in_2026": true},
+        {"name": "elevate head and torso", "verbatim": "Elevate head and torso greater than 30 degrees IF casualty not in shock AND tactically feasible", "device_specs": ">30 degrees", "alternatives": [], "new_in_2026": false},
+        {"name": "loosen cervical collar", "verbatim": "Loosen cervical collar if present and keep head facing forward without rotation of the neck", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "hypertonic saline for herniation", "verbatim": "Administer 250ml of 3% or 5% hypertonic saline OR 30ml of 23.4% hypertonic saline IV/IO over at least 10 minutes followed by a saline flush", "device_specs": "250ml of 3% or 5% saline, OR 30ml of 23.4% saline; over ≥10 minutes; max 2 doses, repeat in 20 min if no response", "alternatives": [], "new_in_2026": false, "warnings": ["Do NOT attempt to use hypertonic saline prophylactically", "Hypertonic saline is NOT a resuscitative fluid"]}
+      ],
+      "decision_thresholds": [
+        {"criterion": "moderate/severe TBI recognition window", "threshold": "unable to follow simple instructions beyond 10 minutes post injury", "verbatim_anchor": "Unable to follow simple instructions (thumbs up, two fingers or blink) beyond 10 minutes post injury"},
+        {"criterion": "TBI evacuation window", "threshold": "neurosurgical capability ideally within 5 hours of injury", "verbatim_anchor": "outcomes are improved with surgical intervention within 5 hours of injury"},
+        {"criterion": "TBI oxygen saturation goal", "threshold": "≥ 92%", "verbatim_anchor": "Prevent hypoxemia (goal oxygen saturation ≥ 92%)"},
+        {"criterion": "TBI SBP target", "threshold": "> 100 mmHg", "verbatim_anchor": "target a systolic blood pressure greater than 100 mmHg", "new_in_2026": true},
+        {"criterion": "EtCO2 target", "threshold": "35-45 mmHg", "verbatim_anchor": "target an EtCO2 of 35-45 mmHg", "new_in_2026": true},
+        {"criterion": "ventilation rate without EtCO2", "threshold": "10 breaths per minute (1 breath every 6 seconds)", "verbatim_anchor": "low tidal volume ventilation at 10 breaths per minute (one breath every 6 seconds)", "new_in_2026": true},
+        {"criterion": "head/torso elevation angle", "threshold": "greater than 30 degrees", "verbatim_anchor": "Elevate head and torso greater than 30 degrees"},
+        {"criterion": "hypertonic saline max doses", "threshold": "max 2 doses; repeat at 20 min if no response", "verbatim_anchor": "Repeat in 20 minutes if no response (max 2 doses)"}
+      ],
+      "documentation_requirements": [
+        "Reassess neurologic status every 5-10 minutes to evaluate for worsening status"
+      ],
+      "negation_phrases": ["no head injury", "no TBI", "no signs of head injury", "alert and oriented", "GCS 15", "GCS fifteen", "pupils equal and reactive", "no neurologic deficit", "no evidence of hemorrhage", "without alternative cause"]
+    }
+  },
+  "PAWS": {
+    "_note": "The 2026 guidelines do NOT use 'PAWS' as a literal acronym. The four phases below are mapped from 2026 sections 11, 12, 13, and 16 to align with TCCC training-material PAWS mnemonic conventions.",
+    "P": {
+      "letter": "P",
+      "name": "Analgesia",
+      "section_number": "11",
+      "tier_application": ["Tactical Field Care", "TACEVAC"],
+      "new_in_2026": true,
+      "_2026_changes": [
+        "CWMP acetaminophen dosing changed to 1000-1300 mg every 8 hours",
+        "Suzetrigine ADDED to the CWMP regimen",
+        "OTFC and fentanyl options REMOVED for initial management",
+        "Ketamine dosing simplified",
+        "Esketamine intranasal (IN) ADDED",
+        "Procedural sedation text moved to inspect/dress wounds section"
+      ],
+      "assessment_findings": [
+        {"term": "mission capability assessment", "verbatim": "Casualty can stay in the fight/mission capable", "is_negation": false, "new_in_2026": false, "is_definition": true},
+        {"term": "non-mission capable", "verbatim": "Casualty cannot stay in the fight/non-mission capable", "is_negation": false, "new_in_2026": false, "is_definition": true}
+      ],
+      "interventions": [
+        {"name": "TCCC Combat Wound Medication Pack (CWMP)", "verbatim": "TCCC Combat Wound Medication Pack (CWMP)", "device_specs": "Self-administered or co-administered. Components: Acetaminophen 1000-1300mg PO q8h; Meloxicam 15mg PO QD; Suzetrigine 100mg PO once (2x50mg) then 50mg PO q12h", "alternatives": [], "new_in_2026": true},
+        {"name": "Acetaminophen", "verbatim": "Acetaminophen – 1000mg - 1300mg (e.g., two 650mg extended-release caplets) PO every 8 hours", "device_specs": "1000-1300mg PO q8h", "alternatives": [], "new_in_2026": true, "_2026_change": "dose changed to 1000-1300mg q8h"},
+        {"name": "Meloxicam", "verbatim": "Meloxicam – 15 mg PO once a day", "device_specs": "15mg PO QD", "alternatives": [], "new_in_2026": false},
+        {"name": "Suzetrigine", "verbatim": "Suzetrigine – 100 mg PO once (2 x 50 mg tablets) then 50 mg PO every 12 hours", "device_specs": "100mg PO load, then 50mg PO q12h", "alternatives": [], "new_in_2026": true, "_2026_change": "NEW addition to CWMP in 2026"},
+        {"name": "Ketamine IM", "verbatim": "Ketamine 100 mg IM", "device_specs": "100mg IM", "alternatives": ["Ketamine 50mg IN", "Ketamine 25mg IV/IO over 1 minute", "Esketamine 14 or 28mg IN"], "new_in_2026": true},
+        {"name": "Ketamine IN", "verbatim": "Ketamine 50 mg IN", "device_specs": "50mg IN. Use higher concentration (100 mg/ml) for IN route to minimize volume.", "alternatives": [], "new_in_2026": true},
+        {"name": "Ketamine IV/IO", "verbatim": "Ketamine 25 mg (or 0.2 - 0.3 mg/kg) delivered IV or IO over 1 minute", "device_specs": "25mg or 0.2-0.3 mg/kg IV/IO, slow over 1 min", "alternatives": [], "new_in_2026": true},
+        {"name": "Esketamine IN", "verbatim": "Esketamine 14 or 28 mg IN x 1", "device_specs": "14 or 28mg IN, single dose", "alternatives": [], "new_in_2026": true, "_2026_change": "NEW route added in 2026"},
+        {"name": "Ondansetron", "verbatim": "Ondansetron, 4 mg Orally Dissolving Tablet (ODT)/IV/IO/IM, every 8 hours as needed for nausea or vomiting", "device_specs": "4mg ODT/IV/IO/IM q8h PRN", "alternatives": [], "new_in_2026": false}
+      ],
+      "decision_thresholds": [
+        {"criterion": "Ketamine repeat interval", "threshold": "q30 min PRN", "verbatim_anchor": "Repeat doses q30 min prn"},
+        {"criterion": "Analgesia endpoints", "threshold": "Reduction of pain or development of nystagmus (rhythmic eye movement)", "verbatim_anchor": "Endpoints for Analgesia: Reduction of pain or development of nystagmus (rhythmic eye movement)"},
+        {"criterion": "battlefield pain management goal", "threshold": "tolerable pain levels that preserve airway patency, respiratory drive, and mentation", "verbatim_anchor": "The goal of battlefield pain management is to achieve tolerable pain levels that preserve airway patency, respiratory drive, and mentation, rather than pursuing complete pain elimination or total sedation"}
+      ],
+      "documentation_requirements": [
+        "Document a mental status exam using the AVPU method on the DD Form 1380 TCCC Card prior to administering ketamine"
+      ],
+      "negation_phrases": ["no pain", "denies pain", "pain free", "tolerating pain"],
+      "important_warnings": [
+        "Disarm and consider disconnecting communications equipment for casualties who are administered Ketamine",
+        "Co-administration of benzodiazepines with Ketamine or Esketamine is NOT recommended",
+        "Polypharmacy is not recommended; benzodiazepines should NOT be used in conjunction with opioid analgesia",
+        "If casualty appears partially dissociated, safer to administer more ketamine than to use a benzodiazepine"
+      ]
+    },
+    "A": {
+      "letter": "A",
+      "name": "Antibiotics",
+      "section_number": "12",
+      "tier_application": ["Tactical Field Care", "TACEVAC"],
+      "new_in_2026": true,
+      "_2026_change": "moxifloxacin/ertapenem replaced with cefadroxil PO or ceftriaxone IV/IO/IM",
+      "assessment_findings": [
+        {"term": "all open combat wounds", "verbatim": "Antibiotics: recommended for all open combat wounds", "is_negation": false, "new_in_2026": false}
+      ],
+      "interventions": [
+        {"name": "Cefadroxil PO", "verbatim": "Cefadroxil 1 gram PO once a day", "device_specs": "1g PO QD", "alternatives": ["Cephalexin 500mg PO q6h"], "new_in_2026": true, "_2026_change": "PO regimen changed from moxifloxacin to cefadroxil"},
+        {"name": "Cephalexin PO (alternative)", "verbatim": "Cephalexin 500mg PO every 6 hours (Alternative)", "device_specs": "500mg PO q6h", "alternatives": [], "new_in_2026": true},
+        {"name": "Ceftriaxone IV/IO/IM", "verbatim": "Ceftriaxone 2 gm IV/IO/IM once a day", "device_specs": "2g IV/IO/IM QD", "alternatives": [], "new_in_2026": true, "_2026_change": "IV regimen changed from ertapenem to ceftriaxone"}
+      ],
+      "decision_thresholds": [
+        {"criterion": "antibiotic indication", "threshold": "all open combat wounds", "verbatim_anchor": "Antibiotics: recommended for all open combat wounds"},
+        {"criterion": "PO vs IV route selection", "threshold": "PO if able; IV/IO/IM if shock or unconsciousness", "verbatim_anchor": "If unable to take PO meds (shock, unconsciousness): Ceftriaxone 2 gm IV/IO/IM"}
+      ],
+      "documentation_requirements": [],
+      "negation_phrases": ["no open wounds", "wound closed", "not penetrating"]
+    },
+    "W": {
+      "letter": "W",
+      "name": "Inspect and dress known wounds",
+      "section_number": "13",
+      "tier_application": ["Tactical Field Care", "TACEVAC"],
+      "assessment_findings": [
+        {"term": "abdominal evisceration", "verbatim": "Abdominal evisceration – Control bleeding; rinse with clean (and warm if possible) fluid to reduce gross contamination", "is_negation": false, "new_in_2026": false},
+        {"term": "ruptured bowel signs", "verbatim": "evidence of ruptured bowel (gastric/intestinal fluid or stool leakage) or active bleeding", "is_negation": false, "new_in_2026": false, "is_definition": true}
+      ],
+      "interventions": [
+        {"name": "wound inspection and dressing", "verbatim": "Inspect and dress known wounds", "device_specs": null, "alternatives": [], "new_in_2026": false},
+        {"name": "abdominal evisceration coverage", "verbatim": "Cover exposed bowel with a moist, sterile dressing or sterile water-impermeable covering", "device_specs": "Examples: bowel bag, IV bag, clear food wrap. Secure with adhesive (ioban, chest seal). Transparent preferred to allow re-assessment.", "alternatives": ["bowel bag", "IV bag", "clear food wrap"], "new_in_2026": false},
+        {"name": "evisceration reduction attempt", "verbatim": "If no evidence of bowel leakage and hemorrhage is visibly controlled, a single brief attempt (<60 seconds) may be made to replace/reduce the eviscerated abdominal contents", "device_specs": "<60 second single attempt", "alternatives": [], "new_in_2026": false},
+        {"name": "Ketamine IV/IO for procedural sedation", "verbatim": "Ketamine 1-2 mg/kg slow IV/IO push initial dose. Endpoints: procedural (dissociative) anesthesia", "device_specs": "1-2 mg/kg slow IV/IO push", "alternatives": ["Ketamine 300 mg IM (or 2-3 mg/kg IM)"], "new_in_2026": true, "_2026_change": "procedural sedation text moved to this section in 2026"},
+        {"name": "Ketamine IM for procedural sedation", "verbatim": "Ketamine 300 mg IM (or 2-3 mg/kg IM) initial dose", "device_specs": "300mg IM or 2-3 mg/kg IM", "alternatives": [], "new_in_2026": true},
+        {"name": "midazolam for emergence phenomenon", "verbatim": "If an emergence phenomenon occurs, consider giving 0.5-2 mg IV/IO midazolam", "device_specs": "0.5-2mg IV/IO", "alternatives": [], "new_in_2026": false}
+      ],
+      "decision_thresholds": [
+        {"criterion": "evisceration reduction time limit", "threshold": "<60 seconds, single attempt", "verbatim_anchor": "a single brief attempt (<60 seconds)"},
+        {"criterion": "evisceration reduction contraindication", "threshold": "do not attempt if ruptured bowel or active bleeding", "verbatim_anchor": "Reduction: do not attempt if there is evidence of ruptured bowel (gastric/intestinal fluid or stool leakage) or active bleeding"}
+      ],
+      "documentation_requirements": [],
+      "negation_phrases": ["no evisceration", "no exposed bowel", "wound covered", "no bowel leakage", "hemorrhage controlled"],
+      "important_warnings": ["Do NOT FORCE contents back into abdomen or actively bleeding viscera", "The patient should remain NPO"]
+    },
+    "S": {
+      "letter": "S",
+      "name": "Splints",
+      "section_number": "16",
+      "tier_application": ["Tactical Field Care", "TACEVAC"],
+      "_note": "The 2026 guidelines section 16 contains only a single line. Operational splint vocabulary derives from training materials (SAM splint, traction splint, Sager) referenced elsewhere in the corpus.",
+      "assessment_findings": [
+        {"term": "fractures", "verbatim": "Splint fractures and re-check pulses", "is_negation": false, "new_in_2026": false}
+      ],
+      "interventions": [
+        {"name": "splint", "verbatim": "Splint fractures and re-check pulses", "device_specs": null, "alternatives": ["SAM splint", "traction splint", "Sager", "improvised splint"], "new_in_2026": false},
+        {"name": "post-splint pulse check", "verbatim": "re-check pulses", "device_specs": null, "alternatives": [], "new_in_2026": false}
+      ],
+      "decision_thresholds": [],
+      "documentation_requirements": [],
+      "negation_phrases": ["no fractures", "no fracture", "pulses present"]
+    }
+  },
+  "documentation_mandate": {
+    "section_number": "19",
+    "section_title": "Documentation of Care",
+    "verbatim": "Document clinical assessments, treatments rendered, and changes in the casualty's status on a TCCC Card (DD Form 1380). Forward documentation with the casualty to the next level of care.",
+    "_note": "This is the load-bearing mandate that ties the entire app to the TCCC rubric. The TCCC Card (DD Form 1380) is named explicitly. This is not an artifact OF TCCC — it is part of the protocol itself."
+  }
+}

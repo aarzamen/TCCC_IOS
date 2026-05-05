@@ -87,4 +87,28 @@ final class MOIExtractorTests: XCTestCase {
         let result = extractor.apply(empty(), context: context("Sandblasted area is downwind."))
         XCTAssertNil(result.mechanismOfInjury)
     }
+
+    // Mirrors Python TestWordBoundaryFalsePositives.test_no_ied_from_applied:
+    // "applied" contains the substring "ied" but the \bied\b word boundary
+    // must reject it (left of 'i' is alphanumeric 'l').
+    func testAppliedDoesNotTriggerIED() {
+        let result = extractor.apply(empty(), context: context("applied applied applied"))
+        XCTAssertNotEqual(result.mechanismOfInjury, "IED blast",
+                          "'applied' must not trigger IED MOI (word boundary discipline)")
+        XCTAssertNil(result.mechanismOfInjury)
+    }
+
+    func testSplintAppliedDoesNotTriggerIED() {
+        let result = extractor.apply(
+            empty(),
+            context: context("Traction splint, Sager, applied to the right lower extremity."))
+        XCTAssertNotEqual(result.mechanismOfInjury, "IED blast")
+    }
+
+    func testDressingAppliedDoesNotTriggerIED() {
+        let result = extractor.apply(
+            empty(),
+            context: context("Dressing applied to the wound."))
+        XCTAssertNotEqual(result.mechanismOfInjury, "IED blast")
+    }
 }
