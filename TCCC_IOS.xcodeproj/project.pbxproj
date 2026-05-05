@@ -21,6 +21,7 @@
 		1E0C329A9CA7D6C528C490B4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 54C7D8865C785C102A2EA60B /* PrivacyInfo.xcprivacy */; };
 		200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 966DDC69FD2BA6744149DD70 /* RFGhostBadge.swift */; };
 		23E8E301CCFC88AB85C589FC /* ZMISTNarrativeGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E92BC23E69C490B140D2E2 /* ZMISTNarrativeGenerator.swift */; };
+		27A0A3C2D7235CEDE2CD642A /* AudioSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232370BA9225A54377B43108 /* AudioSessionCoordinator.swift */; };
 		2D32BE161689099A00EC6DBA /* TCCC_IOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */; };
 		2DB8ED3856F8A0E263A4A795 /* FactRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC8E752C934974E83313217 /* FactRow.swift */; };
 		2F90B64ADB799DF96C4344D4 /* ThemeOptCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBE6D7852D92258C933FEF8 /* ThemeOptCard.swift */; };
@@ -106,6 +107,7 @@
 		1DA3636AE0ECFB9FA1857EFB /* MemoryStat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryStat.swift; sourceTree = "<group>"; };
 		1ECA9A5D8E6ECA17682B5CF0 /* HandoffDestination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffDestination.swift; sourceTree = "<group>"; };
 		1EED0969895F125C962A9134 /* PAWSRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PAWSRowView.swift; sourceTree = "<group>"; };
+		232370BA9225A54377B43108 /* AudioSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionCoordinator.swift; sourceTree = "<group>"; };
 		274E6A86610FEAD04C57413F /* SmallVital.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmallVital.swift; sourceTree = "<group>"; };
 		2948D10CDEC949BDE4EFD900 /* MarchRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarchRowView.swift; sourceTree = "<group>"; };
 		2FBE6D7852D92258C933FEF8 /* ThemeOptCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeOptCard.swift; sourceTree = "<group>"; };
@@ -302,6 +304,7 @@
 			isa = PBXGroup;
 			children = (
 				814714063444A46EFF4A5946 /* AudioLevels.swift */,
+				232370BA9225A54377B43108 /* AudioSessionCoordinator.swift */,
 				742A5F531208D6CFD94F99E1 /* ParakeetTranscriptStream.swift */,
 				760440A05970E300FA8EE623 /* SpeechRecognizer.swift */,
 				9EF4359B55FA4EEAF1485551 /* TranscriptStream.swift */,
@@ -461,6 +464,7 @@
 				553E057ED5AAEC6B1A6AA22E /* AppleFoundationLLMBackend.swift in Sources */,
 				5D18A9F14A3C03D8184C9A49 /* AudioLevels.swift in Sources */,
 				0A854C4EC5C0B63AFBDAFCFB /* AudioMeterView.swift in Sources */,
+				27A0A3C2D7235CEDE2CD642A /* AudioSessionCoordinator.swift in Sources */,
 				BF2105108173A5C0767D3995 /* BackOfCardView.swift in Sources */,
 				17188C8A87B777FCDD8A6308 /* BigButton.swift in Sources */,
 				E3A9865C23E78EF08438BBCA /* BigVital.swift in Sources */,
