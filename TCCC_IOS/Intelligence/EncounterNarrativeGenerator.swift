@@ -24,10 +24,10 @@ struct EncounterNarrativeGenerator {
         - No preamble, no labels, no markdown. Output only the narrative.
         """
 
-    let model: TCCCLanguageModel
+    let backend: any TCCCLLMBackend
 
-    init() {
-        self.model = TCCCLanguageModel(instructions: Self.systemInstructions)
+    init(backend: any TCCCLLMBackend) {
+        self.backend = backend
     }
 
     func generate(for patient: PatientState?, casualtyId: String) async throws -> String {
@@ -36,7 +36,10 @@ struct EncounterNarrativeGenerator {
         }
 
         let prompt = buildPrompt(for: patient, casualtyId: casualtyId)
-        return try await model.generate(prompt: prompt)
+        return try await backend.generate(
+            instructions: Self.systemInstructions,
+            prompt: prompt
+        )
     }
 
     // MARK: - Prompt building

@@ -16,7 +16,6 @@ struct LiveCaptureScreen: View {
     @State private var elapsedDisplay: String = "00:00:00"
     @State private var elapsedTickerTask: Task<Void, Never>?
 
-    @State private var cleaner = TranscriptCleaner()
     @State private var isCleaningTranscript: Bool = false
     @State private var cleanError: String?
 
@@ -266,6 +265,7 @@ struct LiveCaptureScreen: View {
             }
 
             do {
+                let cleaner = TranscriptCleaner(backend: state.currentBackend)
                 let cleaned = try await cleaner.clean(lines)
                 state.transcriptCleaned = cleaned
             } catch {

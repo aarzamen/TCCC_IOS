@@ -32,10 +32,10 @@ struct TranscriptCleaner {
         no preamble, no markdown.
         """
 
-    let model: TCCCLanguageModel
+    let backend: any TCCCLLMBackend
 
-    init() {
-        self.model = TCCCLanguageModel(instructions: Self.systemInstructions)
+    init(backend: any TCCCLLMBackend) {
+        self.backend = backend
     }
 
     /// Clean the transcript. Returns a new array of `TranscriptLine` with
@@ -59,7 +59,10 @@ struct TranscriptCleaner {
             Output the cleaned transcript now.
             """
 
-        let response = try await model.generate(prompt: prompt)
+        let response = try await backend.generate(
+            instructions: Self.systemInstructions,
+            prompt: prompt
+        )
         return Self.merge(originals: lines, cleanedText: response)
     }
 

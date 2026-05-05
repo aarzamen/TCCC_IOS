@@ -29,11 +29,11 @@ struct ZMISTNarrativeGenerator {
         - Output ONLY the ZMIST block. No preamble, no markdown headers.
         """
 
-    let model: TCCCLanguageModel
+    let backend: any TCCCLLMBackend
     private let fallback = ZMISTGenerator()
 
-    init() {
-        self.model = TCCCLanguageModel(instructions: Self.systemInstructions)
+    init(backend: any TCCCLLMBackend) {
+        self.backend = backend
     }
 
     func generate(for patient: PatientState?, casualtyId: String) async throws -> String {
@@ -57,6 +57,9 @@ struct ZMISTNarrativeGenerator {
             Output the reformatted ZMIST now.
             """
 
-        return try await model.generate(prompt: prompt)
+        return try await backend.generate(
+            instructions: Self.systemInstructions,
+            prompt: prompt
+        )
     }
 }

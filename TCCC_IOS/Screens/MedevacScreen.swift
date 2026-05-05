@@ -6,7 +6,6 @@ struct MedevacScreen: View {
     let state: AppState
     @Environment(\.palette) private var palette
 
-    @State private var generator = RadioScriptGenerator()
     @State private var generatedScript: String?
     @State private var isGenerating: Bool = false
     @State private var generationError: String?
@@ -121,6 +120,7 @@ struct MedevacScreen: View {
             }
 
             do {
+                let generator = RadioScriptGenerator(backend: state.currentBackend)
                 let text = try await generator.generate(from: snapshot, callsign: callsign)
                 generatedScript = text
                 state.appendSystem("RADIO SCRIPT · generated on-device · \(formattedTimestamp())")

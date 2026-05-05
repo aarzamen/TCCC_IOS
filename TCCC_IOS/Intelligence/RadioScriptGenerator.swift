@@ -27,10 +27,10 @@ struct RadioScriptGenerator {
         - Output ONLY the call script — no markdown, no quotes, no labels like "RADIO CALL:".
         """
 
-    let model: TCCCLanguageModel
+    let backend: any TCCCLLMBackend
 
-    init() {
-        self.model = TCCCLanguageModel(instructions: Self.systemInstructions)
+    init(backend: any TCCCLLMBackend) {
+        self.backend = backend
     }
 
     /// Build a radio script from the given 9-Line form.
@@ -54,6 +54,9 @@ struct RadioScriptGenerator {
             Generate the radio call now. Output only the script.
             """
 
-        return try await model.generate(prompt: prompt)
+        return try await backend.generate(
+            instructions: Self.systemInstructions,
+            prompt: prompt
+        )
     }
 }

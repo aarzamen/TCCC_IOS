@@ -7,11 +7,11 @@ import FoundationModels
 /// different backend at runtime per night-pass Track C.
 ///
 /// This is the **default** backend — operator does nothing and Apple
-/// Foundation Models is what runs. The existing generators
+/// Foundation Models is what runs. The four generators
 /// (`RadioScriptGenerator`, `EncounterNarrativeGenerator`,
-/// `ZMISTNarrativeGenerator`, `TranscriptCleaner`) continue to talk
-/// to `TCCCLanguageModel` directly today; this file is the bridge
-/// for when they're refactored to consume a backend.
+/// `ZMISTNarrativeGenerator`, `TranscriptCleaner`) all consume
+/// `any TCCCLLMBackend` per call (vended by `AppState.currentBackend`),
+/// so flipping the Settings backend toggle swaps engines at runtime.
 actor AppleFoundationLLMBackend: TCCCLLMBackend {
 
     let displayName = "Apple Foundation Models"

@@ -25,8 +25,6 @@ struct HandoffScreen: View {
     @State private var shareItems: [Any] = []
     @State private var shareSheetVisible: Bool = false
 
-    @State private var narrativeGenerator = EncounterNarrativeGenerator()
-    @State private var zmistGenerator = ZMISTNarrativeGenerator()
     @State private var isGeneratingNarrative: Bool = false
     @State private var isGeneratingZMIST: Bool = false
     @State private var slmError: String?
@@ -257,6 +255,7 @@ struct HandoffScreen: View {
             }
 
             do {
+                let narrativeGenerator = EncounterNarrativeGenerator(backend: state.currentBackend)
                 let text = try await narrativeGenerator.generate(for: p, casualtyId: id)
                 state.encounterNarrative = text
             } catch {
@@ -280,6 +279,7 @@ struct HandoffScreen: View {
             }
 
             do {
+                let zmistGenerator = ZMISTNarrativeGenerator(backend: state.currentBackend)
                 let text = try await zmistGenerator.generate(for: p, casualtyId: id)
                 state.zmistNarrative = text
             } catch {
@@ -331,7 +331,12 @@ struct HandoffScreen: View {
             padded: false
         ) {
             ScrollView {
-                let events = HandoffTimeline.events(for: patient, sessionStart: state.sessionStart, now: elapsedTick)
+                let events = HandoffTimeline.events(
+                    for: patient,
+                    sessionStart: state.sessionStart,
+                    now: elapsedTick,
+                    medevacTransmitted: state.lastMedevacTransmitTime != nil
+                )
                 LazyVStack(spacing: 0) {
                     ForEach(Array(events.enumerated()), id: \.element.id) { idx, event in
                         TimelineRow(
@@ -638,7 +643,7 @@ struct HandoffScreen: View {
 
         if dest.isFunctional {
             state.appendSystem("TRANSMIT · \(dest.displayName) · \(stamp)")
-            // TODO(A5): set state.lastMedevacTransmitTime = Date() when A5 lands
+            state.lastMedevacTransmitTime = Date()
             if dest == .qr {
                 state.qrOverlayVisible = true
             }
