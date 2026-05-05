@@ -155,6 +155,86 @@ final class AppState {
     }
     let audioGainBox = AudioGainBox()
 
+    // MARK: - Long-form recording infrastructure (Wave 3 L1.3 + L3.3)
+
+    /// Long-lived AVAudioSession interruption + route observer. Lives
+    /// for the AppState lifetime so observers stay registered across
+    /// page swipes.
+    let audioSessionCoordinator = AudioSessionCoordinator()
+
+    /// Set true by AudioSessionCoordinator when iOS interrupts. LiveCaptureScreen
+    /// observes via .onChange and stops the recognizer cleanly.
+    var pendingInterruptionPause: Bool = false
+
+    /// Set true by AudioSessionCoordinator when iOS clears a resumable
+    /// interruption. LiveCaptureScreen observes via .onChange and restarts.
+    var pendingInterruptionResume: Bool = false
+
+    /// Set when an interruption ends without `.shouldResume`. LiveCaptureScreen
+    /// surfaces a banner and asks operator to manually re-tap RECORD.
+    var interruptionRequiresManualRestart: Bool = false
+
+    /// Memory-pressure observer. Force-commits the in-flight partial
+    /// when iOS reports critical pressure mid-90-min recording.
+    private var memoryPressureSource: DispatchSourceMemoryPressure?
+
+    init() {
+        // L1.3 — AudioSessionCoordinator closures. AudioSessionCoordinator
+        // is itself @MainActor-isolated; its closures run on MainActor,
+        // so we don't need an extra MainActor.run hop.
+        audioSessionCoordinator.pauseRequested = { [weak self] in
+            guard let self else { return }
+            self.pendingInterruptionPause = true
+            self.appendSystem("INTERRUPTED · audio session preempted")
+        }
+        audioSessionCoordinator.resumeRequested = { [weak self] in
+            guard let self else { return }
+            let stamp = Self.timeStamp()
+            self.appendSystem("RESUMED · \(stamp)")
+            self.pendingInterruptionResume = true
+        }
+        audioSessionCoordinator.stoppedRequested = { [weak self] in
+            guard let self else { return }
+            self.interruptionRequiresManualRestart = true
+            self.appendSystem("INTERRUPTION ENDED · tap RECORD to resume")
+        }
+        audioSessionCoordinator.routeChanged = { [weak self] portName in
+            self?.appendSystem("ROUTE · \(portName)")
+        }
+
+        // L3.3 — memory-pressure observer
+        let src = DispatchSource.makeMemoryPressureSource(
+            eventMask: [.warning, .critical],
+            queue: .main
+        )
+        src.setEventHandler { [weak self] in
+            // The handler runs on the queue we registered (.main), but
+            // Dispatch can't statically prove MainActor isolation.
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let event = src.mask
+                if event.contains(.critical) {
+                    self.appendSystem("MEMORY · critical pressure · committing partial")
+                    if !self.partialTranscript.isEmpty {
+                        self.appendFinal(self.partialTranscript)
+                        self.partialTranscript = ""
+                    }
+                } else if event.contains(.warning) {
+                    let logger = Logger(subsystem: "ai.tccc", category: "memory")
+                    logger.warning("memory: warning event received")
+                }
+            }
+        }
+        src.resume()
+        self.memoryPressureSource = src
+    }
+
+    private static func timeStamp() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ssZ"
+        return f.string(from: Date())
+    }
+
     // MARK: - Parakeet model lifecycle (B2)
 
     /// Active download task — non-nil while a download is running.

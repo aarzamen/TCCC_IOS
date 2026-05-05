@@ -143,6 +143,27 @@ struct LiveCaptureScreen: View {
                 }
             }
         }
+        // L1.3 — AVAudioSession interruption handlers. AppState's
+        // AudioSessionCoordinator flips these flags from a notification
+        // observer; the screen reacts here. We treat the flags as one-shot
+        // events — clear them as soon as we observe a true edge.
+        .onChange(of: state.pendingInterruptionPause) { _, newValue in
+            guard newValue else { return }
+            state.pendingInterruptionPause = false
+            Task { await recognizer?.stopImmediate() }
+        }
+        .onChange(of: state.pendingInterruptionResume) { _, newValue in
+            guard newValue else { return }
+            state.pendingInterruptionResume = false
+            // If the operator hadn't tapped STOP before the interruption,
+            // re-prime the recognizer and restart the streaming task.
+            if state.isRecording {
+                Task {
+                    try? await recognizer?.prime()
+                    await beginRecordingAfterInterruption()
+                }
+            }
+        }
     }
 
     // MARK: - Panels
@@ -578,6 +599,45 @@ struct LiveCaptureScreen: View {
             let stream = try await recognizer.start(audioURL: url)
             state.isRecording = true
             state.sessionStart = Date()
+            state.lastRecordingURL = url
+            startElapsedTicker()
+            streamingTask?.cancel()
+            partialCommitTask?.cancel()
+            streamingTask = Task { @MainActor in
+                for await update in stream {
+                    if Task.isCancelled { break }
+                    if update.isFinal {
+                        partialCommitTask?.cancel()
+                        state.appendFinal(update.text)
+                    } else {
+                        state.partialTranscript = update.text
+                        scheduleSilenceCommit()
+                    }
+                }
+                partialCommitTask?.cancel()
+                state.isRecording = false
+                state.partialTranscript = ""
+            }
+        } catch {
+            state.recognitionError = error.localizedDescription
+            state.isRecording = false
+        }
+    }
+
+    /// Restart the streaming pipeline after an iOS interruption clears
+    /// with `.shouldResume`. Mirrors the start branch of
+    /// `toggleRecording()` but skips the authorization prompt — the
+    /// operator already authorized before the interruption — and skips
+    /// flipping `state.isRecording` since the coordinator path leaves
+    /// it true throughout the pause/resume cycle. Bumping
+    /// `state.sessionStart` would lie about elapsed time; we leave it
+    /// alone so the elapsed clock stays continuous across the
+    /// interruption.
+    private func beginRecordingAfterInterruption() async {
+        guard let recognizer else { return }
+        do {
+            let url = state.newAudioCaptureURL()
+            let stream = try await recognizer.start(audioURL: url)
             state.lastRecordingURL = url
             startElapsedTicker()
             streamingTask?.cancel()
