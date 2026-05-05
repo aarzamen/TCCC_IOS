@@ -13,6 +13,16 @@ packages:
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio.git
     exactVersion: "0.14.4"
+  # 2026-05-05 LLM-backends L1: AnyLanguageModel wraps mlx-swift-lm
+  # behind a LanguageModelSession-shaped API. AnyLanguageModel uses
+  # Swift 6.1 package traits to gate the heavy MLX dep; Xcode itself
+  # cannot declare trait-enabled package deps yet (XcodeGen issue
+  # #1585, AnyLanguageModel README "Using Traits in Xcode Projects").
+  # The documented workaround is a local SPM shim package whose
+  # Package.swift requests `traits: ["MLX"]` and re-exports the
+  # AnyLanguageModel module — that's TCCCLLM at Packages/TCCCLLM.
+  TCCCLLM:
+    path: Packages/TCCCLLM
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -36,6 +46,8 @@ targets:
         product: TCCCDesign
       - package: FluidAudio
         product: FluidAudio
+      - package: TCCCLLM
+        product: TCCCLLM
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aarzamen.TCCCai

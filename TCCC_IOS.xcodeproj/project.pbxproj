@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02E2F29FF4D03B5D753AAC95 /* TCCCLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 7C05242315C20E90671FAFE2 /* TCCCLLM */; };
 		03123FCFDF4C95F89710CE1B /* Field.swift in Sources */ = {isa = PBXBuildFile; fileRef = 587404AC0A87B848DF7E9B6E /* Field.swift */; };
 		03E2E966AFCFB4A4EBB0399F /* StatusStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F6D97B7FB9AB745F523F49 /* StatusStrip.swift */; };
 		053C6224571C815A36C1D8D1 /* LiveCaptureScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F2B33AA3BB5856ECC1D263 /* LiveCaptureScreen.swift */; };
@@ -104,6 +105,7 @@
 		274E6A86610FEAD04C57413F /* SmallVital.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmallVital.swift; sourceTree = "<group>"; };
 		2948D10CDEC949BDE4EFD900 /* MarchRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarchRowView.swift; sourceTree = "<group>"; };
 		2FBE6D7852D92258C933FEF8 /* ThemeOptCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeOptCard.swift; sourceTree = "<group>"; };
+		2FBF5305914733F1DD379359 /* TCCCLLM */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCLLM; path = Packages/TCCCLLM; sourceTree = SOURCE_ROOT; };
 		36B14D02B33CC2F5C91E8003 /* BackOfCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackOfCardView.swift; sourceTree = "<group>"; };
 		38B8FC6324D1C8E2E96EB894 /* MedevacScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedevacScreen.swift; sourceTree = "<group>"; };
 		3CAAF88DF513C78083F43399 /* SumLineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SumLineView.swift; sourceTree = "<group>"; };
@@ -177,6 +179,7 @@
 				6CE528D3418D0AD8149078FE /* TCCCReports in Frameworks */,
 				9959847700098A8A614CA581 /* TCCCDesign in Frameworks */,
 				468C37A64328FDD233CDDA1F /* FluidAudio in Frameworks */,
+				02E2F29FF4D03B5D753AAC95 /* TCCCLLM in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -333,6 +336,7 @@
 			isa = PBXGroup;
 			children = (
 				F4CC2166C5D1EA72E2BCE496 /* TCCCKit */,
+				2FBF5305914733F1DD379359 /* TCCCLLM */,
 			);
 			path = Packages;
 			sourceTree = "<group>";
@@ -375,6 +379,7 @@
 				1EBADE04B1405565EC85AC04 /* TCCCReports */,
 				1E9168029DF6BAD8005DF319 /* TCCCDesign */,
 				A8F77C2EE2AAC88A70372F62 /* FluidAudio */,
+				7C05242315C20E90671FAFE2 /* TCCCLLM */,
 			);
 			productName = TCCC_IOS;
 			productReference = 45432B79F663572BEAD08956 /* TCCC_IOS.app */;
@@ -407,6 +412,7 @@
 			packageReferences = (
 				35B6BAABE4FDA0FD108D7B1F /* XCRemoteSwiftPackageReference "FluidAudio" */,
 				AAE3596B57A6C7320B2E4F4A /* XCLocalSwiftPackageReference "Packages/TCCCKit" */,
+				12638EB2CA8D1B16ED5263B4 /* XCLocalSwiftPackageReference "Packages/TCCCLLM" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F596E5A8784203AAD8491A91 /* Products */;
@@ -714,6 +720,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		12638EB2CA8D1B16ED5263B4 /* XCLocalSwiftPackageReference "Packages/TCCCLLM" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/TCCCLLM;
+		};
 		AAE3596B57A6C7320B2E4F4A /* XCLocalSwiftPackageReference "Packages/TCCCKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TCCCKit;
@@ -739,6 +749,10 @@
 		1EBADE04B1405565EC85AC04 /* TCCCReports */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TCCCReports;
+		};
+		7C05242315C20E90671FAFE2 /* TCCCLLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TCCCLLM;
 		};
 		A15CAC0CB421F5287463F2D1 /* TCCCExtractor */ = {
 			isa = XCSwiftPackageProductDependency;
