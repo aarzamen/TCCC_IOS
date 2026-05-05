@@ -6,26 +6,26 @@ struct TranscriptLineView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(speakerLabel)
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .tracking(1.4)
                     .foregroundStyle(speakerColor)
                 Text(line.displayTimestamp)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(palette.fg3)
             }
-            .frame(width: 64, alignment: .leading)
+            .frame(width: 78, alignment: .leading)
 
             Text(line.text)
-                .font(.system(size: 13))
-                .lineSpacing(2)
+                .font(.system(size: 16))
+                .lineSpacing(4)
                 .foregroundStyle(textColor)
                 .italic(line.speaker == .system)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
         .opacity(line.isPartial ? 0.7 : 1.0)
         .overlay(alignment: .leading) {
             if line.isPartial {

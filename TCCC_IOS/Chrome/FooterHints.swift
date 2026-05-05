@@ -140,7 +140,7 @@ struct FooterHints: View {
         Button(action: action) {
             VStack(spacing: 1) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(tint)
                 Text(label)
                     .font(.system(size: 8, weight: .heavy))
