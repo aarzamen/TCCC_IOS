@@ -362,6 +362,13 @@ final class AppState {
         // over the current transcript. Restarts on every commit so the most
         // recent silence-debounce always wins. (Task S3-6.)
         scheduleAutoClean()
+        // Voice-command trigger: detect "new patient" / "end encounter" in
+        // the just-committed line and arm a 2s auto-fire countdown banner.
+        // Voice commands aren't checked on system lines (they originate from
+        // the app itself). (Task S3-7.)
+        if speaker == .medic, let cmd = detectVoiceCommand(in: trimmed) {
+            armVoiceCommand(cmd)
+        }
     }
 
     func appendSystem(_ text: String) {
@@ -481,6 +488,9 @@ final class AppState {
     func wipeSession() {
         autoCleanTask?.cancel()
         autoCleanTask = nil
+        voiceCommandTask?.cancel()
+        voiceCommandTask = nil
+        pendingVoiceCommand = nil
         transcript.removeAll()
         partialTranscript = ""
         recognitionError = nil
@@ -506,6 +516,9 @@ final class AppState {
     func newPatient() {
         autoCleanTask?.cancel()
         autoCleanTask = nil
+        voiceCommandTask?.cancel()
+        voiceCommandTask = nil
+        pendingVoiceCommand = nil
         let oldId = casualtyId
         casualtyCounter += 1
         casualtyId = String(format: "C-%02d", casualtyCounter)
@@ -532,6 +545,9 @@ final class AppState {
     func endCurrentCare() {
         autoCleanTask?.cancel()
         autoCleanTask = nil
+        voiceCommandTask?.cancel()
+        voiceCommandTask = nil
+        pendingVoiceCommand = nil
         let endedId = casualtyId
         appendSystem("CARE ENDED · \(endedId) · handoff finalized")
         // Snapshot the system line, then clear so the screen resets.
@@ -577,6 +593,19 @@ final class AppState {
     /// wipeSession). The manual cleaner also cancels this before starting
     /// its own pass so we don't fight ourselves.
     var autoCleanTask: Task<Void, Never>?
+
+    // MARK: - Voice commands (Task S3-7)
+
+    /// Currently armed voice command, or nil. UI binds to this for the
+    /// auto-fire banner. Set by `armVoiceCommand`, cleared by
+    /// `cancelVoiceCommand` (scrim tap) or by the auto-fire 2s sleep
+    /// completing.
+    var pendingVoiceCommand: PendingVoiceCommand?
+
+    /// In-flight auto-fire timer. Cancelled by `cancelVoiceCommand`,
+    /// every fresh `armVoiceCommand`, and lifecycle actions
+    /// (newPatient / endCurrentCare / wipeSession).
+    var voiceCommandTask: Task<Void, Never>?
 
     /// Schedule an auto-clean pass over the committed transcript. Cancels
     /// any in-flight schedule so a fresh final-commit always wins. Backs
@@ -658,6 +687,73 @@ final class AppState {
         }
 
         return out
+    }
+}
+
+// MARK: - Voice commands (Task S3-7)
+
+extension AppState {
+    /// Phrases that map 1:1 to a destructive lifecycle action. Matched
+    /// case-insensitively, word-boundary, against committed final text.
+    /// Voice commands are deliberately phrase-rare so they don't fire
+    /// from natural conversation.
+    enum VoiceCommand: String, CaseIterable, Sendable, Hashable {
+        case newPatient   = "new patient"
+        case endEncounter = "end encounter"
+    }
+
+    /// A pending voice-command auto-fire. nil = no pending command.
+    /// `firesAt` is when the action runs unless cancelled.
+    struct PendingVoiceCommand: Equatable, Sendable {
+        let command: VoiceCommand
+        let firesAt: Date
+    }
+
+    /// Check whether the committed line contains a voice-command phrase.
+    /// Returns the FIRST match (commands are mutually exclusive in any
+    /// reasonable utterance — no need to scan further).
+    func detectVoiceCommand(in text: String) -> VoiceCommand? {
+        let lower = text.lowercased()
+        for cmd in VoiceCommand.allCases {
+            // Word-boundary match — "new patient is alert" matches,
+            // but "newest patient" doesn't.
+            let pattern = "\\b\(cmd.rawValue)\\b"
+            if lower.range(of: pattern, options: .regularExpression) != nil {
+                return cmd
+            }
+        }
+        return nil
+    }
+
+    /// Arm a voice-command auto-fire. Banner shows for 2s; tapping the
+    /// scrim cancels. A newer arming cancels any prior arming.
+    func armVoiceCommand(_ cmd: VoiceCommand) {
+        // Voice commands are gated by the operator's Settings toggle.
+        guard voiceCommandsEnabled else { return }
+        voiceCommandTask?.cancel()
+        let firesAt = Date().addingTimeInterval(2.0)
+        pendingVoiceCommand = .init(command: cmd, firesAt: firesAt)
+        voiceCommandTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard let self, !Task.isCancelled else { return }
+            // Guard against the case where the user cancelled or a different
+            // command was armed during the sleep.
+            guard self.pendingVoiceCommand?.command == cmd else { return }
+            self.pendingVoiceCommand = nil
+            switch cmd {
+            case .newPatient:   self.newPatient()
+            case .endEncounter: self.endCurrentCare()
+            }
+        }
+    }
+
+    /// Cancel any pending voice-command auto-fire. Used by the banner's
+    /// tap-to-cancel scrim and by lifecycle actions that supersede the
+    /// pending command.
+    func cancelVoiceCommand() {
+        voiceCommandTask?.cancel()
+        voiceCommandTask = nil
+        pendingVoiceCommand = nil
     }
 }
 

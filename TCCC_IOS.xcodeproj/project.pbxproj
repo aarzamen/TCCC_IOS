@@ -78,6 +78,7 @@
 		CF2A891275EF13C4AAD3F116 /* PageHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D59C15139886E7B8C11A614 /* PageHeader.swift */; };
 		D0E1D462FCB005800E7E6772 /* PlaceholderBody.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FE3B8D34AC99C28F9DB2B61 /* PlaceholderBody.swift */; };
 		D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904C678A5044C0CC41C1D43F /* ScreenPager.swift */; };
+		D64F97E6360516BC2E015B7E /* VoiceCommandBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C640369EA0F3741F8FA36A0B /* VoiceCommandBanner.swift */; };
 		D672BC6DF18D9F64F6834439 /* ExportCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67CD12F7F9F83C6D0D2AAA0 /* ExportCard.swift */; };
 		DA2F29FB92881C06599E8F2C /* Panel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60B4A039F88CD4EAF7BDEA64 /* Panel.swift */; };
 		E3A9865C23E78EF08438BBCA /* BigVital.swift in Sources */ = {isa = PBXBuildFile; fileRef = C152DEAEC9274079106ADFA7 /* BigVital.swift */; };
@@ -156,6 +157,7 @@
 		B4B50A8C1C4A39B3241BFC2B /* EncounterNarrativeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncounterNarrativeGenerator.swift; sourceTree = "<group>"; };
 		BB801690CCDCF2E1C0E6BBC3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C152DEAEC9274079106ADFA7 /* BigVital.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BigVital.swift; sourceTree = "<group>"; };
+		C640369EA0F3741F8FA36A0B /* VoiceCommandBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandBanner.swift; sourceTree = "<group>"; };
 		C6B68FDA05142786243C6B85 /* QuickActionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsSheet.swift; sourceTree = "<group>"; };
 		D1E92BC23E69C490B140D2E2 /* ZMISTNarrativeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZMISTNarrativeGenerator.swift; sourceTree = "<group>"; };
 		D67CD12F7F9F83C6D0D2AAA0 /* ExportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportCard.swift; sourceTree = "<group>"; };
@@ -219,6 +221,7 @@
 				62C9544DABB3CBE0EC3C7232 /* ToggleRow.swift */,
 				3E1035E8B149E396C8EED9FC /* TranscriptLineView.swift */,
 				889BC4CCB1DCCF36AE02E788 /* TransmitScript.swift */,
+				C640369EA0F3741F8FA36A0B /* VoiceCommandBanner.swift */,
 				44D1BCE15092A382D0C8A83E /* VoiceCommandChip.swift */,
 				84A41719AFED4D0129CE5D26 /* WarningBanner.swift */,
 			);
@@ -514,6 +517,7 @@
 				F949F4AC35E4A6C2C28382A5 /* TransmitScript.swift in Sources */,
 				1780AEC6F9937ABC665E1778 /* Typography.swift in Sources */,
 				AF6A76D936D8A86571D11109 /* VitalsScreen.swift in Sources */,
+				D64F97E6360516BC2E015B7E /* VoiceCommandBanner.swift in Sources */,
 				65723436424B03087D2796A3 /* VoiceCommandChip.swift in Sources */,
 				18EBCD621108A5725D5EF890 /* WarningBanner.swift in Sources */,
 				23E8E301CCFC88AB85C589FC /* ZMISTNarrativeGenerator.swift in Sources */,

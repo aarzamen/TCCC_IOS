@@ -32,6 +32,13 @@ struct ContentView: View {
             // while Settings is open.
             ConfirmationBanner(state: state)
                 .zIndex(3)
+
+            // Voice-command auto-fire banner (Task S3-7). Same z-band as
+            // ConfirmationBanner — `armVoiceCommand` and
+            // `requestConfirmation` are mutually exclusive in practice, but
+            // the layout doesn't depend on that.
+            VoiceCommandBanner(state: state)
+                .zIndex(3)
         }
         .preferredColorScheme(state.theme.preferredColorScheme)
         .environment(\.palette, state.theme.palette)
@@ -39,6 +46,7 @@ struct ContentView: View {
         .animation(.fast, value: state.settingsOpen)
         .animation(.fast, value: state.quickActionsOpen)
         .animation(.fast, value: state.pendingConfirmation?.id)
+        .animation(.fast, value: state.pendingVoiceCommand?.command)
     }
 }
 
