@@ -47,7 +47,7 @@ struct StatusStrip: View {
     /// that's a known incident vector in joint-ops documentation.
     private func recCell(now: Date) -> some View {
         HStack(spacing: 6) {
-            RecDot()
+            RecDot(isActive: state.isRecording)
             VStack(alignment: .leading, spacing: 0) {
                 Text("\(Self.zuluFormatter.string(from: now))Z")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
@@ -185,16 +185,18 @@ struct StatusStrip: View {
 }
 
 private struct RecDot: View {
+    let isActive: Bool
     @Environment(\.palette) private var palette
     @State private var pulse: Bool = false
 
     var body: some View {
         Circle()
-            .fill(palette.rec)
+            .fill(isActive ? palette.rec : palette.fg3)
             .frame(width: 11, height: 11)
-            .scaleEffect(pulse ? 0.85 : 1.0)
-            .opacity(pulse ? 0.35 : 1.0)
-            .task {
+            .scaleEffect(isActive && pulse ? 0.85 : 1.0)
+            .opacity(isActive ? (pulse ? 0.35 : 1.0) : 0.5)
+            .task(id: isActive) {
+                guard isActive else { return }
                 while !Task.isCancelled {
                     try? await Task.sleep(nanoseconds: 600_000_000)
                     withAnimation(.easeInOut(duration: 0.6)) {

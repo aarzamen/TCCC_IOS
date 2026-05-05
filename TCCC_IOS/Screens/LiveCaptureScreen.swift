@@ -116,12 +116,23 @@ struct LiveCaptureScreen: View {
             }
         }
         .onDisappear {
-            streamingTask?.cancel()
-            partialCommitTask?.cancel()
-            elapsedTickerTask?.cancel()
-            Task {
-                await recognizer?.stopImmediate()
-                await recognizer?.unprime()
+            // Continuous recording: if a streaming task is in flight (operator
+            // tapped RECORD and didn't tap STOP), keep the audio engine, the
+            // recognizer, and the partial-commit pipeline alive while they
+            // work on other screens. The StatusStrip surfaces a REC badge so
+            // they know it's still running. Stop only on explicit STOP tap.
+            //
+            // When NOT recording (just primed for pre-roll), tear down on
+            // disappear to release the mic + battery.
+            let isRecording = streamingTask != nil
+            if !isRecording {
+                streamingTask?.cancel()
+                partialCommitTask?.cancel()
+                elapsedTickerTask?.cancel()
+                Task {
+                    await recognizer?.stopImmediate()
+                    await recognizer?.unprime()
+                }
             }
         }
     }
