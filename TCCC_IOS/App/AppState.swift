@@ -223,7 +223,7 @@ final class AppState {
             }
         }
     }
-    var llmBackend: LLMBackend = .appleFoundation
+    var llmBackend: LLMBackend = .lfm2
 
     /// Which LLM backend (if any) is currently fetching weights via the
     /// Settings DOWNLOAD affordance. `nil` = idle. Settings UI binds to
