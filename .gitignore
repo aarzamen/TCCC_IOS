@@ -16,7 +16,6 @@ xcuserdata/
 .swiftpm/
 Packages/*/.build/
 Packages/*/.swiftpm/
-Package.resolved
 
 # Reference materials are local-only
 reference/design_mockup/

@@ -12,7 +12,7 @@ packages:
   # actually instantiate ParakeetTranscriptStream at runtime.
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio.git
-    from: "0.9.1"
+    exactVersion: "0.14.4"
 settings:
   base:
     SWIFT_VERSION: "6.0"
