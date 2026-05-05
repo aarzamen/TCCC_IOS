@@ -67,6 +67,7 @@
 		BD7A4C23586CB96972781B6D /* MarchRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2948D10CDEC949BDE4EFD900 /* MarchRowView.swift */; };
 		BF2105108173A5C0767D3995 /* BackOfCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B14D02B33CC2F5C91E8003 /* BackOfCardView.swift */; };
 		C2857D2977856447A6679591 /* MedRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140881810FD1F888CCCF60A2 /* MedRowView.swift */; };
+		C43F3337B8B63F651FDF3360 /* HoldToConfirmButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB573FE657D740D397D5C736 /* HoldToConfirmButton.swift */; };
 		C512FA47820E29A1BFDA4901 /* RecCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04BC9CC5B5E0351D55C2A0B7 /* RecCapsule.swift */; };
 		C5A3D28A8BACDBB1F7CBD170 /* TCCCLanguageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8DD000AEA797F182C96445E /* TCCCLanguageModel.swift */; };
 		CA4EC2183B056422C16E94E5 /* BodyMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA4BB66A62C7E065D6C2282 /* BodyMap.swift */; };
@@ -146,6 +147,7 @@
 		9D59C15139886E7B8C11A614 /* PageHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageHeader.swift; sourceTree = "<group>"; };
 		9EF4359B55FA4EEAF1485551 /* TranscriptStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStream.swift; sourceTree = "<group>"; };
 		A1EA433E85994D4343C0AF2D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AB573FE657D740D397D5C736 /* HoldToConfirmButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldToConfirmButton.swift; sourceTree = "<group>"; };
 		AD0894014601F9571B1B376A /* NineLineForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NineLineForm.swift; sourceTree = "<group>"; };
 		AFAA6C0033E6E1A9DB176C2E /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		B4B50A8C1C4A39B3241BFC2B /* EncounterNarrativeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncounterNarrativeGenerator.swift; sourceTree = "<group>"; };
@@ -195,6 +197,7 @@
 				0CC8E752C934974E83313217 /* FactRow.swift */,
 				587404AC0A87B848DF7E9B6E /* Field.swift */,
 				80B0398ABF53C55C63CA91DE /* FMStatusBadge.swift */,
+				AB573FE657D740D397D5C736 /* HoldToConfirmButton.swift */,
 				99C033D7A4B1BF4742D8F743 /* InterventionRow.swift */,
 				2948D10CDEC949BDE4EFD900 /* MarchRowView.swift */,
 				140881810FD1F888CCCF60A2 /* MedRowView.swift */,
@@ -456,6 +459,7 @@
 				4FA58F736746F6C6335237B6 /* HandoffData.swift in Sources */,
 				E4B0C26E661601755A05E425 /* HandoffDestination.swift in Sources */,
 				79899357C672ABAFD0A67D9B /* HandoffScreen.swift in Sources */,
+				C43F3337B8B63F651FDF3360 /* HoldToConfirmButton.swift in Sources */,
 				3079A030E1574FDBFA01D960 /* InterventionRow.swift in Sources */,
 				4D5964B348E60F55B966ED53 /* LFM2LLMBackend.swift in Sources */,
 				1A7250023CAD5E01EC0C1B5A /* Layout.swift in Sources */,

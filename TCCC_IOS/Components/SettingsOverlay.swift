@@ -525,10 +525,15 @@ struct SettingsOverlay: View {
                 .textCase(.uppercase)
 
             HStack(spacing: 6) {
-                BigButton(
-                    "New Cas",
+                // A3 — NEW CAS clears transcript, primaryPatient, allPatients,
+                // vitalsLog, and the narrative cache. CLAUDE.md hard constraint
+                // #4 forbids single-tap destructive actions; 2s hold matches
+                // the TRANSMIT pattern (WIPE uses 3s, justified below).
+                HoldToConfirmButton(
+                    label: "New Cas",
                     systemImage: "person.crop.circle.badge.plus",
-                    style: .standard
+                    style: .standard,
+                    holdSeconds: 2.0
                 ) {
                     state.newPatient()
                     state.settingsOpen = false

@@ -3,10 +3,11 @@ import FoundationModels
 
 /// Thin wrapper around Apple's on-device Foundation Model.
 ///
-/// Why an actor: LanguageModelSession is not `Sendable` and we need a single
-/// reusable session per "task" (radio script, narrative, etc.) so context
-/// across calls is coherent. Wrapping it in an actor gives us isolation and
-/// a clean async API surface.
+/// Why an actor: LanguageModelSession is not `Sendable`. We hand out a fresh
+/// session per `generate(prompt:)` call so unrelated generations (radio script,
+/// ZMIST, narrative, transcript cleanup) and unrelated casualties never share
+/// conversational context. The actor isolation gives us a clean async API
+/// surface and a single place to centralise availability checks.
 ///
 /// RF Ghost: the entire Foundation Models stack runs on-device on the Apple
 /// Neural Engine. No network calls. Apple's privacy guarantee + our forbidden
@@ -26,7 +27,6 @@ actor TCCCLanguageModel {
     }
 
     private let instructions: String
-    private var session: LanguageModelSession?
 
     init(instructions: String) {
         self.instructions = instructions
@@ -43,35 +43,19 @@ actor TCCCLanguageModel {
         SystemLanguageModel.default.availability == .available
     }
 
-    /// Send a prompt, get back plain text. Reuses the same session across
-    /// calls so context (instructions, prior turns) carries forward.
+    /// Every call gets a fresh session — no context bleeds between casualties
+    /// or between generation kinds (radio / ZMIST / narrative / cleanup).
     func generate(prompt: String) async throws -> String {
-        let session = try ensureSession()
+        let availability = SystemLanguageModel.default.availability
+        guard availability == .available else {
+            throw ModelError.unavailable(reason: String(describing: availability))
+        }
+        let session = LanguageModelSession(instructions: instructions)
         do {
             let response = try await session.respond(to: prompt)
             return response.content
         } catch {
             throw ModelError.generationFailed(error.localizedDescription)
         }
-    }
-
-    /// Reset the conversation. Call between unrelated tasks (e.g., switching
-    /// from MEDEVAC script generation to encounter narrative) so prior prompt
-    /// context doesn't leak.
-    func reset() {
-        session = nil
-    }
-
-    private func ensureSession() throws -> LanguageModelSession {
-        if let session { return session }
-
-        let availability = SystemLanguageModel.default.availability
-        guard availability == .available else {
-            throw ModelError.unavailable(reason: String(describing: availability))
-        }
-
-        let session = LanguageModelSession(instructions: instructions)
-        self.session = session
-        return session
     }
 }
