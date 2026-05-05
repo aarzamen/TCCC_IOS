@@ -106,8 +106,84 @@ final class AppState {
 
     /// Filesystem path to the Parakeet CoreML model directory. Set
     /// from Settings when the operator AirDrops or downloads the
-    /// model bundle. Nil → Parakeet backend will throw on start().
+    /// model bundle. Nil → Parakeet backend uses FluidAudio's auto-
+    /// download path on first start().
     var parakeetModelDirectory: URL?
+
+    /// Lifecycle state of the Parakeet model bundle on disk.
+    enum ParakeetStatus: Sendable, Equatable {
+        case unknown
+        case notDownloaded
+        case downloading(fraction: Double)   // 0.0 .. 1.0
+        case ready
+        case failed(message: String)
+    }
+    var parakeetStatus: ParakeetStatus = .unknown
+
+    // MARK: - Audio gain (variable dynamic mic gain)
+
+    /// Microphone input gain in decibels. Slider range -20 to +20.
+    /// 0 dB is unchanged, +6 dB is ~2× louder, +12 dB is ~4× louder,
+    /// -6 dB is half as loud. Applied uniformly to both ASR
+    /// backends in their audio-tap callbacks before recognition.
+    var audioGainDb: Float = 0.0
+
+    /// Linear gain multiplier derived from `audioGainDb`. Closures in
+    /// the audio actors snapshot this at each tap callback so changes
+    /// take effect on the next sample, not just the next start().
+    var audioGainLinear: Float {
+        powf(10.0, audioGainDb / 20.0)
+    }
+
+    // MARK: - Parakeet model lifecycle (B2)
+
+    /// Active download task — non-nil while a download is running.
+    /// Settings UI uses this to disable the button mid-flight.
+    private var parakeetDownloadTask: Task<Void, Never>?
+
+    /// Begin downloading the Parakeet CoreML model bundle from
+    /// FluidInference's Hugging Face repo. Single HTTPS GET, gated
+    /// here behind explicit operator consent (Settings tap). Once the
+    /// bundle is cached in Application Support, the app never makes
+    /// another network call for ASR — RF Ghost is preserved.
+    /// No-op if a download is already running.
+    func beginParakeetDownload() {
+        if parakeetDownloadTask != nil { return }
+        parakeetStatus = .downloading(fraction: 0.0)
+        parakeetDownloadTask = Task { [weak self] in
+            await Self.runParakeetDownload(notifying: { @Sendable status in
+                Task { @MainActor in
+                    guard let self = await self else { return }
+                    self.parakeetStatus = status
+                    if case .ready = status {
+                        self.parakeetDownloadTask = nil
+                    }
+                    if case .failed = status {
+                        self.parakeetDownloadTask = nil
+                    }
+                }
+            })
+        }
+    }
+
+    /// Static download driver — no actor isolation, no `self` capture
+    /// trickery. Posts every status transition through the supplied
+    /// @Sendable callback so the MainActor side can update UI state
+    /// cleanly.
+    private static func runParakeetDownload(
+        notifying notify: @escaping @Sendable (ParakeetStatus) -> Void
+    ) async {
+        let stream = ParakeetTranscriptStream(levels: nil)
+        await stream.setDownloadProgressHandler { fraction in
+            notify(.downloading(fraction: fraction))
+        }
+        do {
+            try await stream.ensureModelsLoaded()
+            notify(.ready)
+        } catch {
+            notify(.failed(message: error.localizedDescription))
+        }
+    }
 
     /// LLM backend selection per night-pass Track C (2026-05-05).
     /// Apple Foundation Models is the proven default. LFM2.5 is the

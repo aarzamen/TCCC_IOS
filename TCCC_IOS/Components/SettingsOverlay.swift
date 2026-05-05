@@ -41,6 +41,8 @@ struct SettingsOverlay: View {
                     sectionDivider
                     displayModeSection
                     sectionDivider
+                    audioASRSection
+                    sectionDivider
                     systemSection
                     sectionDivider
                     operatorSection
@@ -193,6 +195,183 @@ struct SettingsOverlay: View {
             }
         }
         .padding(16)
+    }
+
+    // MARK: - Audio + ASR (night-pass full-tilt Parakeet)
+
+    private var audioASRSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Audio · ASR")
+                .font(.system(size: 11, weight: .heavy))
+                .tracking(1.8)
+                .foregroundStyle(palette.fg)
+                .textCase(.uppercase)
+
+            // ── Backend radio ──────────────────────────────────────
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Backend")
+                    .font(.system(size: 10, weight: .heavy))
+                    .tracking(1.4)
+                    .foregroundStyle(palette.fg2)
+                    .textCase(.uppercase)
+
+                ForEach(AppState.ASRBackend.allCases) { backend in
+                    asrBackendRow(backend)
+                }
+
+                if state.asrBackend == .parakeet {
+                    parakeetStatusRow
+                        .padding(.top, 4)
+                }
+            }
+
+            // ── Mic gain slider ────────────────────────────────────
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Microphone Gain")
+                        .font(.system(size: 10, weight: .heavy))
+                        .tracking(1.4)
+                        .foregroundStyle(palette.fg2)
+                        .textCase(.uppercase)
+                    Spacer(minLength: 0)
+                    Text(String(format: "%+.1f dB", state.audioGainDb))
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(palette.fg)
+                        .monospacedDigit()
+                }
+                Slider(
+                    value: Binding(
+                        get: { state.audioGainDb },
+                        set: { state.audioGainDb = $0 }
+                    ),
+                    in: -20.0...20.0,
+                    step: 0.5
+                )
+                HStack {
+                    Text("-20 dB · quiet")
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(palette.fg3)
+                    Spacer(minLength: 0)
+                    Button("Reset") {
+                        state.audioGainDb = 0
+                    }
+                    .font(.system(size: 9, weight: .heavy))
+                    .tracking(1.4)
+                    .textCase(.uppercase)
+                    .foregroundStyle(palette.fg2)
+                    Spacer(minLength: 0)
+                    Text("+20 dB · loud")
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(palette.fg3)
+                }
+            }
+        }
+        .padding(16)
+    }
+
+    private func asrBackendRow(_ backend: AppState.ASRBackend) -> some View {
+        let isSelected = state.asrBackend == backend
+        return Button {
+            state.asrBackend = backend
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(isSelected ? palette.accent : palette.fg2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(backend.displayName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(palette.fg)
+                    Text(asrBackendSubtitle(backend))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(palette.fg3)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .background(isSelected ? palette.bg2 : Color.clear)
+            .overlay(
+                Rectangle()
+                    .strokeBorder(isSelected ? palette.accent : palette.line, lineWidth: Layout.hairline)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func asrBackendSubtitle(_ backend: AppState.ASRBackend) -> String {
+        switch backend {
+        case .appleSpeech:
+            "On-device · default · always available"
+        case .parakeet:
+            "On-device · NVIDIA Parakeet TDT 0.6B · English only"
+        }
+    }
+
+    private var parakeetStatusRow: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(parakeetStatusColor)
+                .frame(width: 8, height: 8)
+            Text(parakeetStatusLabel)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(palette.fg)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 0)
+            if shouldShowDownloadButton {
+                Button {
+                    state.beginParakeetDownload()
+                } label: {
+                    Text("Download · ~300 MB")
+                        .font(.system(size: 10, weight: .heavy))
+                        .tracking(1.4)
+                        .textCase(.uppercase)
+                        .foregroundStyle(palette.accent)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 10)
+                        .overlay(
+                            Rectangle()
+                                .strokeBorder(palette.accent, lineWidth: Layout.hairline)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(palette.bg2)
+        .overlay(
+            Rectangle()
+                .strokeBorder(palette.line, lineWidth: Layout.hairline)
+        )
+    }
+
+    private var parakeetStatusLabel: String {
+        switch state.parakeetStatus {
+        case .unknown:        return "Status unknown — tap Download to fetch"
+        case .notDownloaded:  return "Not downloaded"
+        case .downloading(let f):
+            return "Downloading · \(Int(f * 100))%"
+        case .ready:          return "Cached · ready"
+        case .failed(let msg): return "Failed · \(msg)"
+        }
+    }
+
+    private var parakeetStatusColor: Color {
+        switch state.parakeetStatus {
+        case .ready:                 return palette.ok
+        case .downloading:           return palette.warn
+        case .failed:                return palette.crit
+        case .notDownloaded, .unknown: return palette.fg3
+        }
+    }
+
+    private var shouldShowDownloadButton: Bool {
+        switch state.parakeetStatus {
+        case .unknown, .notDownloaded, .failed: return true
+        case .downloading, .ready:              return false
+        }
     }
 
     // MARK: - System

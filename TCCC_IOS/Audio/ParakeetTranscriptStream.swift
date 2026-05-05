@@ -42,11 +42,20 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// 30-second post-tap tail.
     private let tailDuration: TimeInterval = 30.0
 
-    /// Directory containing the Parakeet CoreML models. Set via
-    /// `setModelDirectory(_:)` from the Settings UI before the first
-    /// `start()` call. If still nil at `start()` time, the actor throws
-    /// `TranscriptStreamError.recognizerUnavailable` with a hint.
+    /// Directory containing the Parakeet CoreML models. If set, used
+    /// directly. If nil, FluidAudio's auto-download path runs on
+    /// first `start()` (one HTTPS fetch from Hugging Face,
+    /// progress-callback driven, cached in Application Support
+    /// thereafter — RF Ghost is preserved post-download).
     private var modelDirectory: URL?
+
+    /// Provider for the current dynamic gain multiplier (linear, not
+    /// dB). Snapshotted on every audio buffer so a Settings slider
+    /// change takes effect on the next sample.
+    private let gainProvider: @Sendable () -> Float
+
+    /// Optional progress callback for the auto-download path.
+    private var downloadProgressHandler: (@Sendable (Double) -> Void)?
 
     // MARK: - Audio engine
 
@@ -81,15 +90,57 @@ actor ParakeetTranscriptStream: TranscriptStream {
 
     // MARK: - Init
 
-    init(levels: AudioLevels?) {
+    init(
+        levels: AudioLevels?,
+        gainProvider: @escaping @Sendable () -> Float = { 1.0 }
+    ) {
         self.levels = levels
+        self.gainProvider = gainProvider
     }
 
     /// Provide the directory containing the Parakeet CoreML model bundle.
     /// Called from the Settings UI after the operator AirDrops or
-    /// downloads the model files.
+    /// downloads the model files. If you skip this, FluidAudio's
+    /// auto-download path runs on first start().
     func setModelDirectory(_ url: URL) {
         self.modelDirectory = url
+    }
+
+    /// Subscribe to download progress for the auto-download path.
+    /// Called once per progress tick with `fractionCompleted` in 0..1.
+    func setDownloadProgressHandler(_ handler: @escaping @Sendable (Double) -> Void) {
+        self.downloadProgressHandler = handler
+    }
+
+    /// Public model-fetch entry point. Triggers FluidAudio's
+    /// auto-download path explicitly so the operator can prefetch
+    /// from Settings before the first recording. Idempotent — if the
+    /// model is already cached or loaded, it returns immediately.
+    func ensureModelsLoaded() async throws {
+        if manager != nil { return }
+        let mgr = StreamingEouAsrManager()
+        await mgr.setPartialCallback { [weak self] partial in
+            Task { await self?.emitPartial(partial) }
+        }
+        await mgr.setEouCallback { [weak self] finalText in
+            Task { await self?.emitFinal(finalText) }
+        }
+        if let dir = modelDirectory {
+            try await mgr.loadModels(from: dir)
+        } else {
+            // Forward FluidAudio's DownloadProgress to our simpler
+            // Double-fraction handler.
+            let outerHandler = self.downloadProgressHandler
+            let downloadHandler: DownloadUtils.ProgressHandler = { progress in
+                outerHandler?(progress.fractionCompleted)
+            }
+            try await mgr.loadModels(
+                to: nil,
+                configuration: nil,
+                progressHandler: downloadHandler
+            )
+        }
+        self.manager = mgr
     }
 
     // MARK: - Authorization
@@ -161,25 +212,11 @@ actor ParakeetTranscriptStream: TranscriptStream {
         guard !isRecognizing else {
             throw TranscriptStreamError.alreadyRunning
         }
-        guard let modelDir = modelDirectory else {
-            throw TranscriptStreamError.recognizerUnavailable
-        }
 
-        // Lazy-load FluidAudio manager + models on first start. Models
-        // are big; loading takes a moment. Subsequent starts reuse.
-        if manager == nil {
-            let mgr = StreamingEouAsrManager()
-            // Wire callbacks BEFORE loadModels so we don't miss any
-            // early activity.
-            await mgr.setPartialCallback { [weak self] partial in
-                Task { await self?.emitPartial(partial) }
-            }
-            await mgr.setEouCallback { [weak self] finalText in
-                Task { await self?.emitFinal(finalText) }
-            }
-            try await mgr.loadModels(from: modelDir)
-            self.manager = mgr
-        }
+        // Auto-load models if not already loaded. Uses provided
+        // modelDirectory if set; otherwise FluidAudio downloads from
+        // Hugging Face into Application Support cache.
+        try await ensureModelsLoaded()
 
         // Open audio file for writing if URL provided.
         if let audioURL, let format = inputFormat {
@@ -228,6 +265,15 @@ actor ParakeetTranscriptStream: TranscriptStream {
     // MARK: - Tap-callback path
 
     private func ingestBuffer(_ buffer: AVAudioPCMBuffer) {
+        // Apply variable dynamic gain BEFORE storing/streaming so the
+        // ring buffer, level meter, and ASR all see the post-gain
+        // signal. The gainProvider closure reads the current Settings
+        // slider value on every tick.
+        let gain = gainProvider()
+        if gain != 1.0 {
+            Self.applyGain(buffer, gain: gain)
+        }
+
         // Always: maintain the ring buffer.
         ringBuffer.append(buffer)
         ringBufferFrames += Int(buffer.frameLength)
@@ -249,6 +295,30 @@ actor ParakeetTranscriptStream: TranscriptStream {
         // Tail deadline check.
         if let deadline = tailDeadline, Date() >= deadline {
             Task { await self.teardownRecognizer() }
+        }
+    }
+
+    /// In-place sample-level gain. Float buffers (the iOS engine's
+    /// default format) get a multiply pass; Int16 buffers (uncommon
+    /// in our pipeline) are saturated to ±32767 to avoid wrap.
+    private static func applyGain(_ buffer: AVAudioPCMBuffer, gain: Float) {
+        let frames = Int(buffer.frameLength)
+        let channels = Int(buffer.format.channelCount)
+        if let data = buffer.floatChannelData {
+            for ch in 0..<channels {
+                let p = data[ch]
+                for i in 0..<frames {
+                    p[i] *= gain
+                }
+            }
+        } else if let data = buffer.int16ChannelData {
+            for ch in 0..<channels {
+                let p = data[ch]
+                for i in 0..<frames {
+                    let scaled = Float(p[i]) * gain
+                    p[i] = Int16(max(-32767, min(32767, scaled)))
+                }
+            }
         }
     }
 

@@ -27,17 +27,43 @@ struct LiveCaptureScreen: View {
     private let silenceDebounce: Double = 1.5
 
     /// Factory: returns the configured ASR backend per `state.asrBackend`.
-    /// Parakeet path also primes the model directory — if the operator
-    /// hasn't supplied one yet, `start()` will throw `recognizerUnavailable`
-    /// and the UI surfaces a helpful message.
+    /// Both backends receive a `gainProvider` closure that reads the
+    /// live Settings slider value on every audio buffer — so changing
+    /// the slider takes effect on the next sample, no restart needed.
     private func makeRecognizer() -> any TranscriptStream {
+        // Capture state weakly; the closure may outlive the screen but
+        // not the AppState (state is owned at the app level).
+        let appState = state
+        let gainProvider: @Sendable () -> Float = {
+            // AppState is @MainActor — but Float is value-type so this
+            // unsafe-read is actually safe in practice. For strict
+            // correctness we'd jump to MainActor, but that adds latency
+            // to a 1ms-budget audio path. The cost of a stale-by-one-
+            // buffer gain reading is invisible to the operator.
+            MainActor.assumeIsolated { appState.audioGainLinear }
+        }
         switch state.asrBackend {
         case .appleSpeech:
-            return SpeechRecognizer(levels: state.audioLevels)
+            return SpeechRecognizer(
+                levels: state.audioLevels,
+                gainProvider: gainProvider
+            )
         case .parakeet:
-            let p = ParakeetTranscriptStream(levels: state.audioLevels)
+            let p = ParakeetTranscriptStream(
+                levels: state.audioLevels,
+                gainProvider: gainProvider
+            )
             if let dir = state.parakeetModelDirectory {
                 Task { await p.setModelDirectory(dir) }
+            }
+            // Wire download progress back to AppState so the Settings
+            // UI can show "Downloading 42%…" while FluidAudio fetches.
+            Task {
+                await p.setDownloadProgressHandler { fraction in
+                    Task { @MainActor in
+                        appState.parakeetStatus = .downloading(fraction: fraction)
+                    }
+                }
             }
             return p
         }

@@ -65,10 +65,20 @@ actor SpeechRecognizer: TranscriptStream {
 
     // MARK: - Init
 
-    init(locale: Locale = Locale(identifier: "en-US"), levels: AudioLevels?) {
+    init(
+        locale: Locale = Locale(identifier: "en-US"),
+        levels: AudioLevels?,
+        gainProvider: @escaping @Sendable () -> Float = { 1.0 }
+    ) {
         self.recognizer = SFSpeechRecognizer(locale: locale)
         self.levels = levels
+        self.gainProvider = gainProvider
     }
+
+    /// Provider for the current dynamic gain multiplier (linear, not
+    /// dB). Read on every audio buffer so a Settings slider change
+    /// takes effect on the next sample.
+    private let gainProvider: @Sendable () -> Float
 
     // MARK: - Authorization
 
@@ -239,6 +249,14 @@ actor SpeechRecognizer: TranscriptStream {
     // MARK: - Tap-callback path
 
     private func ingestBuffer(_ buffer: AVAudioPCMBuffer) {
+        // Apply variable dynamic gain BEFORE storing/streaming so the
+        // ring buffer, level meter, and ASR all see the post-gain
+        // signal.
+        let gain = gainProvider()
+        if gain != 1.0 {
+            Self.applyGain(buffer, gain: gain)
+        }
+
         // Always: maintain the ring buffer.
         ringBuffer.append(buffer)
         ringBufferFrames += Int(buffer.frameLength)
@@ -318,6 +336,30 @@ actor SpeechRecognizer: TranscriptStream {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
         try session.setActive(true, options: .notifyOthersOnDeactivation)
+    }
+
+    /// In-place sample-level gain. Float buffers (the iOS engine's
+    /// default format) get a multiply pass; Int16 buffers (uncommon
+    /// in our pipeline) are saturated to ±32767 to avoid wrap.
+    private static func applyGain(_ buffer: AVAudioPCMBuffer, gain: Float) {
+        let frames = Int(buffer.frameLength)
+        let channels = Int(buffer.format.channelCount)
+        if let data = buffer.floatChannelData {
+            for ch in 0..<channels {
+                let p = data[ch]
+                for i in 0..<frames {
+                    p[i] *= gain
+                }
+            }
+        } else if let data = buffer.int16ChannelData {
+            for ch in 0..<channels {
+                let p = data[ch]
+                for i in 0..<frames {
+                    let scaled = Float(p[i]) * gain
+                    p[i] = Int16(max(-32767, min(32767, scaled)))
+                }
+            }
+        }
     }
 
     private static func copyBuffer(_ b: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
