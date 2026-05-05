@@ -265,9 +265,20 @@ actor ParakeetTranscriptStream: TranscriptStream {
                 // .m4a output. If a future iOS release introduces frame-boundary errors
                 // at AAC's 1024-sample input boundary vs our 4096-sample tap buffer,
                 // fall back to an explicit AVAudioConverter with an inputBlock loop.
+                //
+                // Settings mirror `AppState.aacOutputSettings` (the canonical
+                // source) but are inlined here because that property is
+                // @MainActor-isolated and `[String: Any]` is non-Sendable, so
+                // it cannot cross the actor boundary into this actor's context.
+                let aacSettings: [String: Any] = [
+                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+                    AVSampleRateKey: 16_000,
+                    AVNumberOfChannelsKey: 1,
+                    AVEncoderBitRateKey: 32_000,
+                ]
                 let file = try AVAudioFile(
                     forWriting: audioURL,
-                    settings: AppState.aacOutputSettings,
+                    settings: aacSettings,
                     commonFormat: .pcmFormatFloat32,
                     interleaved: false
                 )
