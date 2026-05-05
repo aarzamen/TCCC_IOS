@@ -106,6 +106,14 @@ struct MedevacScreen: View {
     private func handleGenerate() {
         let snapshot = form
         let callsign = state.operatorCallsign
+        // Snapshot patients + transcript on the main actor so the validator
+        // can cross-check the SLM output against engine state.
+        let patientsForValidation: [PatientState] = {
+            let sorted = state.allPatients.values.sorted { $0.patientId < $1.patientId }
+            if !sorted.isEmpty { return Array(sorted) }
+            return state.primaryPatient.map { [$0] } ?? []
+        }()
+        let transcriptForValidation = state.transcript.map(\.text).joined(separator: " ")
         Task { @MainActor in
             isGenerating = true
             generationError = nil
@@ -121,7 +129,12 @@ struct MedevacScreen: View {
 
             do {
                 let generator = RadioScriptGenerator(backend: state.currentBackend)
-                let text = try await generator.generate(from: snapshot, callsign: callsign)
+                let text = try await generator.generate(
+                    from: snapshot,
+                    patients: patientsForValidation,
+                    transcript: transcriptForValidation,
+                    callsign: callsign
+                )
                 generatedScript = text
                 state.appendSystem("RADIO SCRIPT · generated on-device · \(formattedTimestamp())")
             } catch {

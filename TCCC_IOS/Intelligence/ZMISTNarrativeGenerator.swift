@@ -57,9 +57,31 @@ struct ZMISTNarrativeGenerator {
             Output the reformatted ZMIST now.
             """
 
-        return try await backend.generate(
+        let raw = try await backend.generate(
             instructions: Self.systemInstructions,
             prompt: prompt
         )
+
+        // Validate against state. If the validator rewrote more than 40% of
+        // the SLM's lines, drop the SLM result and ship the deterministic
+        // structured block we already have on hand.
+        let validated = ZMISTValidator.validate(raw, against: [patient])
+
+        if Self.validationFailed(raw: raw, validated: validated) {
+            return structured
+        }
+        return validated
+    }
+
+    /// Heuristic for "validator changed too much". Symmetric to the one in
+    /// `RadioScriptGenerator` — > 40% of distinct lines rewritten or removed
+    /// means the SLM output is too unreliable to ship.
+    static func validationFailed(raw: String, validated: String) -> Bool {
+        let rawLines = Set(raw.split(separator: "\n").map(String.init))
+        let valLines = Set(validated.split(separator: "\n").map(String.init))
+        let total = rawLines.count
+        guard total > 0 else { return true }
+        let changed = rawLines.symmetricDifference(valLines).count
+        return Double(changed) / Double(total) > 0.4
     }
 }
