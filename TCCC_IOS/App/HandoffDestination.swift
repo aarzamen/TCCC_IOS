@@ -29,4 +29,15 @@ enum HandoffDestination: String, CaseIterable, Sendable {
         case .nfc:    "wave.3.right"
         }
     }
+
+    /// True when this destination has a real implementation that actually
+    /// moves data off-device. False = visual placeholder (RF Ghost: no networking
+    /// framework wired). Selecting a non-functional destination MUST NOT log a
+    /// success-shaped TRANSMIT line.
+    var isFunctional: Bool {
+        switch self {
+        case .qr: true
+        case .atak, .medhub, .nfc: false
+        }
+    }
 }

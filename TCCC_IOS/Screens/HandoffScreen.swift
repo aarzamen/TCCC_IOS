@@ -515,6 +515,28 @@ struct HandoffScreen: View {
                     isActive: state.selectedHandoffDestination == dest,
                     action: { state.selectedHandoffDestination = dest }
                 )
+                // Mark non-functional destinations with a PEND corner badge +
+                // reduced opacity so the operator sees they aren't wired before
+                // tapping TRANSMIT. Selection is still allowed; transmit logs
+                // a "TRANSMIT BLOCKED" line instead of a fake success.
+                .opacity(dest.isFunctional ? 1.0 : 0.6)
+                .overlay(alignment: .topTrailing) {
+                    if !dest.isFunctional {
+                        Text("PEND")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .tracking(1.2)
+                            .foregroundStyle(palette.fg2)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(palette.bg2)
+                            .overlay(
+                                Rectangle()
+                                    .strokeBorder(palette.line, lineWidth: Layout.hairline)
+                            )
+                            .padding(4)
+                            .allowsHitTesting(false)
+                    }
+                }
             }
         }
     }
@@ -613,9 +635,18 @@ struct HandoffScreen: View {
         transmitProgress = 1
         let dest = state.selectedHandoffDestination
         let stamp = HandoffSummary.formatTime(Date())
-        state.appendSystem("TRANSMIT · \(dest.displayName) · \(stamp)")
-        if dest == .qr {
-            state.qrOverlayVisible = true
+
+        if dest.isFunctional {
+            state.appendSystem("TRANSMIT · \(dest.displayName) · \(stamp)")
+            // TODO(A5): set state.lastMedevacTransmitTime = Date() when A5 lands
+            if dest == .qr {
+                state.qrOverlayVisible = true
+            }
+        } else {
+            // RF Ghost: ATAK/MEDHUB/NFC have no networking path wired. Do NOT
+            // log a success-shaped TRANSMIT line — the operator could read that
+            // as "the casualty packet was sent." Make the failure explicit.
+            state.appendSystem("TRANSMIT BLOCKED · \(dest.displayName) NOT WIRED · \(stamp)")
         }
         // Reset progress shortly after completion so the button is reusable.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
