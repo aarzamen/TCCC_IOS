@@ -109,6 +109,27 @@ final class AppState {
     /// model bundle. Nil → Parakeet backend will throw on start().
     var parakeetModelDirectory: URL?
 
+    /// LLM backend selection per night-pass Track C (2026-05-05).
+    /// Apple Foundation Models is the proven default. LFM2.5 is the
+    /// recommended alt (LFM Open License, no medical/military AUP);
+    /// Qwen 3 1.7B is an Apache-2.0 fallback for that slot. Both alt
+    /// backends are on ice — stubs throw .notImplemented until model
+    /// weights are bundled in a future pass.
+    enum LLMBackend: String, Sendable, CaseIterable, Identifiable, Codable {
+        case appleFoundation
+        case lfm2
+        case qwen3
+        var id: String { rawValue }
+        var displayName: String {
+            switch self {
+            case .appleFoundation: "Apple Foundation Models"
+            case .lfm2:            "Liquid LFM2.5 1.2B (alt)"
+            case .qwen3:           "Qwen 3 1.7B (alt)"
+            }
+        }
+    }
+    var llmBackend: LLMBackend = .appleFoundation
+
     var casualtyId: String = "C-04"
     var sessionStart: Date = Date()
     var batteryPercent: Int = 78

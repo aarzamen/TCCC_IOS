@@ -336,3 +336,37 @@ When you're back at the keyboard:
 4. Open the app on the simulator — see Dark theme, dual time,
    MGRS, RAM chip, FM badge. Then flip Parakeet on in Settings
    and walk through the file-source prompt to see how it feels.
+
+## What actually landed (post-execution log)
+
+All four tracks shipped behind feature flags. Apple Speech and Apple
+Foundation Models remain runtime defaults — switching to alt
+backends requires explicit operator action that doesn't yet have a
+Settings UI.
+
+| Task | Commit | Status |
+|------|--------|--------|
+| Plan + memory pointers | `d4d099d` | done |
+| A1 Z/L dual time | `b68aac4` | done |
+| A4 default theme → Dark | `b68aac4` | done |
+| A5 SLM persistent badge | `b68aac4` | done |
+| B1 FluidAudio SPM dep | `a191828` | done |
+| B3 ParakeetTranscriptStream actor | `a191828` | done |
+| B5 backend selector + factory | `a191828` | done |
+| Research files (parakeet, llama, llm-small, mgrs, ram) | various | done |
+| A2 MGRS encoder + 9-line wiring | `eae45ae` | done (rolled own) |
+| A3 RAM headroom chip | `eae45ae` | done |
+| C2 TCCCLLMBackend protocol | (next) | done |
+| C3 Apple/LFM2/Qwen backend stubs | (next) | done |
+| C4 AppState.llmBackend enum | (next) | done |
+
+**Deferred to next pass:**
+- Settings UI for ASR + LLM backend toggles (the enums + wiring
+  work; no visible toggle yet).
+- B2 model-download / AirDrop UI for Parakeet weights.
+- Refactoring the four LLM generators (radio / narrative / ZMIST /
+  cleaner) to consume `TCCCLLMBackend` instead of talking to
+  `TCCCLanguageModel` directly. The bridge exists; the rewire
+  doesn't.
+- Actually bundling LFM2 / Qwen weights — RESEARCH_LLM_SMALL.md
+  recommends LFM2.5-1.2B-Instruct first.
