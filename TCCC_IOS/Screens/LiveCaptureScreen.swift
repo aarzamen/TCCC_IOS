@@ -5,7 +5,12 @@ struct LiveCaptureScreen: View {
     let state: AppState
     @Environment(\.palette) private var palette
 
-    @State private var recognizer: SpeechRecognizer?
+    /// Recognizer slot is the protocol type so the backend can be
+    /// chosen at runtime per `AppState.asrBackend`. Per night-pass B5.
+    /// SpeechRecognizer remains the runtime default; Parakeet is
+    /// reachable but requires the operator to provide a model
+    /// directory in Settings before `start()` will succeed.
+    @State private var recognizer: (any TranscriptStream)?
     @State private var streamingTask: Task<Void, Never>?
     @State private var partialCommitTask: Task<Void, Never>?
     @State private var elapsedDisplay: String = "00:00:00"
@@ -20,6 +25,23 @@ struct LiveCaptureScreen: View {
     /// won't always fire its own isFinal during continuous narration, so we
     /// don't rely on it.
     private let silenceDebounce: Double = 1.5
+
+    /// Factory: returns the configured ASR backend per `state.asrBackend`.
+    /// Parakeet path also primes the model directory — if the operator
+    /// hasn't supplied one yet, `start()` will throw `recognizerUnavailable`
+    /// and the UI surfaces a helpful message.
+    private func makeRecognizer() -> any TranscriptStream {
+        switch state.asrBackend {
+        case .appleSpeech:
+            return SpeechRecognizer(levels: state.audioLevels)
+        case .parakeet:
+            let p = ParakeetTranscriptStream(levels: state.audioLevels)
+            if let dir = state.parakeetModelDirectory {
+                Task { await p.setModelDirectory(dir) }
+            }
+            return p
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,9 +74,9 @@ struct LiveCaptureScreen: View {
         .background(palette.bg)
         .task {
             if recognizer == nil {
-                recognizer = SpeechRecognizer(levels: state.audioLevels)
+                recognizer = makeRecognizer()
             }
-            // Prime the engine so the 10s pre-roll buffer is filling before
+            // Prime the engine so the 30s pre-roll buffer is filling before
             // the medic taps RECORD. Permission already granted (or not) —
             // priming is silent on either path.
             do {

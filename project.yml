@@ -7,6 +7,12 @@ options:
 packages:
   TCCCKit:
     path: Packages/TCCCKit
+  # 2026-05-05 night-pass B1: Parakeet ASR alt-fallback. Apache 2.0.
+  # Linked unconditionally; the Settings toggle decides whether to
+  # actually instantiate ParakeetTranscriptStream at runtime.
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio.git
+    from: "0.9.1"
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -28,6 +34,8 @@ targets:
         product: TCCCReports
       - package: TCCCKit
         product: TCCCDesign
+      - package: FluidAudio
+        product: FluidAudio
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aarzamen.TCCCai

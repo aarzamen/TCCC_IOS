@@ -86,6 +86,29 @@ final class AppState {
     var jetsonLinkArmed: Bool = true
     var usbConnected: Bool = false
 
+    /// ASR backend selection per night-pass Track B (2026-05-05).
+    /// Apple Speech is the proven default. Parakeet is on ice — the
+    /// actor compiles and is reachable behind this toggle, but
+    /// requires the operator to supply a model directory before
+    /// `start()` will succeed.
+    enum ASRBackend: String, Sendable, CaseIterable, Identifiable, Codable {
+        case appleSpeech
+        case parakeet
+        var id: String { rawValue }
+        var displayName: String {
+            switch self {
+            case .appleSpeech: "Apple Speech"
+            case .parakeet:    "Parakeet (alt)"
+            }
+        }
+    }
+    var asrBackend: ASRBackend = .appleSpeech
+
+    /// Filesystem path to the Parakeet CoreML model directory. Set
+    /// from Settings when the operator AirDrops or downloads the
+    /// model bundle. Nil → Parakeet backend will throw on start().
+    var parakeetModelDirectory: URL?
+
     var casualtyId: String = "C-04"
     var sessionStart: Date = Date()
     var batteryPercent: Int = 78

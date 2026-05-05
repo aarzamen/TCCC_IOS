@@ -27,6 +27,8 @@
 		344E26DF03B3E113A3126F80 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1439B6599811FA567A67B1C2 /* ShareSheet.swift */; };
 		413E2267D1F0EBE40FBA130A /* NineLineForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0894014601F9571B1B376A /* NineLineForm.swift */; };
 		424652A98CD7C9860C59FCF0 /* SmallVital.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274E6A86610FEAD04C57413F /* SmallVital.swift */; };
+		468C37A64328FDD233CDDA1F /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = A8F77C2EE2AAC88A70372F62 /* FluidAudio */; };
+		476414054832265A3815AE24 /* ParakeetTranscriptStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 742A5F531208D6CFD94F99E1 /* ParakeetTranscriptStream.swift */; };
 		49B7CE9FD6838E73E3EFC75B /* TCCCCardScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5199AF612A48F51F9282732A /* TCCCCardScreen.swift */; };
 		4A0F0CBCC1FA321587B4A2C5 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5228B58B0B7DEB4A7E25D6EB /* AppState.swift */; };
 		4FA58F736746F6C6335237B6 /* HandoffData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EE8A25877D44D109385309C /* HandoffData.swift */; };
@@ -116,6 +118,7 @@
 		6328749551E5CBB4EB8FC99F /* ExtractedFact.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtractedFact.swift; sourceTree = "<group>"; };
 		635AA31015FB0ED0FBA93821 /* PageIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageIndicator.swift; sourceTree = "<group>"; };
 		6C2F816A4303D35399BBA567 /* NineLineRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NineLineRow.swift; sourceTree = "<group>"; };
+		742A5F531208D6CFD94F99E1 /* ParakeetTranscriptStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetTranscriptStream.swift; sourceTree = "<group>"; };
 		760440A05970E300FA8EE623 /* SpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizer.swift; sourceTree = "<group>"; };
 		771B01601872B488CF2B1B0C /* TranscriptCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptCleaner.swift; sourceTree = "<group>"; };
 		77292E524CA7F6BE07FFBF4A /* Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Layout.swift; sourceTree = "<group>"; };
@@ -161,6 +164,7 @@
 				5E335E98466F27FE4BB04476 /* TCCCExtractor in Frameworks */,
 				6CE528D3418D0AD8149078FE /* TCCCReports in Frameworks */,
 				9959847700098A8A614CA581 /* TCCCDesign in Frameworks */,
+				468C37A64328FDD233CDDA1F /* FluidAudio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -262,6 +266,7 @@
 			isa = PBXGroup;
 			children = (
 				814714063444A46EFF4A5946 /* AudioLevels.swift */,
+				742A5F531208D6CFD94F99E1 /* ParakeetTranscriptStream.swift */,
 				760440A05970E300FA8EE623 /* SpeechRecognizer.swift */,
 				9EF4359B55FA4EEAF1485551 /* TranscriptStream.swift */,
 			);
@@ -351,6 +356,7 @@
 				A15CAC0CB421F5287463F2D1 /* TCCCExtractor */,
 				1EBADE04B1405565EC85AC04 /* TCCCReports */,
 				1E9168029DF6BAD8005DF319 /* TCCCDesign */,
+				A8F77C2EE2AAC88A70372F62 /* FluidAudio */,
 			);
 			productName = TCCC_IOS;
 			productReference = 45432B79F663572BEAD08956 /* TCCC_IOS.app */;
@@ -381,6 +387,7 @@
 			mainGroup = AFDFD47A406C44F91CDED3B2;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				35B6BAABE4FDA0FD108D7B1F /* XCRemoteSwiftPackageReference "FluidAudio" */,
 				AAE3596B57A6C7320B2E4F4A /* XCLocalSwiftPackageReference "Packages/TCCCKit" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -445,6 +452,7 @@
 				CF2A891275EF13C4AAD3F116 /* PageHeader.swift in Sources */,
 				E90C0A613B8EA36C543B92AD /* PageIndicator.swift in Sources */,
 				DA2F29FB92881C06599E8F2C /* Panel.swift in Sources */,
+				476414054832265A3815AE24 /* ParakeetTranscriptStream.swift in Sources */,
 				D0E1D462FCB005800E7E6772 /* PlaceholderBody.swift in Sources */,
 				0A9AA237302FD35F3D5BC61C /* QuickActionsSheet.swift in Sources */,
 				200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */,
@@ -688,6 +696,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		35B6BAABE4FDA0FD108D7B1F /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/FluidInference/FluidAudio.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		1E9168029DF6BAD8005DF319 /* TCCCDesign */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -700,6 +719,11 @@
 		A15CAC0CB421F5287463F2D1 /* TCCCExtractor */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TCCCExtractor;
+		};
+		A8F77C2EE2AAC88A70372F62 /* FluidAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 35B6BAABE4FDA0FD108D7B1F /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudio;
 		};
 		CC65DA259DE892E2BB91FEA0 /* TCCCDomain */ = {
 			isa = XCSwiftPackageProductDependency;

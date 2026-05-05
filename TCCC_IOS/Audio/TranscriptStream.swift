@@ -33,4 +33,12 @@ protocol TranscriptStream: Sendable {
     func start(audioURL: URL?) async throws -> AsyncStream<RecognitionUpdate>
     func stop() async
     func stopImmediate() async
+    /// Optional — used by Apple Speech to commit a debounced partial
+    /// and reset the recognition context. Parakeet handles boundaries
+    /// via end-of-utterance detection so the default is a no-op.
+    func forceFinalize() async
+}
+
+extension TranscriptStream {
+    func forceFinalize() async { /* default: no-op */ }
 }
