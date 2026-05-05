@@ -11,8 +11,7 @@ struct StatusStrip: View {
             RFGhostBadge(state: state.rfState)
             divider
             casualtyCell
-            divider
-            gpsCell
+            Spacer(minLength: 0)
             divider
             pageIndicatorCell
             divider
@@ -64,28 +63,6 @@ struct StatusStrip: View {
         }
         .padding(.horizontal, 10)
         .frame(minWidth: 78)
-    }
-
-    private var gpsCell: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "location.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(palette.fg2)
-            Text(formattedGps)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .monospacedDigit()
-                .foregroundStyle(palette.fg1)
-                .lineLimit(1)
-                .truncationMode(.tail)
-        }
-        .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var formattedGps: String {
-        let lat = String(format: "%.4f° N", state.gpsLatitude)
-        let lon = String(format: "%.4f° E", state.gpsLongitude)
-        return "\(lat)  \(lon)"
     }
 
     private var pageIndicatorCell: some View {

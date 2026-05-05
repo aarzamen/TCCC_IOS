@@ -10,29 +10,11 @@ struct RFGhostBadge: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(iconColor)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.system(size: 11, weight: .heavy))
-                    .tracking(2.0)
-                    .foregroundStyle(iconColor)
-                    .modifier(BlinkIfLeak(isLeak: state == .leak))
-
-                HStack(spacing: 4) {
-                    ForEach(["wifi", "BT", "CEL", "UWB", "NFC"], id: \.self) { _ in
-                        ZStack {
-                            Rectangle()
-                                .frame(width: 9, height: 9)
-                                .foregroundStyle(palette.fg3)
-                                .opacity(0.0)
-                            Rectangle()
-                                .frame(width: 12, height: 1)
-                                .rotationEffect(.degrees(-45))
-                                .foregroundStyle(palette.fg3)
-                        }
-                        .frame(width: 9, height: 9)
-                    }
-                }
-            }
+            Text(label)
+                .font(.system(size: 11, weight: .heavy))
+                .tracking(2.0)
+                .foregroundStyle(iconColor)
+                .modifier(BlinkIfLeak(isLeak: state == .leak))
         }
         .padding(.horizontal, 10)
         .frame(maxHeight: .infinity)
@@ -45,7 +27,7 @@ struct RFGhostBadge: View {
 
     private var label: String {
         switch state {
-        case .ghost: "GHOST"
+        case .ghost: "OFFLINE"
         case .burst: "BURST"
         case .leak:  "LEAK"
         }

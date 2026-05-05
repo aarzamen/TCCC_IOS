@@ -441,7 +441,7 @@ struct HandoffScreen: View {
     }
 
     private func shareVitalsCSV() {
-        guard let url = HandoffExports.writeVitalsCSV(history: state.vitalsHistory, casualtyId: state.casualtyId) else { return }
+        guard let url = HandoffExports.writeVitalsCSV(vitals: state.primaryPatient?.vitals, casualtyId: state.casualtyId) else { return }
         shareItems = [url]
         shareSheetVisible = true
     }

@@ -3,16 +3,13 @@ import TCCCDomain
 
 /// Screen 02 — Vitals.
 ///
-/// 2-column grid `1.3fr / 1fr`, 8pt gap, 8pt outer padding (per design §5.2).
-///
-/// Left column (vertical stack):
-///   - 3-col BigVital strip (HR / BP / SpO₂)
-///   - ECG · LEAD II panel (synthetic PQRST canvas, flexes to fill)
-///   - 4-col SmallVital strip (RESP / GCS / TEMP / CAP RE)
-///
-/// Right column:
-///   - TREND · LAST 15 MIN panel (Canvas trend chart, 3 series)
-///   - INTERVENTIONS panel (filtered to non-medication kinds)
+/// **Phase 1 (rubric-aligned) layout — placeholder.** This screen is
+/// scheduled for full rebuild in Phase 4 as a DD 1380 Section C grid (4
+/// timestamped columns × 7 rows). For now: HR / BP / SpO₂ in a BigVital
+/// strip, RR as a single SmallVital, plus the existing Interventions
+/// panel. ECG, GCS, Temp, Cap-Refill, and the 15-min trend graph were
+/// deleted in the 2026 rubric-alignment sprint — none of them bind to
+/// DD 1380 fields.
 struct VitalsScreen: View {
     let state: AppState
     @Environment(\.palette) private var palette
@@ -64,9 +61,8 @@ struct VitalsScreen: View {
     private var leftColumn: some View {
         VStack(spacing: Layout.gridGap) {
             bigVitalStrip
-            ecgPanel
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            smallVitalStrip
+            respCard
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -138,27 +134,6 @@ struct VitalsScreen: View {
         )
     }
 
-    private var ecgPanel: some View {
-        Panel("ECG · Lead II", titleIcon: "heart.fill", action: "SIM", padded: true) {
-            ECGWave()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .frame(minHeight: 90)
-        }
-    }
-
-    private var smallVitalStrip: some View {
-        HStack(spacing: Layout.gridGap) {
-            respCard
-                .frame(maxWidth: .infinity)
-            gcsCard
-                .frame(maxWidth: .infinity)
-            tempCard
-                .frame(maxWidth: .infinity)
-            capRefillCard
-                .frame(maxWidth: .infinity)
-        }
-    }
-
     private var respCard: some View {
         let rr = patient?.vitals.rr
         return SmallVital(
@@ -170,65 +145,14 @@ struct VitalsScreen: View {
         )
     }
 
-    private var gcsCard: some View {
-        let gcs = patient?.vitals.gcs
-        let unit: String = gcs.map { gcsBreakdownLabel($0) } ?? "E? V? M?"
-        return SmallVital(
-            label: "GCS",
-            value: gcs.map { "\($0)" } ?? "—",
-            unit: unit,
-            isWarn: gcsIsWarn(gcs),
-            icon: "brain.head.profile"
-        )
-    }
-
-    private var tempCard: some View {
-        let t = patient?.vitals.temperatureCelsius
-        let value: String = t.map { String(format: "%.1f", $0) } ?? "—"
-        return SmallVital(
-            label: "Temp",
-            value: value,
-            unit: "°C",
-            isWarn: tempIsWarn(t),
-            icon: "thermometer.medium"
-        )
-    }
-
-    private var capRefillCard: some View {
-        let cap = patient?.vitals.capillaryRefillSeconds
-        let value: String = cap.map { String(format: "%.1f", $0) } ?? "—"
-        return SmallVital(
-            label: "Cap Re",
-            value: value,
-            unit: "sec",
-            isWarn: capIsWarn(cap),
-            icon: "timer"
-        )
-    }
-
     // MARK: - Right column
 
     private var rightColumn: some View {
         VStack(spacing: Layout.gridGap) {
-            trendPanel
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             interventionsPanel
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var trendPanel: some View {
-        Panel(
-            "Trend · Last 15 Min",
-            titleIcon: "chart.xyaxis.line",
-            action: "HR · BP · SpO₂",
-            padded: true
-        ) {
-            TrendChart(history: state.vitalsHistory)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .frame(minHeight: 120)
-        }
     }
 
     private var interventionsPanel: some View {
@@ -332,40 +256,12 @@ struct VitalsScreen: View {
         return rr > 24 || rr < 10
     }
 
-    private func gcsIsWarn(_ gcs: Int?) -> Bool {
-        guard let gcs else { return false }
-        return gcs < 14
-    }
-
-    /// We only ever store a total GCS in `Vitals` — the breakdown line is a
-    /// best-effort from the total: GCS 15 → "E4 V5 M6"; otherwise we display
-    /// a generic badge that signals "see card for breakdown".
-    private func gcsBreakdownLabel(_ total: Int) -> String {
-        switch total {
-        case 15: "E4 V5 M6"
-        case 14: "E3 V5 M6"
-        case 13: "E3 V4 M6"
-        case 12: "E3 V4 M5"
-        default: "/ 15"
-        }
-    }
-
-    private func tempIsWarn(_ t: Double?) -> Bool {
-        guard let t else { return false }
-        return t < 36.0 || t > 38.0
-    }
-
-    private func capIsWarn(_ cap: Double?) -> Bool {
-        guard let cap else { return false }
-        return cap > 2.5
-    }
-
     // MARK: - Header status
 
     private var lastUpdateLabel: String {
-        guard let last = state.vitalsHistory.samples.last else { return "—" }
+        guard let ts = patient?.timestampLastUpdate else { return "—" }
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"
-        return f.string(from: last.timestamp)
+        return f.string(from: Date(timeIntervalSince1970: ts))
     }
 }

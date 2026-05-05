@@ -377,26 +377,26 @@ enum HandoffExports {
         }
     }
 
-    /// Build a CSV from the rolling vitals history and write to temp.
-    /// Header row + one row per sample.
-    static func writeVitalsCSV(history: VitalsHistory, casualtyId: String) -> URL? {
-        let samples = history.samples
+    /// Build a CSV with one row of current vitals and write to temp.
+    /// Phase 1 stub — DD 1380 Section C is rebuilt as a 4-column grid in
+    /// Phase 4, at which point this helper will emit the full grid.
+    /// Header row + a single timestamped row of the most recent vitals.
+    static func writeVitalsCSV(vitals: Vitals?, casualtyId: String) -> URL? {
         let dir = FileManager.default.temporaryDirectory
         let stamp = Self.timestampString()
         let url = dir.appendingPathComponent("vitals-\(casualtyId)-\(stamp).csv")
 
         var rows: [String] = []
-        rows.append("timestamp,hr,sys,dia,spo2")
+        rows.append("timestamp,hr,sys,dia,spo2,rr")
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]
-        for s in samples {
-            let ts = f.string(from: s.timestamp)
-            let hr = s.hr.map(String.init) ?? ""
-            let sys = s.systolic.map(String.init) ?? ""
-            let dia = s.diastolic.map(String.init) ?? ""
-            let spo2 = s.spo2.map(String.init) ?? ""
-            rows.append("\(ts),\(hr),\(sys),\(dia),\(spo2)")
-        }
+        let ts = f.string(from: Date())
+        let hr = (vitals?.hr).map(String.init) ?? ""
+        let sys = (vitals?.bp?.systolic).map(String.init) ?? ""
+        let dia = (vitals?.bp?.diastolic).map(String.init) ?? ""
+        let spo2 = (vitals?.spo2).map(String.init) ?? ""
+        let rr = (vitals?.rr).map(String.init) ?? ""
+        rows.append("\(ts),\(hr),\(sys),\(dia),\(spo2),\(rr)")
         let csv = rows.joined(separator: "\n").appending("\n")
 
         do {

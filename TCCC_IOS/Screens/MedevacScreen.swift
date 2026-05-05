@@ -36,13 +36,8 @@ struct MedevacScreen: View {
                 nineLinePanel
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                VStack(spacing: Layout.gridGap) {
-                    mapPanel
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    transmitPanel
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                transmitPanel
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .padding(Layout.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -75,14 +70,6 @@ struct MedevacScreen: View {
 
     private var completionAction: String {
         "\(form.completedCount) / \(form.totalCount) COMPLETE"
-    }
-
-    private var mapPanel: some View {
-        Panel("Grid · LZ", titleIcon: "mappin.and.ellipse", action: "UPDATING", padded: true) {
-            MapPlotView()
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 130)
-        }
     }
 
     private var transmitPanel: some View {

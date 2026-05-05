@@ -1,12 +1,44 @@
 import SwiftUI
 import TCCCDomain
 
+/// Body diagram for DD 1380 Section B injury marking.
+///
+/// Renders **anterior + posterior silhouettes side-by-side** to match the
+/// DD 1380 form, which has both views (penetrating trauma frequently has
+/// posterior exit wounds). Each silhouette is drawn from the same path
+/// primitives so they stay visually balanced. Wound markers default to
+/// the anterior side; the marker-routing helper accepts an explicit
+/// "back" hint for sentences mentioning posterior anatomy.
 struct BodyMap: View {
     let patient: PatientState?
 
     @Environment(\.palette) private var palette
 
     var body: some View {
+        GeometryReader { geo in
+            let gap: CGFloat = 12
+            let halfW = (geo.size.width - gap) / 2
+            HStack(spacing: gap) {
+                silhouette(label: "ANT", isPosterior: false)
+                    .frame(width: halfW, height: geo.size.height)
+                silhouette(label: "POST", isPosterior: true)
+                    .frame(width: halfW, height: geo.size.height)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            Text("L ← → R")
+                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                .tracking(1.0)
+                .foregroundStyle(palette.fg3)
+                .padding(.top, 4)
+                .padding(.trailing, 4)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - One silhouette
+
+    private func silhouette(label: String, isPosterior: Bool) -> some View {
         Canvas { context, size in
             let palette = palette
             let scale = min(size.width / 120, size.height / 200)
@@ -69,26 +101,22 @@ struct BodyMap: View {
             legs.addLine(to: point(72, 195))
             context.stroke(legs, with: .color(stroke), lineWidth: strokeWidth)
 
-            // Markers based on patient state
-            drawMarkers(context: &context, point: point, scale: scale)
+            // Markers based on patient state.
+            // Anterior view shows the primary injury point + tourniquet band.
+            // Posterior view is currently silent — exit-wound routing is a
+            // future enhancement once the extractor distinguishes entry/exit.
+            if !isPosterior {
+                drawMarkers(context: &context, point: point, scale: scale)
+            }
         }
         .overlay(alignment: .topLeading) {
-            Text("ANT")
+            Text(label)
                 .font(.system(size: 8, weight: .semibold, design: .monospaced))
                 .tracking(1.0)
                 .foregroundStyle(palette.fg3)
                 .padding(.top, 4)
                 .padding(.leading, 4)
         }
-        .overlay(alignment: .topTrailing) {
-            Text("L ← → R")
-                .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                .tracking(1.0)
-                .foregroundStyle(palette.fg3)
-                .padding(.top, 4)
-                .padding(.trailing, 4)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func drawMarkers(
@@ -102,7 +130,6 @@ struct BodyMap: View {
 
         let marker = injuryPoint(forLocation: location, point: point)
         if let marker {
-            // Halo
             let halo = CGRect(
                 x: marker.x - 6 * scale,
                 y: marker.y - 6 * scale,
@@ -110,7 +137,6 @@ struct BodyMap: View {
                 height: 12 * scale
             )
             context.fill(Path(ellipseIn: halo), with: .color(palette.crit.opacity(0.25)))
-            // Solid
             let dot = CGRect(
                 x: marker.x - 3 * scale,
                 y: marker.y - 3 * scale,
@@ -120,10 +146,8 @@ struct BodyMap: View {
             context.fill(Path(ellipseIn: dot), with: .color(palette.crit))
         }
 
-        // Tourniquet band (drawn slightly proximal to the injury)
         if intervention.contains("tourniquet") || intervention.contains("tq") || intervention.contains("cat") {
-            let band = tourniquetRect(forLocation: location, point: point, scale: scale)
-            if let band {
+            if let band = tourniquetRect(forLocation: location, point: point, scale: scale) {
                 context.fill(Path(band), with: .color(palette.accent))
             }
         }
@@ -133,9 +157,6 @@ struct BodyMap: View {
         forLocation location: String,
         point: (CGFloat, CGFloat) -> CGPoint
     ) -> CGPoint? {
-        // Right side from viewer perspective is the patient's left, but the design
-        // brief shows wounds on patient's anatomical right (cx 74 in the brief).
-        // We follow the brief's convention.
         if location.contains("right") && (location.contains("thigh") || location.contains("leg") || location.contains("femur")) {
             return point(74, 135)
         }

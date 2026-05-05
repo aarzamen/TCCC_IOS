@@ -131,9 +131,6 @@ final class AppState {
         allPatients = snapshot
         // Single-casualty UI per design §9 — surface PATIENT_1 only.
         primaryPatient = snapshot["PATIENT_1"]
-        // Record a vitals sample for the Screen 02 trend chart. Buffer is
-        // self-pruning to a 15-minute window (see VitalsHistory).
-        vitalsHistory.record(from: primaryPatient?.vitals ?? Vitals(), at: Date())
     }
 
     func loadDemoTranscript(_ text: String) async {
@@ -186,7 +183,6 @@ final class AppState {
         primaryPatient = nil
         allPatients.removeAll()
         sessionStart = Date()
-        vitalsHistory = VitalsHistory()
         engine = PatientStateEngine.standard()
         casualtyCounter = 4
         casualtyId = "C-04"
@@ -211,7 +207,6 @@ final class AppState {
         primaryPatient = nil
         allPatients.removeAll()
         sessionStart = Date()
-        vitalsHistory = VitalsHistory()
         engine = PatientStateEngine.standard()
         lastRecordingURL = nil
         encounterNarrative = nil
@@ -232,19 +227,12 @@ final class AppState {
         partialTranscript = ""
         primaryPatient = nil
         allPatients.removeAll()
-        vitalsHistory = VitalsHistory()
         engine = PatientStateEngine.standard()
         lastRecordingURL = nil
         encounterNarrative = nil
         zmistNarrative = nil
         transcriptCleaned = nil
     }
-
-    // MARK: - Vitals trend (Screen 02) — rolling 15-min sample buffer
-
-    /// Rolling buffer of vitals samples, recorded each time the engine
-    /// snapshot refreshes. Drives the TrendChart on Screen 02.
-    var vitalsHistory = VitalsHistory()
 
     // MARK: - SLM-generated text (persists across screen switches)
 
