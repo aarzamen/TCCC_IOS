@@ -471,7 +471,8 @@ actor ParakeetTranscriptStream: TranscriptStream {
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
         timer.schedule(deadline: .now() + .seconds(1), repeating: .seconds(1))
         timer.setEventHandler { [weak self] in
-            Task { await self?.emitStats() }
+            guard let stream = self else { return }
+            Task { await stream.emitStats() }
         }
         timer.resume()
         statsTimer = timer
