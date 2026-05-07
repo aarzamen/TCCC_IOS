@@ -439,10 +439,14 @@ final class AppState {
         transcript.append(TranscriptLine(speaker: speaker, text: trimmed))
         partialTranscript = ""
         Task { await processWithEngine(trimmed) }
-        // Auto-clean second pass: 5s after each commit, run TranscriptCleaner
-        // over the current transcript. Restarts on every commit so the most
-        // recent silence-debounce always wins. (Task S3-6.)
-        scheduleAutoClean()
+        // Auto-clean second pass DISABLED 2026-05-07 — was rewriting
+        // committed transcript content behind the operator's back via
+        // `state.transcriptCleaned`, producing the bubble-overwrite
+        // pattern documented in the 2026-05-07 bug report. Manual
+        // cleaning via the "Clean transcript" button remains; auto-pass
+        // stays off until VAD-driven firing replaces the wall-clock
+        // fallback that was misbehaving.
+        // scheduleAutoClean()
         // Voice-command trigger: detect "new patient" / "end encounter" in
         // the just-committed line and arm a 2s auto-fire countdown banner.
         // Voice commands aren't checked on system lines (they originate from
