@@ -47,6 +47,42 @@ final class GraniteHotSeatGeneratorTests: XCTestCase {
         }
     }
 
+    func testStringBackendDefaultsMissingReviewFields() async throws {
+        let packet = Self.packet()
+        let output = """
+        {
+          "packetId": "\(packet.id)",
+          "patientId": "PATIENT_1",
+          "candidateFacts": [
+            {
+              "id": "fact-1",
+              "patientId": "PATIENT_1",
+              "domain": "vitals",
+              "field": "heartRate",
+              "value": "92",
+              "evidenceIds": ["seg-1"],
+              "confidence": "medium"
+            }
+          ]
+        }
+        """
+        let backend = StringPatchBackend(output: output)
+
+        let generated = try await GraniteHotSeatGenerator.candidatePatch(
+            for: packet,
+            using: backend
+        )
+
+        XCTAssertEqual(generated.candidateFacts.map(\.id), ["fact-1"])
+        XCTAssertEqual(generated.conflicts, [])
+        XCTAssertEqual(generated.missingRequiredFields, [])
+        XCTAssertEqual(generated.rejectedInputs, [])
+        XCTAssertEqual(
+            generated.modelSelfCheck,
+            "model self-check unavailable or non-string"
+        )
+    }
+
     func testValidatedPatchRejectsUnknownEvidence() async {
         let packet = Self.packet()
         let patch = Self.patch(packetId: packet.id, evidenceIds: ["seg-missing"])

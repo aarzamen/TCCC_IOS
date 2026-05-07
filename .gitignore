@@ -17,6 +17,13 @@ xcuserdata/
 Packages/*/.build/
 Packages/*/.swiftpm/
 
+# Python developer tools
+__pycache__/
+*.py[cod]
+
+# Generated local run artifacts
+artifacts/
+
 # Reference materials are local-only
 reference/design_mockup/
 

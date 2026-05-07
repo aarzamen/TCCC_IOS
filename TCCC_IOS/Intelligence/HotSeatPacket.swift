@@ -71,4 +71,48 @@ struct GraniteCandidatePatch: Codable, Sendable, Equatable {
     let missingRequiredFields: [String]
     let rejectedInputs: [String]
     let modelSelfCheck: String
+
+    init(
+        packetId: String,
+        patientId: String,
+        candidateFacts: [GraniteCandidateFact],
+        conflicts: [GraniteConflict],
+        missingRequiredFields: [String],
+        rejectedInputs: [String],
+        modelSelfCheck: String
+    ) {
+        self.packetId = packetId
+        self.patientId = patientId
+        self.candidateFacts = candidateFacts
+        self.conflicts = conflicts
+        self.missingRequiredFields = missingRequiredFields
+        self.rejectedInputs = rejectedInputs
+        self.modelSelfCheck = modelSelfCheck
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.packetId = try container.decode(String.self, forKey: .packetId)
+        self.patientId = try container.decode(String.self, forKey: .patientId)
+        self.candidateFacts = try container.decodeIfPresent(
+            [GraniteCandidateFact].self,
+            forKey: .candidateFacts
+        ) ?? []
+        self.conflicts = try container.decodeIfPresent(
+            [GraniteConflict].self,
+            forKey: .conflicts
+        ) ?? []
+        self.missingRequiredFields = try container.decodeIfPresent(
+            [String].self,
+            forKey: .missingRequiredFields
+        ) ?? []
+        self.rejectedInputs = try container.decodeIfPresent(
+            [String].self,
+            forKey: .rejectedInputs
+        ) ?? []
+        self.modelSelfCheck = (try? container.decode(
+            String.self,
+            forKey: .modelSelfCheck
+        )) ?? "model self-check unavailable or non-string"
+    }
 }

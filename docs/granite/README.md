@@ -49,6 +49,9 @@ Granite is therefore central, but not trusted blindly.
     hot-seat review.
 - `specs/report_critique_contract.yaml`
   - Schema and validator rules for critique-only report review.
+- `REAL_MODEL_RESULTS.md`
+  - Local Granite model run results, artifact paths, simulator failure
+    notes, and the next physical-device build spec.
 - `../superpowers/specs/2026-05-07-granite-hot-seat-design.md`
   - Narrative design spec.
 - `../superpowers/plans/2026-05-07-granite-hot-seat.md`

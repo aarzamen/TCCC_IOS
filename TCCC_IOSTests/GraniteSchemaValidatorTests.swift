@@ -3,6 +3,27 @@ import XCTest
 
 @MainActor
 final class GraniteSchemaValidatorTests: XCTestCase {
+    func testRejectsEmptyNoOpPatch() {
+        let patch = GraniteCandidatePatch(
+            packetId: "packet-1",
+            patientId: "PATIENT_1",
+            candidateFacts: [],
+            conflicts: [],
+            missingRequiredFields: [],
+            rejectedInputs: [],
+            modelSelfCheck: "json valid"
+        )
+
+        let result = GraniteSchemaValidator.validate(
+            patch,
+            knownEvidenceIds: ["seg-1"],
+            knownPatientIds: ["PATIENT_1"]
+        )
+
+        XCTAssertFalse(result.isAccepted)
+        XCTAssertTrue(result.errors.contains(.emptyPatch))
+    }
+
     func testRejectsFactWithoutEvidence() {
         let patch = GraniteCandidatePatch(
             packetId: "packet-1",

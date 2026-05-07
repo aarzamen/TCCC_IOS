@@ -2,6 +2,7 @@ import Foundation
 
 enum GraniteValidationError: Sendable, Equatable, Hashable {
     case unknownPatient(patientId: String)
+    case emptyPatch
     case missingEvidenceIds(factId: String)
     case unknownEvidenceId(factId: String, evidenceId: String)
     case unknownField(field: String)
@@ -56,6 +57,12 @@ enum GraniteSchemaValidator {
 
         if !knownPatientIds.contains(patch.patientId) {
             errors.insert(.unknownPatient(patientId: patch.patientId))
+        }
+
+        if patch.candidateFacts.isEmpty,
+           patch.conflicts.isEmpty,
+           patch.missingRequiredFields.isEmpty {
+            errors.insert(.emptyPatch)
         }
 
         for fact in patch.candidateFacts {

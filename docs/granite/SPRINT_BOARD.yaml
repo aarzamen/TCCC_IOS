@@ -21,6 +21,7 @@ source_of_truth:
   asr_bakeoff_protocol: docs/granite/specs/asr_bakeoff_protocol.yaml
   device_profile_protocol: docs/granite/specs/device_profile_protocol.yaml
   report_critique_contract: docs/granite/specs/report_critique_contract.yaml
+  real_model_results: docs/granite/REAL_MODEL_RESULTS.md
   research_note: RESEARCH_GRANITE_SPEECH.md
 
 guardrails:
@@ -157,12 +158,44 @@ full_verification:
     docs/granite/specs/*.yaml docs/granite/SPRINT_BOARD.yaml && git diff --check
 
 deferred:
-  - real_granite_text_backend
   - grammar_constrained_generation
   - granite_speech_swift_wrapper
   - whisperkit_bakeoff
   - on_device_memory_thermal_profile
   - report_level_granite_critique
+  - physical_iphone_real_granite_run
+
+real_model_results_sprint:
+  status: host_artifact_created_simulator_blocked
+  harness: tools/run_granite_real_model.py
+  artifacts_ignored_by_git: artifacts/granite-runs
+  requested_base_model:
+    model_id: mlx-community/granite-4.0-h-1b-base-4bit
+    artifact: artifacts/granite-runs/granite-real-20260507T170859Z
+    outcome: parse_failed
+    peak_memory_gb: 2.214
+    wall_clock_ms: 3858
+    note: >
+      Base checkpoint generated malformed continuation text and no complete
+      GraniteCandidatePatch JSON object.
+  instruction_tuned_model:
+    model_id: mlx-community/granite-4.0-h-1b-4bit
+    artifact: artifacts/granite-runs/granite-real-20260507T171029Z
+    outcome: accepted_candidate_fact
+    accepted_fact_ids:
+      - det-1
+    peak_memory_gb: 2.568
+    wall_clock_ms: 1608
+    note: >
+      Produced one evidence-cited hemorrhageIntervention candidate fact
+      using assistant prefill. This is a smoke-test result, not yet an
+      operational adjudicator.
+  simulator_failure:
+    direct_swift_mlx: blocked
+    notes:
+      - MLX crashed on nil Metal GPU architecture string without override.
+      - MLX then aborted on simulator heap storage mode with MLX_METAL_GPU_ARCH=apple9.
+    conclusion: use_physical_iphone_or_host_mlx_for_real_model_execution
 
 sprint_2_tasks:
   - id: GHS2-01
