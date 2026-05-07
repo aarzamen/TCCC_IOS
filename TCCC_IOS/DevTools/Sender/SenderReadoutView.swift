@@ -71,7 +71,7 @@ struct SenderReadoutView: View {
             }
 
             Panel("Highlighting", titleIcon: "highlighter") {
-                Text("Sentence-level highlighting follows Kokoro timing metadata when audio exists. Without timings or audio, the full script stays static.")
+                Text("Sentence-level highlighting follows rendered TTS timing. Without timings or audio, the full script stays static.")
                     .tccc(.bodyText)
                     .foregroundStyle(palette.fg2)
                     .lineLimit(4)
@@ -96,13 +96,13 @@ struct SenderReadoutView: View {
     @ViewBuilder
     private var playbackStatus: some View {
         if viewModel.isSending {
-            statusText("Kokoro synthesis starting.")
+            statusText("TTS synthesis starting.")
         } else if let message = viewModel.readout?.errorMessage ?? viewModel.errorMessage {
             statusText(message, warning: true)
         } else {
             switch playback.status {
             case .noAudio:
-                statusText("Waiting for rendered Kokoro audio.")
+                statusText("Waiting for rendered audio.")
             case .loading:
                 statusText("Loading rendered audio.")
             case .ready:

@@ -18,7 +18,7 @@ The README frontmatter declares `license: apache-2.0`, but a real Apache-2.0 lic
 The exact blocker is that the available Kokoro artifacts are PyTorch-only:
 `/Users/ama/Kokoro-82M/kokoro-v1_0.pth` plus `.pt` voice tensors. There is no Core ML, MLX Swift, or Swift/iOS runtime artifact to load. Enabling synthesis requires explicit confirmation of a PyTorch-to-native conversion path, including the model, voices, and text-to-phoneme/G2P path.
 
-Per the spec, no conversion has been attempted. The app boundary throws `KokoroEngineError.nativeRuntimeUnavailable(.pythonPyTorchOnly)` rather than falling back to Apple speech or fake audio.
+Per the original Kokoro-only spec, no conversion was attempted before user confirmation.
 
 ## Implemented boundary
 
@@ -30,4 +30,8 @@ Per the spec, no conversion has been attempted. The app boundary throws `KokoroE
 - `synthesize(text:voice:speed:pitchSemitones:)`: direct async API for future callers.
 - `synthesize(_ request:)`: compatibility adapter for the current `SenderViewModel`.
 
-The file imports only `Foundation`. It does not import `AVFoundation`, `FoundationModels`, or `SystemLanguageModel`, and it does not create placeholder audio.
+## 2026-05-07 Update
+
+The user broadened the engine requirement from Kokoro-only to any working local TTS engine. The app now uses `AVSpeechSynthesizer.write(_:toBufferCallback:)` as the active iPhone-compatible renderer. It renders a real WAV file on device, then the existing readout player uses `AVAudioPlayer` for playback, volume, scrub, and metering-driven visualization.
+
+The Kokoro voice IDs remain in the picker as compatibility aliases. The active renderer maps those IDs to the closest installed offline iOS speech voice by language. This is not Apple Foundation Models, `SystemLanguageModel`, Apple Intelligence, cloud TTS, or fake audio.

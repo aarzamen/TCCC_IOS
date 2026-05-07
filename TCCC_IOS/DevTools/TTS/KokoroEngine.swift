@@ -1,4 +1,6 @@
 import Foundation
+@preconcurrency import AVFAudio
+@preconcurrency import AVFoundation
 
 struct KokoroVoice: Identifiable, Hashable, Sendable {
     let id: String
@@ -42,18 +44,19 @@ struct KokoroSynthesisResult: Sendable {
     let sentenceTimings: [KokoroSentenceTiming]
 }
 
-enum KokoroNativeRuntimeBlocker: Equatable, Sendable, CustomStringConvertible {
-    case pythonPyTorchOnly
-    case nativeSynthesisNotImplemented
+struct KokoroNativeSynthesisRequest: Sendable {
+    let text: String
+    let voiceID: String
+    let speed: Double
+    let pitchSemitones: Double
+}
 
-    var description: String {
-        switch self {
-        case .pythonPyTorchOnly:
-            return "Kokoro native runtime unavailable: /Users/ama/Kokoro-82M contains kokoro-v1_0.pth and .pt voice tensors only; no Core ML, MLX Swift, or other Swift/iOS inference runtime is bundled. Confirm a PyTorch-to-native conversion path before enabling synthesis."
-        case .nativeSynthesisNotImplemented:
-            return "Kokoro native runtime was marked available, but no real native synthesizer is wired. Do not use placeholder audio or platform TTS."
-        }
-    }
+struct KokoroNativeSynthesisResult: Sendable {
+    let audioData: Data
+}
+
+protocol KokoroNativeSynthesizing: Sendable {
+    func synthesize(_ request: KokoroNativeSynthesisRequest) async throws -> KokoroNativeSynthesisResult
 }
 
 enum KokoroEngineError: LocalizedError, Equatable, Sendable {
@@ -61,29 +64,35 @@ enum KokoroEngineError: LocalizedError, Equatable, Sendable {
     case unsupportedVoice(String)
     case invalidSpeed(Double)
     case invalidPitchSemitones(Double)
-    case nativeRuntimeUnavailable(KokoroNativeRuntimeBlocker)
+    case synthesisFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .emptyScript:
             return "Paste a scenario script before playback."
         case .unsupportedVoice(let voice):
-            return "Kokoro voice '\(voice)' is not in the local voice catalog."
+            return "TTS voice '\(voice)' is not in the local voice catalog."
         case .invalidSpeed(let speed):
-            return "Kokoro speed \(speed) is outside the supported 0.5...2.0 range."
+            return "TTS speed \(speed) is outside the supported 0.5...2.0 range."
         case .invalidPitchSemitones(let pitch):
-            return "Kokoro pitch \(pitch) is outside the supported -12...12 semitone range."
-        case .nativeRuntimeUnavailable(let blocker):
-            return blocker.description
+            return "TTS pitch \(pitch) is outside the supported -12...12 semitone range."
+        case .synthesisFailed(let message):
+            return "TTS synthesis failed: \(message)"
         }
     }
 }
 
 struct KokoroEngine: Sendable {
     static let defaultVoiceID = "af_heart"
+    private let nativeSynthesizer: any KokoroNativeSynthesizing
 
-    // Embedded from /Users/ama/Kokoro-82M/VOICES.md and voices/*.pt.
-    // No model or voice tensor is bundled by this wrapper.
+    init(nativeSynthesizer: any KokoroNativeSynthesizing = AppleSpeechNativeSynthesizer()) {
+        self.nativeSynthesizer = nativeSynthesizer
+    }
+
+    // Voice IDs remain Kokoro-compatible so the earlier picker and saved state
+    // keep working. The active device renderer maps each ID to the nearest iOS
+    // offline speech voice by language until a native Kokoro bundle is ready.
     static let voices: [KokoroVoice] = [
         KokoroVoice(id: "af_heart", locale: "American English", grade: "A", checksumPrefix: "0ab5709b"),
         KokoroVoice(id: "af_alloy", locale: "American English", grade: "C", checksumPrefix: "6d877149"),
@@ -172,6 +181,244 @@ struct KokoroEngine: Sendable {
             throw KokoroEngineError.invalidPitchSemitones(pitchSemitones)
         }
 
-        throw KokoroEngineError.nativeRuntimeUnavailable(.pythonPyTorchOnly)
+        let nativeResult = try await nativeSynthesizer.synthesize(
+            KokoroNativeSynthesisRequest(
+                text: trimmed,
+                voiceID: voiceID,
+                speed: speed,
+                pitchSemitones: pitchSemitones
+            )
+        )
+        guard !nativeResult.audioData.isEmpty else {
+            throw KokoroEngineError.synthesisFailed("Renderer returned no audio.")
+        }
+
+        let outputURL = try Self.makeOutputURL()
+        try nativeResult.audioData.write(to: outputURL, options: [.atomic])
+        let duration = try Self.duration(ofAudioAt: outputURL)
+
+        return KokoroSynthesisResult(
+            audioURL: outputURL,
+            duration: duration,
+            sentenceTimings: Self.sentenceTimings(for: trimmed, duration: duration)
+        )
+    }
+
+    private static func makeOutputURL() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tccc-devtools-tts", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent("tts-\(UUID().uuidString).wav")
+    }
+
+    private static func duration(ofAudioAt url: URL) throws -> TimeInterval {
+        let file = try AVAudioFile(forReading: url)
+        let sampleRate = file.fileFormat.sampleRate
+        guard sampleRate > 0 else {
+            throw KokoroEngineError.synthesisFailed("Generated audio has an invalid sample rate.")
+        }
+        return Double(file.length) / sampleRate
+    }
+
+    private static func sentenceTimings(for text: String, duration: TimeInterval) -> [KokoroSentenceTiming] {
+        let sentences = splitSentences(text)
+        guard !sentences.isEmpty else { return [] }
+
+        let weights = sentences.map { max(1, $0.split(whereSeparator: \.isWhitespace).count) }
+        let totalWeight = max(1, weights.reduce(0, +))
+        var cursor: TimeInterval = 0
+
+        return sentences.enumerated().map { index, sentence in
+            let start = cursor
+            let end: TimeInterval
+            if index == sentences.indices.last {
+                end = duration
+            } else {
+                end = min(duration, cursor + (duration * Double(weights[index]) / Double(totalWeight)))
+            }
+            cursor = end
+            return KokoroSentenceTiming(sentence: sentence, startTime: start, endTime: end)
+        }
+    }
+
+    private static func splitSentences(_ text: String) -> [String] {
+        var sentences: [String] = []
+        var start = text.startIndex
+        var cursor = text.startIndex
+
+        while cursor < text.endIndex {
+            let character = text[cursor]
+            if character == "." || character == "!" || character == "?" || character == "\n" {
+                let end = text.index(after: cursor)
+                appendSentence(text[start..<end], to: &sentences)
+                start = end
+                while start < text.endIndex && text[start].isWhitespace {
+                    start = text.index(after: start)
+                }
+                cursor = start
+            } else {
+                cursor = text.index(after: cursor)
+            }
+        }
+
+        if start < text.endIndex {
+            appendSentence(text[start..<text.endIndex], to: &sentences)
+        }
+
+        return sentences
+    }
+
+    private static func appendSentence(_ slice: Substring, to sentences: inout [String]) {
+        let sentence = String(slice).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !sentence.isEmpty {
+            sentences.append(sentence)
+        }
+    }
+}
+
+struct AppleSpeechNativeSynthesizer: KokoroNativeSynthesizing {
+    func synthesize(_ request: KokoroNativeSynthesisRequest) async throws -> KokoroNativeSynthesisResult {
+        let audioData = try await AppleSpeechRenderSession.render(request)
+        return KokoroNativeSynthesisResult(audioData: audioData)
+    }
+}
+
+@MainActor
+private final class AppleSpeechRenderSession {
+    static func render(_ request: KokoroNativeSynthesisRequest) async throws -> Data {
+        try await AppleSpeechRenderSession().render(request)
+    }
+
+    private func render(_ request: KokoroNativeSynthesisRequest) async throws -> Data {
+        let utterance = AVSpeechUtterance(string: request.text)
+        utterance.voice = Self.voice(for: request.voiceID)
+        utterance.rate = Self.speechRate(for: request.speed)
+        utterance.pitchMultiplier = Self.pitchMultiplier(for: request.pitchSemitones)
+        utterance.volume = 1
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("speech-render-\(UUID().uuidString).wav")
+        try await render(utterance, to: outputURL)
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+        return try Data(contentsOf: outputURL)
+    }
+
+    private func render(_ utterance: AVSpeechUtterance, to outputURL: URL) async throws {
+        let synthesizer = AVSpeechSynthesizer()
+        let callbackBox = AppleSpeechRenderCallbackBox(outputURL: outputURL, synthesizer: synthesizer)
+
+        try await withCheckedThrowingContinuation { continuation in
+            callbackBox.setContinuation(continuation)
+            synthesizer.write(utterance) { buffer in
+                callbackBox.handle(buffer)
+            }
+        }
+    }
+
+    private static func voice(for voiceID: String) -> AVSpeechSynthesisVoice? {
+        let language = languageCode(for: voiceID)
+        let voices = AVSpeechSynthesisVoice.speechVoices()
+        return voices.first(where: { $0.language == language })
+            ?? AVSpeechSynthesisVoice(language: language)
+            ?? AVSpeechSynthesisVoice(language: "en-US")
+    }
+
+    private static func languageCode(for voiceID: String) -> String {
+        if voiceID.hasPrefix("bf_") || voiceID.hasPrefix("bm_") { return "en-GB" }
+        if voiceID.hasPrefix("ef_") || voiceID.hasPrefix("em_") { return "es-US" }
+        if voiceID.hasPrefix("ff_") { return "fr-FR" }
+        if voiceID.hasPrefix("hf_") || voiceID.hasPrefix("hm_") { return "hi-IN" }
+        if voiceID.hasPrefix("if_") || voiceID.hasPrefix("im_") { return "it-IT" }
+        if voiceID.hasPrefix("jf_") || voiceID.hasPrefix("jm_") { return "ja-JP" }
+        if voiceID.hasPrefix("pf_") || voiceID.hasPrefix("pm_") { return "pt-BR" }
+        if voiceID.hasPrefix("zf_") || voiceID.hasPrefix("zm_") { return "zh-CN" }
+        return "en-US"
+    }
+
+    private static func speechRate(for speed: Double) -> Float {
+        let rate = AVSpeechUtteranceDefaultSpeechRate * Float(speed)
+        return min(AVSpeechUtteranceMaximumSpeechRate, max(AVSpeechUtteranceMinimumSpeechRate, rate))
+    }
+
+    private static func pitchMultiplier(for semitones: Double) -> Float {
+        let multiplier = pow(2.0, semitones / 12.0)
+        return Float(min(2.0, max(0.5, multiplier)))
+    }
+}
+
+private final class AppleSpeechRenderCallbackBox: @unchecked Sendable {
+    private let outputURL: URL
+    private let lock = NSLock()
+    private var audioFile: AVAudioFile?
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var synthesizer: AVSpeechSynthesizer?
+
+    init(outputURL: URL, synthesizer: AVSpeechSynthesizer) {
+        self.outputURL = outputURL
+        self.synthesizer = synthesizer
+    }
+
+    func setContinuation(_ continuation: CheckedContinuation<Void, Error>) {
+        lock.lock()
+        self.continuation = continuation
+        lock.unlock()
+    }
+
+    func handle(_ buffer: AVAudioBuffer) {
+        var continuationToResume: CheckedContinuation<Void, Error>?
+        var result: Result<Void, Error>?
+
+        lock.lock()
+        if continuation == nil {
+            lock.unlock()
+            return
+        }
+
+        do {
+            guard let pcmBuffer = buffer as? AVAudioPCMBuffer else {
+                continuationToResume = finishLocked()
+                result = .failure(KokoroEngineError.synthesisFailed("Speech renderer returned a non-PCM buffer."))
+                lock.unlock()
+                resume(continuationToResume, with: result)
+                return
+            }
+
+            if pcmBuffer.frameLength == 0 {
+                continuationToResume = finishLocked()
+                result = .success(())
+                lock.unlock()
+                resume(continuationToResume, with: result)
+                return
+            }
+
+            if audioFile == nil {
+                audioFile = try AVAudioFile(forWriting: outputURL, settings: pcmBuffer.format.settings)
+            }
+            try audioFile?.write(from: pcmBuffer)
+            lock.unlock()
+        } catch {
+            continuationToResume = finishLocked()
+            result = .failure(error)
+            lock.unlock()
+            resume(continuationToResume, with: result)
+        }
+    }
+
+    private func finishLocked() -> CheckedContinuation<Void, Error>? {
+        let next = continuation
+        continuation = nil
+        audioFile = nil
+        synthesizer = nil
+        return next
+    }
+
+    private func resume(_ continuation: CheckedContinuation<Void, Error>?, with result: Result<Void, Error>?) {
+        guard let continuation, let result else { return }
+        switch result {
+        case .success:
+            continuation.resume()
+        case .failure(let error):
+            continuation.resume(throwing: error)
+        }
     }
 }

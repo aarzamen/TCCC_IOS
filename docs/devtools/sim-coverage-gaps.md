@@ -12,7 +12,7 @@
 
 ## Playback Limitations
 
-- Simulator builds can verify the Sender readout layout, transport-control state, and Kokoro unavailable/failed messaging, but they do not prove native Kokoro synthesis because the conversion path is intentionally blocked.
-- Playback visualization requires a real audio URL loaded through `AVAudioPlayer` metering. Without that URL, the expected simulator behavior is an inactive flat waveform and zero VU.
-- Sentence highlighting depends on Kokoro sentence timing metadata. Without timing metadata, simulator coverage is limited to confirming the full script remains visible and unmodified.
-- The 500-word Kokoro peak RSS acceptance check cannot be run until native Kokoro synthesis exists. The current implementation fails closed before allocating model weights.
+- The active sender renderer now uses iOS device speech synthesis to render a real WAV file, then plays that file through `AVAudioPlayer` so the visualization is driven by actual metering.
+- Focused iPhone 15 tests verified both the wrapper seam and the real device renderer for a short phrase. They do not prove voice quality across every installed iOS voice.
+- Sentence highlighting is sentence-level and estimated from the generated file duration plus sentence word counts. Word-level forced alignment remains out of scope.
+- The 500-word Kokoro peak RSS acceptance check is not applicable to the active iOS speech renderer. A 500-word end-to-end DevTools playback walk is still worth doing before calling the sender flow polished.

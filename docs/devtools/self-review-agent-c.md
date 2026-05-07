@@ -6,8 +6,8 @@ Implemented the Sender compose state model, compose UI, and ambient dBFS meter o
 
 ## Critique And Fixes
 
-- Issue: `KokoroEngine.swift` is owned by Agent B and is not present in this checkout, so a direct dependency would make Agent C fail before merge.
-  Fix: `SenderViewModel` accepts a Kokoro-only synthesis closure and defaults to a `nativeRuntimeUnavailable` error. It does not call Apple Speech, generate fake audio, or hide the runtime blocker.
+- Issue: `KokoroEngine.swift` was originally owned by Agent B and was not present in Agent C's checkout, so a direct dependency would have made Agent C fail before merge.
+  Fix: the integrated `SenderViewModel` now defaults to a device TTS handler that calls the Kokoro-compatible engine wrapper. The active renderer uses `AVSpeechSynthesizer.write` only after the user broadened the requirement to any compatible local TTS engine; it does not use Apple Foundation Models, `SystemLanguageModel`, cloud TTS, or fake audio.
 - Issue: Ambient mic UI can easily imply environmental sound pressure.
   Fix: the meter labels the reading as `dBFS` and computes RMS full-scale amplitude from the input tap rather than dB SPL.
 - Issue: Leaving the compose page or tapping Send/Play could leave the input tap active.
@@ -17,8 +17,8 @@ Implemented the Sender compose state model, compose UI, and ambient dBFS meter o
 
 ## Integration Notes
 
-- The orchestrator or Agent B should bridge the view model's `SynthesisHandler` to `KokoroEngine.synthesize`, mapping `SenderSynthesisRequest` into `KokoroSynthesisRequest`.
-- `SenderReadoutState` preserves the script and any synthesis error so Agent D can show readout text even while Kokoro native conversion remains unavailable.
+- The orchestrator bridged the view model's `SynthesisHandler` to `KokoroEngine.synthesize`, mapping `SenderSynthesisRequest` into `KokoroSynthesisRequest`.
+- `SenderReadoutState` preserves the script and synthesis result so Agent D can show readout text, sentence-level highlighting, and audio playback.
 
 ## Verification
 
@@ -28,3 +28,4 @@ Implemented the Sender compose state model, compose UI, and ambient dBFS meter o
 - Final verification from the actual shared worktree succeeded:
   `xcodebuild -quiet -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination id=F9D1EDB3-0711-4935-8A78-F720F85F09DE -configuration Debug -derivedDataPath /private/tmp/tccc_ios_devtools_agent_c build CODE_SIGNING_ALLOWED=NO -skipMacroValidation`.
 - Build warnings remain outside Agent C scope: `UIRequiresFullScreen` deprecation, `Haptics` exhaustive switch cases, and existing `ParakeetTranscriptStream` concurrency/unused-value warnings.
+- The integration fix later added focused iPhone 15 tests for generated playable audio and sentence timings.

@@ -85,13 +85,10 @@ struct SenderReadoutState: Identifiable, Sendable, Equatable {
 }
 
 enum SenderSynthesisError: LocalizedError, Sendable, Equatable {
-    case nativeRuntimeUnavailable(String)
     case emptyScript
 
     var errorDescription: String? {
         switch self {
-        case .nativeRuntimeUnavailable(let message):
-            message
         case .emptyScript:
             "Paste a scenario script before sending."
         }
@@ -132,7 +129,7 @@ final class SenderViewModel {
     @ObservationIgnored private var audioPlayer: AVAudioPlayer?
     @ObservationIgnored private var playbackTimer: Timer?
 
-    init(synthesizeHandler: @escaping SynthesisHandler = SenderViewModel.nativeRuntimeUnavailableHandler) {
+    init(synthesizeHandler: @escaping SynthesisHandler = SenderViewModel.deviceTTSHandler) {
         self.synthesizeHandler = synthesizeHandler
     }
 
@@ -375,7 +372,7 @@ final class SenderViewModel {
         }
     }
 
-    private static let nativeRuntimeUnavailableHandler: SynthesisHandler = { request in
+    private static let deviceTTSHandler: SynthesisHandler = { request in
         let result = try await KokoroEngine().synthesize(
             KokoroSynthesisRequest(
                 text: request.text,

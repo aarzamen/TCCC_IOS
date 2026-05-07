@@ -132,7 +132,7 @@ struct SenderComposeView: View {
             statChip(label: "Read", value: viewModel.estimatedReadingTimeLabel)
             statChip(label: "Rate", value: "\(SenderViewModel.readingWordsPerMinute) wpm")
             Spacer()
-            Text("Kokoro only")
+            Text("Device TTS")
                 .tccc(.meta)
                 .foregroundStyle(palette.fg3)
         }

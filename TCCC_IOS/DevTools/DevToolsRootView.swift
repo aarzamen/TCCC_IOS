@@ -71,7 +71,7 @@ struct DevToolsRootView: View {
     private var headerSubtitle: String {
         switch route {
         case .landing:  "Sender / Receiver"
-        case .sender:   "Kokoro Sender"
+        case .sender:   "TTS Sender"
         case .receiver: "Receiver Stub"
         }
     }
