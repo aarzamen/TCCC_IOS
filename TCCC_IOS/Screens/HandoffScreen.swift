@@ -487,9 +487,38 @@ struct HandoffScreen: View {
            let txt = HandoffExports.writeTranscript(transcript: state.transcript, casualtyId: state.casualtyId) {
             items.append(txt)
         }
+        // Diagnostics log (post-fix instrumentation pass): pull the most
+        // recent run-*.log if it exists so the operator can ship audio +
+        // transcript + log in one share. Best-effort — recording sessions
+        // before this build won't have a log.
+        if let log = mostRecentDiagnosticsLog(),
+           FileManager.default.fileExists(atPath: log.path) {
+            items.append(log)
+        }
         guard !items.isEmpty else { return }
         shareItems = items
         shareSheetVisible = true
+    }
+
+    private func mostRecentDiagnosticsLog() -> URL? {
+        let fm = FileManager.default
+        guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        let dir = docs.appendingPathComponent("diagnostics", isDirectory: true)
+        guard let entries = try? fm.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return nil }
+        return entries
+            .filter { $0.pathExtension == "log" }
+            .sorted { lhs, rhs in
+                let lDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                let rDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                return lDate > rDate
+            }
+            .first
     }
 
     private func shareVitalsCSV() {

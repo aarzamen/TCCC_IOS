@@ -128,6 +128,17 @@ actor ParakeetTranscriptStream: TranscriptStream {
     private var statsTimer: DispatchSourceTimer?
     private static let statsLog = OSLog(subsystem: "ai.tccc", category: "parakeet-longform")
 
+    /// Lock-free buffer-arrival counter — written by the audio render thread,
+    /// drained by the 1-second heartbeat. Tells us whether AVAudioEngine is
+    /// still feeding us audio, independent of whether FluidAudio is processing
+    /// it. Per the diagnostics brief: disambiguates "buffers stop arriving"
+    /// from "FluidAudio went silent."
+    private let bufferCounter = BufferArrivalCounter()
+
+    /// Tick counter for the 1 s heartbeat. Every 60th tick we also emit
+    /// thermal state and memory headroom (the "minute mark" sample).
+    private var heartbeatTick: Int = 0
+
     // MARK: - Init
 
     init(
@@ -161,7 +172,14 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// from Settings before the first recording. Idempotent — if the
     /// model is already cached or loaded, it returns immediately.
     func ensureModelsLoaded() async throws {
-        if manager != nil { return }
+        if manager != nil {
+            DiagnosticsLogger.shared.log("ensureModelsLoaded · already loaded", category: "asr")
+            return
+        }
+        DiagnosticsLogger.shared.log(
+            "ensureModelsLoaded · start · chunkSize=\(chunkSize) eouDebounceMs=\(eouDebounceMs) modelDir=\(modelDirectory?.lastPathComponent ?? "nil")",
+            category: "asr"
+        )
         let mgr = StreamingEouAsrManager(
             chunkSize: chunkSize,
             eouDebounceMs: eouDebounceMs
@@ -188,6 +206,7 @@ actor ParakeetTranscriptStream: TranscriptStream {
             )
         }
         self.manager = mgr
+        DiagnosticsLogger.shared.log("ensureModelsLoaded · loadModels returned OK", category: "asr")
     }
 
     // MARK: - Authorization
@@ -207,16 +226,29 @@ actor ParakeetTranscriptStream: TranscriptStream {
 
     func prime() async throws {
         guard !isPrimed else { return }
+        _ = await DiagnosticsLogger.shared.startSession()
+        DiagnosticsLogger.shared.log(
+            "prime · thermal=\(Self.thermalLabel()) memMB=\(os_proc_available_memory() / (1024 * 1024))",
+            category: "lifecycle"
+        )
         try configureSession()
 
         let inputNode = engine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
         self.inputFormat = format
+        DiagnosticsLogger.shared.log(
+            "prime · inputFormat sampleRate=\(format.sampleRate) ch=\(format.channelCount)",
+            category: "lifecycle"
+        )
 
         let weakLevels = self.levels
+        let arrivalCounter = self.bufferCounter
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let copy = Self.copyBuffer(buffer) else { return }
             let rms = Self.computeRMS(buffer)
+            // Diagnostics: lock-free counter so the audio render thread
+            // never blocks on file I/O or actor isolation.
+            arrivalCounter.record(frames: Int(buffer.frameLength), rms: rms)
             if let weakLevels {
                 Task { @MainActor in weakLevels.ingest(rms) }
             }
@@ -230,15 +262,31 @@ actor ParakeetTranscriptStream: TranscriptStream {
             try engine.start()
         } catch {
             inputNode.removeTap(onBus: 0)
+            DiagnosticsLogger.shared.log("prime · engine.start FAILED: \(error.localizedDescription)", category: "lifecycle")
             throw TranscriptStreamError.engineFailed(error.localizedDescription)
         }
         isPrimed = true
+        DiagnosticsLogger.shared.log("prime · engine.start OK", category: "lifecycle")
         startStatsTimer()
+    }
+
+    nonisolated private static func thermalLabel() -> String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal:  return "nominal"
+        case .fair:     return "fair"
+        case .serious:  return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
     }
 
     func unprime() async {
         if isRecognizing { await teardownRecognizer() }
         guard isPrimed else { return }
+        DiagnosticsLogger.shared.log(
+            "unprime · thermal=\(Self.thermalLabel()) memMB=\(os_proc_available_memory() / (1024 * 1024)) ticks=\(heartbeatTick)",
+            category: "lifecycle"
+        )
         if engine.isRunning { engine.stop() }
         engine.inputNode.removeTap(onBus: 0)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -249,6 +297,7 @@ actor ParakeetTranscriptStream: TranscriptStream {
         if let weakLevels {
             Task { @MainActor in weakLevels.reset() }
         }
+        await DiagnosticsLogger.shared.endSession()
     }
 
     // MARK: - Recognition lifecycle
@@ -260,6 +309,10 @@ actor ParakeetTranscriptStream: TranscriptStream {
         guard !isRecognizing else {
             throw TranscriptStreamError.alreadyRunning
         }
+        DiagnosticsLogger.shared.log(
+            "start · audioURL=\(audioURL?.lastPathComponent ?? "nil")",
+            category: "lifecycle"
+        )
 
         // Auto-load models if not already loaded. Uses provided
         // modelDirectory if set; otherwise FluidAudio downloads from
@@ -310,6 +363,10 @@ actor ParakeetTranscriptStream: TranscriptStream {
 
     func stop() async {
         guard isRecognizing else { return }
+        DiagnosticsLogger.shared.log(
+            "stop · tail-scheduled · ticks=\(heartbeatTick) partialLen=\(currentPartial.count)",
+            category: "lifecycle"
+        )
         if tailDeadline == nil {
             tailDeadline = Date().addingTimeInterval(tailDuration)
         }
@@ -317,19 +374,24 @@ actor ParakeetTranscriptStream: TranscriptStream {
     }
 
     func stopImmediate() async {
+        DiagnosticsLogger.shared.log(
+            "stopImmediate · ticks=\(heartbeatTick) partialLen=\(currentPartial.count)",
+            category: "lifecycle"
+        )
         await teardownRecognizer()
         stopStatsTimer()
     }
 
     // MARK: - Stats timer (long-form observability)
 
-    /// Schedule a 5-minute repeating timer that emits memory and
-    /// partial-string-length breadcrumbs. Idempotent — calling twice
-    /// is a no-op while a timer is already live.
+    /// 1-second repeating heartbeat. Drains the lock-free buffer-arrival
+    /// counter every tick (so we always know if AVAudioEngine is still
+    /// feeding us audio), and every 60 ticks samples thermal state +
+    /// memory headroom for the long-form / ANE-throttle diagnosis.
     private func startStatsTimer() {
         guard statsTimer == nil else { return }
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
-        timer.schedule(deadline: .now() + .seconds(300), repeating: .seconds(300))
+        timer.schedule(deadline: .now() + .seconds(1), repeating: .seconds(1))
         timer.setEventHandler { [weak self] in
             Task { await self?.emitStats() }
         }
@@ -343,24 +405,32 @@ actor ParakeetTranscriptStream: TranscriptStream {
         statsTimer = nil
     }
 
-    /// Emit a single breadcrumb. Reads `os_proc_available_memory()`
-    /// (bytes of headroom before iOS jetsams the app) and the current
-    /// partial-string length. Dev breadcrumb only — `os_log` default
-    /// level so it's visible in Console.app under
-    /// subsystem `ai.tccc` / category `parakeet-longform`, but not
-    /// user-facing.
+    /// Single 1 s heartbeat tick. Always emits buffer-arrival stats from
+    /// the last second. Every 60th tick (≈ once a minute) also emits
+    /// thermal state + memory headroom.
     private func emitStats() {
-        let availableBytes = os_proc_available_memory()
-        let availableMB = availableBytes / (1024 * 1024)
-        let partialLen = currentPartial.count
-        os_log(
-            "longform stats: available_mem=%lldMB partial_len=%d isRecognizing=%{bool}d",
-            log: Self.statsLog,
-            type: .default,
-            availableMB,
-            partialLen,
-            isRecognizing
+        heartbeatTick += 1
+        let snap = bufferCounter.drain()
+        DiagnosticsLogger.shared.log(
+            "buf · sec=\(heartbeatTick) bufs=\(snap.count) frames=\(snap.totalFrames) lastRMS=\(String(format: "%.4f", snap.lastRMS)) partialLen=\(currentPartial.count)",
+            category: "buffer"
         )
+        if heartbeatTick % 60 == 0 {
+            let availableBytes = os_proc_available_memory()
+            let availableMB = availableBytes / (1024 * 1024)
+            DiagnosticsLogger.shared.log(
+                "minute · thermal=\(Self.thermalLabel()) memMB=\(availableMB) partialLen=\(currentPartial.count) isRecognizing=\(isRecognizing)",
+                category: "minute"
+            )
+            os_log(
+                "longform stats: available_mem=%lldMB partial_len=%d isRecognizing=%{bool}d",
+                log: Self.statsLog,
+                type: .default,
+                availableMB,
+                currentPartial.count,
+                isRecognizing
+            )
+        }
     }
 
     // MARK: - Tap-callback path
@@ -429,11 +499,19 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// the partial text into the AsyncStream so the UI can show it as
     /// "ghost text" before EOU.
     private func emitPartial(_ partial: String) {
+        DiagnosticsLogger.shared.log(
+            "partial · len=\(partial.count) tail=\"\(String(partial.suffix(40)))\"",
+            category: "asr"
+        )
         currentPartial = partial
         // Defensive ceiling: if the partial grows beyond
         // `partialStringCeiling` chars without an EOU final, force-finalize
         // it now to avoid unbounded growth over long recordings.
         if partial.count > partialStringCeiling {
+            DiagnosticsLogger.shared.log(
+                "partial · CEILING len=\(partial.count) > \(partialStringCeiling) · force-final",
+                category: "asr"
+            )
             emitFinal(partial)
             currentPartial = ""
             return
@@ -459,11 +537,18 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// same thing modulo trailing punctuation. No data loss either way.
     private func emitFinal(_ finalText: String) {
         let textToCommit: String
+        let usedPartial: Bool
         if currentPartial.count > finalText.count + 20 {
             textToCommit = currentPartial
+            usedPartial = true
         } else {
             textToCommit = finalText
+            usedPartial = false
         }
+        DiagnosticsLogger.shared.log(
+            "final · finalLen=\(finalText.count) partialLen=\(currentPartial.count) committedLen=\(textToCommit.count) usedPartial=\(usedPartial) text=\"\(String(textToCommit.prefix(60)))\"",
+            category: "asr"
+        )
         continuation?.yield(
             RecognitionUpdate(text: textToCommit, isFinal: true, timestamp: Date()))
         currentPartial = ""
