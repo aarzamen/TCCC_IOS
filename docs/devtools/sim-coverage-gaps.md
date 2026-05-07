@@ -12,7 +12,7 @@
 
 ## Playback Limitations
 
-- The active sender renderer now uses iOS device speech synthesis to render a real WAV file, then plays that file through `AVAudioPlayer` so the visualization is driven by actual metering.
-- Focused iPhone 15 tests verified both the wrapper seam and the real device renderer for a short phrase. They do not prove voice quality across every installed iOS voice.
+- The active sender renderer now tries FluidAudio Kokoro CoreML first, then falls back to iOS device speech synthesis. Both paths render a real WAV file, then play that file through `AVAudioPlayer` so the visualization is driven by actual metering.
+- Focused iPhone 15 tests verified the wrapper seam and the fallback real device renderer for a short phrase. They do not prove FluidAudio model availability, first-run download behavior, or voice quality across every installed iOS voice.
 - Sentence highlighting is sentence-level and estimated from the generated file duration plus sentence word counts. Word-level forced alignment remains out of scope.
-- The 500-word Kokoro peak RSS acceptance check is not applicable to the active iOS speech renderer. A 500-word end-to-end DevTools playback walk is still worth doing before calling the sender flow polished.
+- A 500-word end-to-end DevTools playback walk is still worth doing before calling the sender flow polished. If FluidAudio Kokoro runs on device, profile RSS separately from the iOS speech fallback.

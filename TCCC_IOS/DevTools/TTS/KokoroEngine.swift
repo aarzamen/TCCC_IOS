@@ -1,6 +1,8 @@
 import Foundation
 @preconcurrency import AVFAudio
 @preconcurrency import AVFoundation
+@preconcurrency import CoreML
+@preconcurrency import FluidAudio
 
 struct KokoroVoice: Identifiable, Hashable, Sendable {
     let id: String
@@ -42,6 +44,7 @@ struct KokoroSynthesisResult: Sendable {
     let audioURL: URL
     let duration: TimeInterval
     let sentenceTimings: [KokoroSentenceTiming]
+    let rendererName: String
 }
 
 struct KokoroNativeSynthesisRequest: Sendable {
@@ -53,6 +56,7 @@ struct KokoroNativeSynthesisRequest: Sendable {
 
 struct KokoroNativeSynthesisResult: Sendable {
     let audioData: Data
+    let rendererName: String
 }
 
 protocol KokoroNativeSynthesizing: Sendable {
@@ -86,13 +90,13 @@ struct KokoroEngine: Sendable {
     static let defaultVoiceID = "af_heart"
     private let nativeSynthesizer: any KokoroNativeSynthesizing
 
-    init(nativeSynthesizer: any KokoroNativeSynthesizing = AppleSpeechNativeSynthesizer()) {
+    init(nativeSynthesizer: any KokoroNativeSynthesizing = CascadingNativeSynthesizer()) {
         self.nativeSynthesizer = nativeSynthesizer
     }
 
-    // Voice IDs remain Kokoro-compatible so the earlier picker and saved state
-    // keep working. The active device renderer maps each ID to the nearest iOS
-    // offline speech voice by language until a native Kokoro bundle is ready.
+    // Voice IDs are Kokoro-compatible. The preferred renderer is FluidAudio's
+    // CoreML Kokoro path; iOS speech is kept as a fallback so the sender button
+    // still produces real audio if model assets are missing or downloading.
     static let voices: [KokoroVoice] = [
         KokoroVoice(id: "af_heart", locale: "American English", grade: "A", checksumPrefix: "0ab5709b"),
         KokoroVoice(id: "af_alloy", locale: "American English", grade: "C", checksumPrefix: "6d877149"),
@@ -200,7 +204,8 @@ struct KokoroEngine: Sendable {
         return KokoroSynthesisResult(
             audioURL: outputURL,
             duration: duration,
-            sentenceTimings: Self.sentenceTimings(for: trimmed, duration: duration)
+            sentenceTimings: Self.sentenceTimings(for: trimmed, duration: duration),
+            rendererName: nativeResult.rendererName
         )
     }
 
@@ -276,10 +281,82 @@ struct KokoroEngine: Sendable {
     }
 }
 
+struct CascadingNativeSynthesizer: KokoroNativeSynthesizing {
+    private let primary: any KokoroNativeSynthesizing
+    private let fallback: any KokoroNativeSynthesizing
+
+    init(
+        primary: any KokoroNativeSynthesizing = FluidAudioKokoroNativeSynthesizer(),
+        fallback: any KokoroNativeSynthesizing = AppleSpeechNativeSynthesizer()
+    ) {
+        self.primary = primary
+        self.fallback = fallback
+    }
+
+    func synthesize(_ request: KokoroNativeSynthesisRequest) async throws -> KokoroNativeSynthesisResult {
+        do {
+            return try await primary.synthesize(request)
+        } catch {
+            return try await fallback.synthesize(request)
+        }
+    }
+}
+
+actor FluidAudioKokoroNativeSynthesizer: KokoroNativeSynthesizing {
+    private var manager: KokoroTtsManager?
+    private var isSynthesizing = false
+
+    func synthesize(_ request: KokoroNativeSynthesisRequest) async throws -> KokoroNativeSynthesisResult {
+        guard !isSynthesizing else {
+            throw KokoroEngineError.synthesisFailed("Kokoro renderer is already synthesizing.")
+        }
+        isSynthesizing = true
+        defer { isSynthesizing = false }
+
+        let manager = try await managerForCurrentProcess()
+        let voice = Self.supportedFluidVoice(for: request.voiceID)
+        let audioData = try await manager.synthesize(
+            text: request.text,
+            voice: voice,
+            voiceSpeed: Float(request.speed),
+            variantPreference: .fifteenSecond
+        )
+        return KokoroNativeSynthesisResult(audioData: audioData, rendererName: "Kokoro CoreML")
+    }
+
+    private func managerForCurrentProcess() async throws -> KokoroTtsManager {
+        if let manager {
+            return manager
+        }
+
+        let manager = KokoroTtsManager(
+            defaultVoice: TtsConstants.recommendedVoice,
+            computeUnits: .cpuAndGPU
+        )
+        try await manager.initialize(preloadVoices: [TtsConstants.recommendedVoice])
+        self.manager = manager
+        return manager
+    }
+
+    private static func supportedFluidVoice(for voiceID: String) -> String {
+        // FluidAudio's Kokoro path is beta-tested for American English. Other
+        // Kokoro IDs remain in the app picker for compatibility, but the
+        // CoreML renderer falls back to af_heart when the selected voice is
+        // outside that tested American narrator set.
+        guard TtsConstants.availableVoices.contains(voiceID) else {
+            return TtsConstants.recommendedVoice
+        }
+        guard voiceID.hasPrefix("af_") || voiceID.hasPrefix("am_") else {
+            return TtsConstants.recommendedVoice
+        }
+        return voiceID
+    }
+}
+
 struct AppleSpeechNativeSynthesizer: KokoroNativeSynthesizing {
     func synthesize(_ request: KokoroNativeSynthesisRequest) async throws -> KokoroNativeSynthesisResult {
         let audioData = try await AppleSpeechRenderSession.render(request)
-        return KokoroNativeSynthesisResult(audioData: audioData)
+        return KokoroNativeSynthesisResult(audioData: audioData, rendererName: "Device Speech")
     }
 }
 

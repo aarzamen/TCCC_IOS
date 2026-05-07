@@ -21,10 +21,11 @@ final class KokoroEngineTests: XCTestCase {
         XCTAssertEqual(result.sentenceTimings[0].startTime, 0, accuracy: 0.01)
         XCTAssertEqual(result.sentenceTimings[1].sentence, "Charlie delta.")
         XCTAssertEqual(result.sentenceTimings[1].endTime, result.duration, accuracy: 0.05)
+        XCTAssertEqual(result.rendererName, "Stub TTS")
     }
 
-    func testDefaultRendererProducesAudioFileWithoutModelDownload() async throws {
-        let engine = KokoroEngine()
+    func testDeviceSpeechRendererProducesAudioFileWithoutModelDownload() async throws {
+        let engine = KokoroEngine(nativeSynthesizer: AppleSpeechNativeSynthesizer())
 
         let result = try await engine.synthesize(
             text: "TCCC sender audio check.",
@@ -36,6 +37,33 @@ final class KokoroEngineTests: XCTestCase {
         let audioData = try Data(contentsOf: result.audioURL)
         XCTAssertGreaterThan(audioData.count, 44)
         XCTAssertGreaterThan(result.duration, 0.1)
+        XCTAssertEqual(result.rendererName, "Device Speech")
+    }
+
+    func testCascadingRendererFallsBackWhenPrimaryFails() async throws {
+        let audioData = makeSilentWAV(duration: 0.4)
+        let engine = KokoroEngine(
+            nativeSynthesizer: CascadingNativeSynthesizer(
+                primary: FailingNativeSynthesizer(),
+                fallback: StubNativeSynthesizer(audioData: audioData)
+            )
+        )
+
+        let result = try await engine.synthesize(
+            text: "Fallback audio path.",
+            voice: "af_heart",
+            speed: 1.0,
+            pitchSemitones: 0
+        )
+
+        XCTAssertEqual(result.rendererName, "Stub TTS")
+        XCTAssertGreaterThan(result.duration, 0.3)
+    }
+}
+
+private struct FailingNativeSynthesizer: KokoroNativeSynthesizing {
+    func synthesize(_ request: KokoroNativeSynthesisRequest) async throws -> KokoroNativeSynthesisResult {
+        throw KokoroEngineError.synthesisFailed("expected test failure")
     }
 }
 
@@ -43,7 +71,7 @@ private struct StubNativeSynthesizer: KokoroNativeSynthesizing {
     let audioData: Data
 
     func synthesize(_ request: KokoroNativeSynthesisRequest) async throws -> KokoroNativeSynthesisResult {
-        KokoroNativeSynthesisResult(audioData: audioData)
+        KokoroNativeSynthesisResult(audioData: audioData, rendererName: "Stub TTS")
     }
 }
 

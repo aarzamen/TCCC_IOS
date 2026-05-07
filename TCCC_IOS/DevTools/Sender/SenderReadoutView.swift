@@ -106,7 +106,7 @@ struct SenderReadoutView: View {
             case .loading:
                 statusText("Loading rendered audio.")
             case .ready:
-                statusText("Audio ready.")
+                statusText(readyStatusText)
             case .playing:
                 statusText("Playing.")
             case .paused:
@@ -228,6 +228,13 @@ struct SenderReadoutView: View {
             .foregroundStyle(warning ? palette.warn : palette.fg2)
             .lineLimit(4)
             .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var readyStatusText: String {
+        guard let renderer = viewModel.readout?.synthesisResult?.rendererName, !renderer.isEmpty else {
+            return "Audio ready."
+        }
+        return "Audio ready: \(renderer)."
     }
 
     private var attributedScript: AttributedString {

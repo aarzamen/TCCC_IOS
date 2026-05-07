@@ -2,7 +2,7 @@
 
 ## Scope
 
-- Integrated the splash route, DevTools sender/receiver navigation, Kokoro-only engine boundary, sender compose page, ambient meter, readout page, and playback visualizer.
+- Integrated the splash route, DevTools sender/receiver navigation, Kokoro-compatible engine boundary, sender compose page, ambient meter, readout page, and playback visualizer.
 - Regenerated `TCCC_IOS.xcodeproj` so the new Swift files are part of the app target.
 - Verified against the user-assigned iPhone 15 lane, not the iPhone 17 lane.
 
@@ -11,7 +11,7 @@
 - The existing casualty-management app remains behind the `TCCC.ai` splash action through `MainAppShell`.
 - DevTools Sender now routes to `SenderPlaybackView`; Receiver stays a static placeholder with no networking or capture work.
 - The sender UI can accept pasted text, update word count and estimated reading time, meter ambient input at roughly 10 Hz, and move to readout after Send/Play.
-- The original Kokoro clone remains PyTorch-only, but the user broadened the requirement to any working local TTS engine. Sender now renders a real WAV on device through iOS speech synthesis and plays that file through `AVAudioPlayer`.
+- The original Kokoro clone remains PyTorch-only, but FluidAudio's Swift/CoreML Kokoro path is already available through the app dependency graph. Sender now tries FluidAudio Kokoro first, falls back to iOS speech if model assets are missing or initialization fails, and plays the rendered WAV through `AVAudioPlayer`.
 - Readout uses preserved script text, sentence-level timing metadata, and `AVAudioPlayer` metering from the rendered audio URL. It does not fake playback levels.
 
 ## Critique And Fixes
@@ -20,8 +20,8 @@
   Fix: integrated `DevToolsRootView` with a real `.sender` route and passed `onOpenSender` into `DevToolsLandingView`.
 - Issue: the first integrated build exposed SwiftUI `frame` argument ordering in new card views.
   Fix: reordered `minHeight` before `maxHeight` in the affected cards and rebuilt.
-- Issue: acceptance criteria originally required native Kokoro playback, but the available Kokoro clone is PyTorch-only.
-  Fix: after user approval to use any TTS engine, wired the iPhone-compatible speech renderer. It writes a real WAV, maps speed and pitch into the rendered utterance, and preserves the existing metered playback pipeline.
+- Issue: acceptance criteria originally required native Kokoro playback, but the local `/Users/ama/Kokoro-82M` clone is PyTorch-only and ChoiceVoice/Qwen is too memory-heavy for the phone path.
+  Fix: after user approval to use any compatible TTS engine, wired FluidAudio Kokoro CoreML as the preferred renderer and kept iOS speech as a real-audio fallback. Both paths preserve the metered playback pipeline.
 - Issue: the original spec requested simulator validation, but the user later assigned Codex to the plugged-in iPhone 15.
   Fix: used `Default15` / `00008130-000E78E210FA8D3A` for the integrated device build and left the iPhone 17 identifiers alone.
 
@@ -44,6 +44,6 @@
 
 ## Remaining Gaps
 
-- The active sender path is device speech TTS, not native Kokoro model inference. Native Kokoro still requires conversion or a bundleable Core ML / MLX Swift path.
+- FluidAudio Kokoro is wired as preferred renderer, but the focused iPhone 15 tests still prove the wrapper and fallback path, not a first-run FluidAudio model download or full 500-word FluidAudio synthesis on device.
 - No third-party license bundle can be completed from the current local clone because it lacks a standalone Apache-2.0 `LICENSE` file.
 - Automated on-device tap-walk is still unverified. Device tooling confirmed install and launch, but did not visually assert splash, DevTools, Sender, Receiver, or button transitions.

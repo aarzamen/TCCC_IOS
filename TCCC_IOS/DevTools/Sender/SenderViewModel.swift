@@ -38,6 +38,7 @@ struct SenderSynthesisResult: Sendable, Equatable {
     let audioURL: URL
     let duration: TimeInterval
     let sentenceTimings: [SenderSentenceTiming]
+    let rendererName: String
 }
 
 enum SenderSynthesisState: Equatable, Sendable {
@@ -405,6 +406,7 @@ private extension SenderSynthesisResult {
     init(kokoroResult: KokoroSynthesisResult) {
         self.audioURL = kokoroResult.audioURL
         self.duration = kokoroResult.duration
+        self.rendererName = kokoroResult.rendererName
         self.sentenceTimings = kokoroResult.sentenceTimings.map { timing in
             SenderSentenceTiming(
                 startTime: timing.startTime,
