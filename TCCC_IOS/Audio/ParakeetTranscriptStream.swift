@@ -82,6 +82,31 @@ actor ParakeetTranscriptStream: TranscriptStream {
     private var inputFormat: AVAudioFormat?
     private var isPrimed: Bool = false
 
+    // MARK: - Resampling (hardware-rate -> 16 kHz mono)
+    //
+    // Parakeet was trained on 16 kHz mono float32. The iPhone mic captures
+    // at the hardware-native rate (typically 44.1 or 48 kHz). Without an
+    // explicit converter, we'd be feeding FluidAudio (and the AAC encoder)
+    // wrong-rate samples — that's what caused the 5% playback speed and
+    // the catastrophic capture rate in the YouTube test.
+
+    /// Sample rate the recognizer + AAC encoder expects.
+    private static let targetSampleRate: Double = 16_000
+
+    /// 16 kHz mono float32, non-interleaved. Matches Parakeet's input
+    /// format and the AAC encode settings.
+    private static let targetFormat: AVAudioFormat = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32,
+        sampleRate: targetSampleRate,
+        channels: 1,
+        interleaved: false
+    )!
+
+    /// Lazy converter from hardware format to `targetFormat`. Created in
+    /// `prime()` once we know the actual input format. Reused across all
+    /// tap buffers — converter holds no per-buffer state we care about.
+    private var resampleConverter: AVAudioConverter?
+
     // MARK: - Pre-roll ring buffer (last ~30s of PCM, same shape as SpeechRecognizer)
 
     private var ringBuffer: [AVAudioPCMBuffer] = []
@@ -237,14 +262,29 @@ actor ParakeetTranscriptStream: TranscriptStream {
         let format = inputNode.outputFormat(forBus: 0)
         self.inputFormat = format
         DiagnosticsLogger.shared.log(
-            "prime · inputFormat sampleRate=\(format.sampleRate) ch=\(format.channelCount)",
+            "prime · inputFormat sampleRate=\(format.sampleRate) ch=\(format.channelCount) target=\(Self.targetSampleRate)",
             category: "lifecycle"
         )
+
+        // Build the hardware -> 16 kHz mono converter. Parakeet expects
+        // 16 kHz; the AAC file is also written at 16 kHz; both consume the
+        // same converted buffer.
+        if let converter = AVAudioConverter(from: format, to: Self.targetFormat) {
+            self.resampleConverter = converter
+            DiagnosticsLogger.shared.log(
+                "prime · converter built \(format.sampleRate)Hz ch=\(format.channelCount) -> 16000Hz ch=1",
+                category: "lifecycle"
+            )
+        } else {
+            DiagnosticsLogger.shared.log(
+                "prime · converter init FAILED — falling back to passthrough (capture quality will degrade)",
+                category: "lifecycle"
+            )
+        }
 
         let weakLevels = self.levels
         let arrivalCounter = self.bufferCounter
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            guard let copy = Self.copyBuffer(buffer) else { return }
             let rms = Self.computeRMS(buffer)
             // Diagnostics: lock-free counter so the audio render thread
             // never blocks on file I/O or actor isolation.
@@ -252,6 +292,10 @@ actor ParakeetTranscriptStream: TranscriptStream {
             if let weakLevels {
                 Task { @MainActor in weakLevels.ingest(rms) }
             }
+            // Hand the raw buffer (still hardware format) to the actor.
+            // Resampling happens inside ingestBuffer so it runs on the
+            // actor's queue, not the render thread.
+            guard let copy = Self.copyBuffer(buffer) else { return }
             Task { [weak self] in
                 await self?.ingestBuffer(copy)
             }
@@ -268,6 +312,40 @@ actor ParakeetTranscriptStream: TranscriptStream {
         isPrimed = true
         DiagnosticsLogger.shared.log("prime · engine.start OK", category: "lifecycle")
         startStatsTimer()
+    }
+
+    /// Convert a hardware-format PCM buffer to 16 kHz mono float32 using
+    /// the prebuilt `resampleConverter`. Returns nil on converter error or
+    /// if the converter isn't initialised.
+    private func resampleToTarget(_ input: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard let converter = resampleConverter else { return nil }
+
+        // Output buffer capacity: at most ratio * input frames + a little
+        // slack. Going from 48k -> 16k that's frames/3.
+        let ratio = Self.targetSampleRate / converter.inputFormat.sampleRate
+        let outFrameCapacity = AVAudioFrameCount(
+            ceil(Double(input.frameLength) * ratio) + 16
+        )
+        guard let output = AVAudioPCMBuffer(
+            pcmFormat: Self.targetFormat,
+            frameCapacity: outFrameCapacity
+        ) else { return nil }
+
+        var consumed = false
+        var conversionError: NSError?
+        let status = converter.convert(to: output, error: &conversionError) { _, outStatus in
+            if consumed {
+                outStatus.pointee = .endOfStream
+                return nil
+            }
+            consumed = true
+            outStatus.pointee = .haveData
+            return input
+        }
+        if status == .error || conversionError != nil {
+            return nil
+        }
+        return output
     }
 
     nonisolated private static func thermalLabel() -> String {
@@ -436,19 +514,32 @@ actor ParakeetTranscriptStream: TranscriptStream {
     // MARK: - Tap-callback path
 
     private func ingestBuffer(_ buffer: AVAudioPCMBuffer) {
+        // Resample hardware-format buffer (e.g. 48 kHz mono) to 16 kHz
+        // mono float32. Both FluidAudio (Parakeet expects 16 kHz) and the
+        // AAC encoder consume the resampled buffer. If the converter is
+        // unavailable for any reason, fall back to passthrough so we
+        // don't silently lose audio entirely — but this case should not
+        // happen in practice.
+        let working: AVAudioPCMBuffer
+        if let resampled = resampleToTarget(buffer) {
+            working = resampled
+        } else {
+            working = buffer
+        }
+
         // Apply variable dynamic gain BEFORE storing/streaming so the
         // ring buffer, level meter, and ASR all see the post-gain
         // signal. The gainProvider closure reads the current Settings
         // slider value on every tick.
         let gain = gainProvider()
         if gain != 1.0 {
-            Self.applyGain(buffer, gain: gain)
+            Self.applyGain(working, gain: gain)
         }
 
-        // Always: maintain the ring buffer.
-        ringBuffer.append(buffer)
-        ringBufferFrames += Int(buffer.frameLength)
-        let sampleRate = buffer.format.sampleRate
+        // Always: maintain the ring buffer (now in target format).
+        ringBuffer.append(working)
+        ringBufferFrames += Int(working.frameLength)
+        let sampleRate = working.format.sampleRate
         let maxFrames = Int(leadDuration * sampleRate)
         while ringBufferFrames > maxFrames, !ringBuffer.isEmpty {
             let oldest = ringBuffer.removeFirst()
@@ -457,11 +548,13 @@ actor ParakeetTranscriptStream: TranscriptStream {
 
         guard isRecognizing else { return }
 
-        // Append to FluidAudio manager + audio file.
+        // Append to FluidAudio manager + audio file. Both expect 16 kHz
+        // mono float32 (Parakeet's training rate; AAC settings declare
+        // 16 kHz mono).
         if let manager {
-            Task { try? await manager.appendAudio(buffer) }
+            Task { try? await manager.appendAudio(working) }
         }
-        try? audioFile?.write(from: buffer)
+        try? audioFile?.write(from: working)
 
         // Tail deadline check.
         if let deadline = tailDeadline, Date() >= deadline {
