@@ -1,5 +1,4 @@
 import SwiftUI
-import FoundationModels
 import TCCCDomain
 
 struct MedevacScreen: View {
@@ -99,6 +98,10 @@ struct MedevacScreen: View {
     }
 
     private func handleTransmit() {
+        guard form.isReadyForTransmit else {
+            state.appendSystem("TRANSMIT BLOCKED · 9-LINE INCOMPLETE · \(formattedTimestamp())")
+            return
+        }
         let dest = state.selectedHandoffDestination.displayName
         state.appendSystem("TRANSMIT · 9-LINE · \(dest) · \(formattedTimestamp())")
     }
@@ -118,17 +121,18 @@ struct MedevacScreen: View {
             isGenerating = true
             generationError = nil
 
-            // Pre-flight availability check so we can show a useful message
-            // instead of "generation failed" when Apple Intelligence is off.
-            let availability = TCCCLanguageModel.availability()
+            let backend = state.currentBackend
+            // Pre-flight the selected backend so Generate cannot trigger an
+            // implicit model download or show Apple-only availability text.
+            let availability = await backend.availability
             guard availability == .available else {
-                generationError = availabilityMessage(availability)
+                generationError = availability.message(for: backend.displayName)
                 isGenerating = false
                 return
             }
 
             do {
-                let generator = RadioScriptGenerator(backend: state.currentBackend)
+                let generator = RadioScriptGenerator(backend: backend)
                 let text = try await generator.generate(
                     from: snapshot,
                     patients: patientsForValidation,
@@ -141,26 +145,6 @@ struct MedevacScreen: View {
                 generationError = error.localizedDescription
             }
             isGenerating = false
-        }
-    }
-
-    private func availabilityMessage(_ availability: SystemLanguageModel.Availability) -> String {
-        switch availability {
-        case .available:
-            return ""
-        case .unavailable(let reason):
-            switch reason {
-            case .deviceNotEligible:
-                return "Foundation Model not supported on this device."
-            case .appleIntelligenceNotEnabled:
-                return "Enable Apple Intelligence in Settings to generate radio scripts."
-            case .modelNotReady:
-                return "Foundation Model is still downloading. Try again shortly."
-            @unknown default:
-                return "Foundation Model unavailable."
-            }
-        @unknown default:
-            return "Foundation Model unavailable."
         }
     }
 

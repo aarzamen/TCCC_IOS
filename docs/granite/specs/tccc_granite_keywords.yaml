@@ -1,0 +1,164 @@
+version: "0.1"
+name: tccc_granite_keywords
+status: planning
+date: "2026-05-07"
+
+purpose: >
+  Provide domain terms for Granite keyword-biased ASR prompts and
+  transcript-cleaning prompts. These terms are not a source of truth for
+  app state. They only improve recognition and normalization.
+
+prompt_prefix: >
+  Keywords: TCCC, MARCH, PAWS, DD 1380, ZMIST, nine-line, MEDEVAC,
+  tourniquet, TXA, AVPU, airway, respiration, circulation, hypothermia,
+  TBI, ketamine, fentanyl, ceftriaxone, cefazolin, cefadroxil,
+  cephalexin, suzetrigine, esketamine, hypertonic saline, calcium,
+  hemostatic dressing, chest seal, needle decompression, cricothyrotomy,
+  junctional, radial pulse, SpO2, systolic, diastolic, litter,
+  ambulatory, urgent surgical, priority, routine.
+
+groups:
+  acronyms:
+    - TCCC
+    - MARCH
+    - PAWS
+    - DD 1380
+    - ZMIST
+    - AVPU
+    - TXA
+    - IV
+    - IO
+    - NPA
+    - LZ
+    - CCP
+    - MEDEVAC
+    - MGRS
+    - SpO2
+
+  march_phases:
+    massive_hemorrhage:
+      - hemorrhage
+      - bleeding
+      - tourniquet
+      - junctional
+      - hemostatic
+      - pressure dressing
+      - wound packing
+      - tourniquet conversion
+      - reposition tourniquet
+    airway:
+      - airway
+      - patent airway
+      - obstruction
+      - nasopharyngeal airway
+      - NPA
+      - recovery position
+      - suction
+      - cricothyrotomy
+      - cric
+      - bougie
+    respiration:
+      - respiration
+      - breathing
+      - chest seal
+      - needle decompression
+      - pneumothorax
+      - tension pneumothorax
+      - EtCO2
+      - capnography
+    circulation:
+      - circulation
+      - radial pulse
+      - weak pulse
+      - absent pulse
+      - blood pressure
+      - calcium
+      - transfusion
+      - whole blood
+      - plasma
+    hypothermia:
+      - hypothermia
+      - hypothermia prevention
+      - warming blanket
+      - heat pack
+    tbi:
+      - TBI
+      - traumatic brain injury
+      - AVPU
+      - pupils
+      - asymmetric pupils
+      - posturing
+      - hypertonic saline
+
+  paws:
+    analgesia:
+      - acetaminophen
+      - meloxicam
+      - fentanyl
+      - ketamine
+      - esketamine
+      - suzetrigine
+    antibiotics:
+      - moxifloxacin
+      - ertapenem
+      - ceftriaxone
+      - cefazolin
+      - cefadroxil
+      - cephalexin
+    wounds:
+      - burn
+      - blast
+      - amputation
+      - fracture
+      - femur
+      - abdominal wound
+      - penetrating trauma
+    splinting:
+      - pelvic binder
+      - splint
+      - traction splint
+
+  vitals:
+    - heart rate
+    - pulse
+    - blood pressure
+    - respiratory rate
+    - respirations
+    - oxygen saturation
+    - SpO2
+    - pulse ox
+    - pain score
+    - AVPU
+
+  reports:
+    nine_line:
+      - line one location
+      - line two frequency
+      - line three precedence
+      - line four special equipment
+      - line five patient type
+      - line six security
+      - line seven marking
+      - line eight nationality
+      - line nine CBRN
+    dd1380:
+      - casualty card
+      - mechanism of injury
+      - vital signs log
+      - interventions
+      - allergies
+      - medications
+      - evacuation category
+
+normalization_examples:
+  - raw: "tea ex a"
+    normalized: "TXA"
+  - raw: "catamine"
+    normalized: "ketamine"
+  - raw: "tourni kit"
+    normalized: "tourniquet"
+  - raw: "spo two"
+    normalized: "SpO2"
+  - raw: "nine line"
+    normalized: "9-line"
+

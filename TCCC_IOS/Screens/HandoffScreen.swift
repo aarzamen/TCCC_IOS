@@ -1,6 +1,5 @@
 import SwiftUI
 import UIKit
-import FoundationModels
 import TCCCDomain
 
 /// Screen 05 — Role-1 → Role-2 Handoff.
@@ -248,14 +247,15 @@ struct HandoffScreen: View {
             isGeneratingNarrative = true
             defer { isGeneratingNarrative = false }
 
-            let availability = TCCCLanguageModel.availability()
+            let backend = state.currentBackend
+            let availability = await backend.availability
             guard availability == .available else {
-                slmError = unavailabilityMessage(availability)
+                slmError = availability.message(for: backend.displayName)
                 return
             }
 
             do {
-                let narrativeGenerator = EncounterNarrativeGenerator(backend: state.currentBackend)
+                let narrativeGenerator = EncounterNarrativeGenerator(backend: backend)
                 let text = try await narrativeGenerator.generate(for: p, casualtyId: id)
                 state.encounterNarrative = text
             } catch {
@@ -272,39 +272,20 @@ struct HandoffScreen: View {
             isGeneratingZMIST = true
             defer { isGeneratingZMIST = false }
 
-            let availability = TCCCLanguageModel.availability()
+            let backend = state.currentBackend
+            let availability = await backend.availability
             guard availability == .available else {
-                slmError = unavailabilityMessage(availability)
+                slmError = availability.message(for: backend.displayName)
                 return
             }
 
             do {
-                let zmistGenerator = ZMISTNarrativeGenerator(backend: state.currentBackend)
+                let zmistGenerator = ZMISTNarrativeGenerator(backend: backend)
                 let text = try await zmistGenerator.generate(for: p, casualtyId: id)
                 state.zmistNarrative = text
             } catch {
                 slmError = error.localizedDescription
             }
-        }
-    }
-
-    private func unavailabilityMessage(_ availability: SystemLanguageModel.Availability) -> String {
-        switch availability {
-        case .available:
-            return ""
-        case .unavailable(let reason):
-            switch reason {
-            case .deviceNotEligible:
-                return "Foundation Model not supported on this device."
-            case .appleIntelligenceNotEnabled:
-                return "Enable Apple Intelligence in Settings."
-            case .modelNotReady:
-                return "Foundation Model is still downloading."
-            @unknown default:
-                return "Foundation Model unavailable."
-            }
-        @unknown default:
-            return "Foundation Model unavailable."
         }
     }
 

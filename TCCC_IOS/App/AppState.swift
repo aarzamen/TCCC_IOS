@@ -89,15 +89,18 @@ final class AppState {
     /// Apple Speech is the proven default. Parakeet is on ice — the
     /// actor compiles and is reachable behind this toggle, but
     /// requires the operator to supply a model directory before
-    /// `start()` will succeed.
+    /// `start()` will succeed. Granite Speech is research-only until
+    /// a Swift runtime exists.
     enum ASRBackend: String, Sendable, CaseIterable, Identifiable, Codable {
         case appleSpeech
         case parakeet
+        case graniteSpeech
         var id: String { rawValue }
         var displayName: String {
             switch self {
-            case .appleSpeech: "Apple Speech"
-            case .parakeet:    "Parakeet (alt)"
+            case .appleSpeech:   "Apple Speech"
+            case .parakeet:      "Parakeet (alt)"
+            case .graniteSpeech: "Granite Speech (research)"
             }
         }
     }
@@ -287,24 +290,26 @@ final class AppState {
 
     /// LLM backend selection per night-pass Track C (2026-05-05).
     /// Apple Foundation Models is the proven default. LFM2.5 is the
-    /// recommended alt (LFM Open License, no medical/military AUP);
-    /// Qwen 3 1.7B is an Apache-2.0 fallback for that slot. Both alt
-    /// backends are on ice — stubs throw .notImplemented until model
-    /// weights are bundled in a future pass.
+    /// recommended general alt (LFM Open License, no medical/military
+    /// AUP); Qwen 3 1.7B is an Apache-2.0 fallback for that slot.
+    /// Granite 4.0 H 1B Base is the explicit hot-seat text backend for
+    /// evidence-bounded candidate patches.
     enum LLMBackend: String, Sendable, CaseIterable, Identifiable, Codable {
         case appleFoundation
         case lfm2
         case qwen3
+        case graniteText
         var id: String { rawValue }
         var displayName: String {
             switch self {
             case .appleFoundation: "Apple Foundation Models"
             case .lfm2:            "Liquid LFM2.5 1.2B (alt)"
             case .qwen3:           "Qwen 3 1.7B (alt)"
+            case .graniteText:     "IBM Granite 4.0 H 1B Base"
             }
         }
     }
-    var llmBackend: LLMBackend = .lfm2
+    var llmBackend: LLMBackend = .appleFoundation
 
     /// Which LLM backend (if any) is currently fetching weights via the
     /// Settings DOWNLOAD affordance. `nil` = idle. Settings UI binds to
@@ -338,6 +343,12 @@ final class AppState {
         case .qwen3:
             do {
                 try await QwenLLMBackend().prefetch()
+            } catch {
+                appendSystem("DOWNLOAD FAILED · \(backend.displayName) · \(error.localizedDescription)")
+            }
+        case .graniteText:
+            do {
+                try await GraniteTextLLMBackend().prefetch()
             } catch {
                 appendSystem("DOWNLOAD FAILED · \(backend.displayName) · \(error.localizedDescription)")
             }
@@ -388,6 +399,7 @@ final class AppState {
     var locationFix: LocationFix = LocationFix(source: .none, latitude: nil, longitude: nil)
 
     var transcript: [TranscriptLine] = []
+    var transcriptLedger = TranscriptSegmentLedger()
     var partialTranscript: String = ""
     var isRecording: Bool = false
     var recognitionError: String?
@@ -423,8 +435,13 @@ final class AppState {
     var primaryPatient: PatientState?
     var allPatients: [String: PatientState] = [:]
     var casualtyCounter: Int = 4
+    var graniteReviewQueue: [GraniteReviewItem] = []
 
-    func appendFinal(_ text: String, speaker: TranscriptLine.Speaker = .medic) {
+    func appendFinal(
+        _ text: String,
+        speaker: TranscriptLine.Speaker = .medic,
+        timestamp: Date = Date()
+    ) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         // Dedupe: if the most recent line is the same speaker + text, swallow
@@ -436,9 +453,12 @@ final class AppState {
             partialTranscript = ""
             return
         }
-        transcript.append(TranscriptLine(speaker: speaker, text: trimmed))
+        transcript.append(TranscriptLine(speaker: speaker, text: trimmed, timestamp: timestamp))
+        if speaker == .medic {
+            appendTranscriptEvidence(trimmed, timestamp: timestamp)
+        }
         partialTranscript = ""
-        Task { await processWithEngine(trimmed) }
+        Task { await processWithEngine(trimmed, timestamp: timestamp) }
         // Auto-clean second pass DISABLED 2026-05-07 — was rewriting
         // committed transcript content behind the operator's back via
         // `state.transcriptCleaned`, producing the bubble-overwrite
@@ -460,12 +480,33 @@ final class AppState {
         transcript.append(TranscriptLine(speaker: .system, text: text))
     }
 
+    private func appendTranscriptEvidence(_ text: String, timestamp: Date) {
+        let endMs = max(0, Int(timestamp.timeIntervalSince(sessionStart) * 1_000))
+        let priorEndMs = transcriptLedger.normalizedSegments.last?.endMs ?? 0
+        let startMs = min(priorEndMs, endMs)
+        transcriptLedger.appendRaw(
+            text: text,
+            startMs: startMs,
+            endMs: max(endMs, startMs),
+            backend: currentTranscriptBackend,
+            isFinal: true
+        )
+    }
+
+    private var currentTranscriptBackend: TranscriptBackend {
+        switch asrBackend {
+        case .appleSpeech:   .appleSpeech
+        case .parakeet:      .parakeet
+        case .graniteSpeech: .graniteSpeech
+        }
+    }
+
     func clearError() {
         recognitionError = nil
     }
 
-    private func processWithEngine(_ text: String) async {
-        await engine.processTranscript(text, timestamp: Date())
+    private func processWithEngine(_ text: String, timestamp: Date) async {
+        await engine.processTranscript(text, timestamp: timestamp)
         await refreshPatientSnapshot()
     }
 
@@ -525,11 +566,21 @@ final class AppState {
 
     func loadDemoTranscript(_ text: String) async {
         transcript.removeAll()
+        transcriptLedger = TranscriptSegmentLedger()
         partialTranscript = ""
+        var startMs = 0
         for raw in text.split(separator: "\n", omittingEmptySubsequences: true) {
             let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty else { continue }
             transcript.append(TranscriptLine(speaker: .medic, text: line))
+            transcriptLedger.appendRaw(
+                text: line,
+                startMs: startMs,
+                endMs: startMs + 1_000,
+                backend: .demo,
+                isFinal: true
+            )
+            startMs += 1_000
         }
         await engine.processTranscript(text, timestamp: Date())
         await refreshPatientSnapshot()
@@ -578,6 +629,7 @@ final class AppState {
         voiceCommandTask = nil
         pendingVoiceCommand = nil
         transcript.removeAll()
+        transcriptLedger = TranscriptSegmentLedger()
         partialTranscript = ""
         recognitionError = nil
         primaryPatient = nil
@@ -592,6 +644,7 @@ final class AppState {
         transcriptCleaned = nil
         vitalsLog.removeAll()
         lastMedevacTransmitTime = nil
+        graniteReviewQueue.removeAll()
     }
 
     /// Begin a new casualty. Increments the casualty counter, wipes
@@ -610,6 +663,7 @@ final class AppState {
         casualtyCounter += 1
         casualtyId = String(format: "C-%02d", casualtyCounter)
         transcript.removeAll()
+        transcriptLedger = TranscriptSegmentLedger()
         partialTranscript = ""
         recognitionError = nil
         primaryPatient = nil
@@ -622,6 +676,7 @@ final class AppState {
         transcriptCleaned = nil
         vitalsLog.removeAll()
         lastMedevacTransmitTime = nil
+        graniteReviewQueue.removeAll()
         appendSystem("NEW CASUALTY · \(casualtyId) · \(oldId) archived")
     }
 
@@ -640,6 +695,7 @@ final class AppState {
         appendSystem("CARE ENDED · \(endedId) · handoff finalized")
         // Snapshot the system line, then clear so the screen resets.
         transcript.removeAll(where: { $0.speaker != .system || !$0.text.contains("CARE ENDED") })
+        transcriptLedger = TranscriptSegmentLedger()
         partialTranscript = ""
         primaryPatient = nil
         allPatients.removeAll()
@@ -650,6 +706,7 @@ final class AppState {
         transcriptCleaned = nil
         vitalsLog.removeAll()
         lastMedevacTransmitTime = nil
+        graniteReviewQueue.removeAll()
     }
 
     // MARK: - SLM-generated text (persists across screen switches)
@@ -895,6 +952,7 @@ extension AppState {
         case .appleFoundation: AppleFoundationLLMBackend()
         case .lfm2:            LFM2LLMBackend()
         case .qwen3:           QwenLLMBackend()
+        case .graniteText:     GraniteTextLLMBackend()
         }
     }
 }

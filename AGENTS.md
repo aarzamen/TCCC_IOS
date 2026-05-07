@@ -110,8 +110,13 @@ cd /Users/ama/TCCC_IOS
 xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
-  -configuration Debug build CODE_SIGNING_ALLOWED=NO
+  -configuration Debug build CODE_SIGNING_ALLOWED=NO \
+  -skipMacroValidation
 ```
+
+`-skipMacroValidation` is required because `huggingface/AnyLanguageModel`
+ships Swift macros. The IDE can trust them interactively; command-line
+builds need the flag.
 
 For the package alone (faster iteration):
 ```bash

@@ -51,6 +51,25 @@ enum BackendAvailability: Sendable, Equatable {
     case unknown
 }
 
+extension BackendAvailability {
+    func message(for backendName: String) -> String {
+        switch self {
+        case .available:
+            return ""
+        case .downloading:
+            return "\(backendName) is still downloading."
+        case .modelNotProvided:
+            return "\(backendName) model weights are not installed. Download in Settings before generating."
+        case .deviceNotEligible:
+            return "\(backendName) is not supported on this device."
+        case .disabled:
+            return "\(backendName) is disabled in Settings."
+        case .unknown:
+            return "\(backendName) is unavailable."
+        }
+    }
+}
+
 enum BackendError: Error, LocalizedError {
     /// Backend stub — model weights not yet bundled / downloaded.
     case notImplemented(backend: String)
@@ -68,5 +87,32 @@ enum BackendError: Error, LocalizedError {
         case .generationFailed(let m):
             return "Generation failed: \(m)"
         }
+    }
+}
+
+/// Test-only shaped backend for the Granite hot-seat path. It lives in
+/// the app target so unit tests can exercise the same `TCCCLLMBackend`
+/// boundary without adding a real model runtime or a network/download
+/// path during Sprint 1.
+struct MockGraniteHotSeatBackend: GraniteCandidatePatchBackend {
+    let patch: GraniteCandidatePatch
+    let displayName = "Mock Granite Hot Seat"
+
+    var availability: BackendAvailability {
+        .available
+    }
+
+    func generate(instructions: String, prompt: String) async throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(patch)
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    func generateCandidatePatch(
+        instructions: String,
+        prompt: String
+    ) async throws -> GraniteCandidatePatch {
+        patch
     }
 }

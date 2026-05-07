@@ -1,0 +1,81 @@
+version: "0.1"
+name: granite_report_critique_contract
+date: "2026-05-07"
+intent: >
+  Let Granite critique deterministic 9-Line, ZMIST, and DD 1380 reports
+  without rewriting or replacing them.
+
+ground_truth_rule: >
+  Deterministic report generators remain the display and export ground
+  truth. Granite critique output is review metadata only.
+
+input_packet:
+  required_sections:
+    - hotseat_packet_id
+    - report_kind
+    - deterministic_report_fields
+    - transcript_evidence_ids
+    - deterministic_fact_ids
+    - blocked_actions
+  blocked_actions:
+    - rewrite_report
+    - replace_report
+    - transmit_report
+    - mutate_patient_state
+    - invent_missing_evidence
+
+output_schema:
+  type: GraniteReportCritique
+  fields:
+    packet_id: string
+    report_kind:
+      enum:
+        - nineLine
+        - zmist
+        - dd1380
+    findings:
+      type: array
+      item:
+        id: string
+        report_field: string
+        issue:
+          enum:
+            - missingEvidence
+            - conflict
+            - impossibleValue
+            - unsupportedClaim
+            - omission
+        severity:
+          enum:
+            - review
+            - caution
+            - blocking
+        evidence_ids:
+          type: array
+          min_items: 1
+        suggested_review_prompt: string
+    model_self_check: string
+
+validation:
+  reject_when:
+    - finding_has_no_evidence_ids
+    - evidence_id_unknown
+    - report_field_unknown_for_report_kind
+    - prompt_requests_direct_rewrite_or_overwrite
+    - output_contains_freeform_replacement_report
+  accept_when:
+    - all_findings_reference_known_evidence
+    - all_fields_map_to_supported_report_fields
+    - suggestions_are_operator_review_prompts_only
+
+ui_contract:
+  display_as: review_chips
+  never_replace:
+    - nine_line_script
+    - zmist_export
+    - dd1380_export
+  allowed_operator_actions:
+    - inspect_evidence
+    - dismiss_finding
+    - manually_edit_supported_field
+    - re_run_deterministic_validation

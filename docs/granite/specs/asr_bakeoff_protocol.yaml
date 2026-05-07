@@ -1,0 +1,84 @@
+version: "0.1"
+name: granite_asr_bakeoff_protocol
+date: "2026-05-07"
+intent: >
+  Compare ASR backends for TCCC.ai using the same local audio evidence,
+  keyword list, and scoring rules before any alternate backend replaces
+  Apple Speech as the operational default.
+
+scope:
+  included_backends:
+    - apple_speech
+    - parakeet
+    - whisperkit
+    - granite_speech_when_runtime_exists
+  excluded:
+    - cloud_asr
+    - runtime_download_from_record_button
+    - model_output_to_patient_state_mutation
+
+fixtures:
+  audio_directory: reference/asr_bakeoff/audio
+  transcript_directory: reference/asr_bakeoff/ground_truth
+  required_metadata:
+    - fixture_id
+    - duration_ms
+    - speaker_count
+    - noise_profile
+    - accent_or_radio_artifact
+    - ground_truth_transcript_path
+  minimum_set:
+    - clean_single_casualty
+    - background_noise_single_casualty
+    - clipped_start
+    - duplicated_partial_style_repetition
+    - contradiction_and_correction
+    - tccc_keyword_dense
+
+scoring:
+  text_quality:
+    - normalized_edit_distance
+    - word_error_rate_like_distance
+    - dropped_sentence_count
+    - duplicated_fragment_count
+  tccc_terms:
+    keyword_source: docs/granite/specs/tccc_granite_keywords.yaml
+    metrics:
+      - keyword_miss_count
+      - keyword_substitution_count
+      - critical_keyword_miss_rate
+  downstream_effect:
+    - deterministic_fact_delta_against_ground_truth
+    - false_positive_patient_state_fields
+    - hotseat_validation_error_count
+  performance:
+    - first_partial_latency_ms
+    - final_segment_latency_ms
+    - wall_clock_runtime_ms
+    - peak_resident_memory_mb
+    - thermal_state_start
+    - thermal_state_end
+
+output_contract:
+  result_file: artifacts/asr_bakeoff/results.json
+  required_fields:
+    - run_id
+    - device
+    - os_version
+    - app_commit
+    - backend
+    - fixture_id
+    - transcript_segments
+    - scoring
+    - errors
+  decision_gate: >
+    A backend can become operational only if it improves critical TCCC
+    keyword capture without increasing false positive DD 1380 or MARCH/PAWS
+    mutations after validation.
+
+operator_safety_rules:
+  - apple_speech_remains_default_until_bakeoff_passes
+  - all_audio_stays_local
+  - unavailable_backends_report_controlled_error
+  - no_asr_backend_can_download_from_record
+  - transcript_content_is_evidence_only

@@ -1,0 +1,295 @@
+version: "0.1"
+name: granite_hot_seat_sprint_board
+date: "2026-05-07"
+workspace: /Users/ama/.codex/worktrees/b727/TCCC_IOS
+status: sprint_2_in_progress
+
+goal: >
+  Create the first Granite hot-seat processing slice: transcript evidence
+  ledger, bounded packet contract, schema validation, and review queue
+  scaffolding. This sprint intentionally avoids real model integration.
+
+source_of_truth:
+  context: docs/granite/SPRINT_CONTEXT.md
+  architecture: docs/granite/GRANITE_HOT_SEAT_ARCHETYPE.md
+  instructions: docs/granite/INSTRUCTIONS_FOR_AGENTS.md
+  design_spec: docs/superpowers/specs/2026-05-07-granite-hot-seat-design.md
+  implementation_plan: docs/superpowers/plans/2026-05-07-granite-hot-seat.md
+  pipeline_contract: docs/granite/specs/granite_pipeline_contract.yaml
+  malformed_inputs: docs/granite/specs/malformed_input_resilience.yaml
+  keyword_groups: docs/granite/specs/tccc_granite_keywords.yaml
+  asr_bakeoff_protocol: docs/granite/specs/asr_bakeoff_protocol.yaml
+  device_profile_protocol: docs/granite/specs/device_profile_protocol.yaml
+  report_critique_contract: docs/granite/specs/report_critique_contract.yaml
+  research_note: RESEARCH_GRANITE_SPEECH.md
+
+guardrails:
+  - no_runtime_cloud_inference
+  - no_generate_button_model_download
+  - no_direct_model_to_patient_state_mutation
+  - no_evidence_free_fact_acceptance
+  - no_transcript_as_instruction
+  - no_granite_runtime_dependency_in_sprint_1
+  - apple_foundation_and_apple_speech_remain_defaults
+
+sprint_1_tasks:
+  - id: GHS-01
+    title: transcript segment ledger
+    plan_task: "Task 1: Transcript Segment Ledger"
+    status: ready
+    files:
+      create:
+        - TCCC_IOS/Audio/TranscriptSegmentLedger.swift
+        - TCCC_IOSTests/TranscriptSegmentLedgerTests.swift
+      modify: []
+    acceptance:
+      - duplicate_final_segments_collapse_for_normalized_output
+      - raw_segments_are_preserved
+      - instruction_like_transcript_content_is_flagged
+    verification:
+      command: >
+        xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+        -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'
+        -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+        -only-testing:TCCC_IOSTests/TranscriptSegmentLedgerTests
+
+  - id: GHS-02
+    title: hot seat packet contract
+    plan_task: "Task 2: Hot Seat Packet Contract"
+    status: ready_after_GHS-01
+    files:
+      create:
+        - TCCC_IOS/Intelligence/HotSeatPacket.swift
+        - TCCC_IOS/Intelligence/HotSeatPacketBuilder.swift
+        - TCCC_IOSTests/GraniteHotSeatPacketTests.swift
+      modify: []
+    acceptance:
+      - packet_contains_active_patient_id
+      - packet_contains_transcript_segments
+      - packet_contains_blocked_actions
+      - packet_never_accepts_unbounded_prompt_text
+    verification:
+      command: >
+        xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+        -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'
+        -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+        -only-testing:TCCC_IOSTests/GraniteHotSeatPacketTests
+
+  - id: GHS-03
+    title: candidate patch schema validator
+    plan_task: "Task 3: Granite Schema Validator"
+    status: ready_after_GHS-02
+    files:
+      create:
+        - TCCC_IOS/Intelligence/GraniteSchemaValidator.swift
+        - TCCC_IOSTests/GraniteSchemaValidatorTests.swift
+      modify: []
+    acceptance:
+      - missing_evidence_ids_are_rejected
+      - unknown_evidence_ids_are_rejected
+      - unknown_fields_are_rejected
+      - impossible_numeric_values_are_rejected
+      - unknown_is_allowed_when_evidence_is_insufficient
+    verification:
+      command: >
+        xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+        -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'
+        -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+        -only-testing:TCCC_IOSTests/GraniteSchemaValidatorTests
+
+  - id: GHS-04
+    title: prompt builder and mock backend
+    plan_task: "Task 4: Prompt Builder And Mock Backend"
+    status: ready_after_GHS-03
+    files:
+      create:
+        - TCCC_IOS/Intelligence/GranitePromptBuilder.swift
+        - TCCC_IOSTests/GranitePromptBuilderTests.swift
+      modify:
+        - TCCC_IOS/Intelligence/TCCCLLMBackend.swift
+    acceptance:
+      - transcript_content_is_labeled_evidence_only
+      - blocked_actions_are_included_in_prompt
+      - output_contract_requires_json_only
+      - mock_backend_can_return_valid_candidate_patch
+    verification:
+      command: >
+        xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+        -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'
+        -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+        -only-testing:TCCC_IOSTests/GranitePromptBuilderTests
+
+  - id: GHS-05
+    title: app state review queue scaffold
+    plan_task: "Task 5: Review Queue Integration"
+    status: ready_after_GHS-04
+    files:
+      create:
+        - TCCC_IOSTests/GraniteReviewQueueTests.swift
+      modify:
+        - TCCC_IOS/App/AppState.swift
+        - TCCC_IOS/Screens/LiveCaptureScreen.swift
+    acceptance:
+      - validated_patch_enters_review_queue
+      - rejected_patch_does_not_mutate_patient_state
+      - conflicts_are_visible_to_the_ui_layer
+      - accepting_patch_records_accepted_by
+    verification:
+      command: >
+        xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+        -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'
+        -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+        -only-testing:TCCC_IOSTests/GraniteReviewQueueTests
+
+full_verification:
+  app_tests: >
+    xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+    -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'
+    -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+  package_tests: >
+    cd Packages/TCCCKit && swift test
+  simulator_build: >
+    xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+    -destination 'generic/platform=iOS Simulator'
+    -configuration Debug build CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+  docs_hygiene: >
+    ruby -ryaml -e 'ARGV.each { |path| YAML.load_file(path); puts "#{path}: ok" }'
+    docs/granite/specs/*.yaml docs/granite/SPRINT_BOARD.yaml && git diff --check
+
+deferred:
+  - real_granite_text_backend
+  - grammar_constrained_generation
+  - granite_speech_swift_wrapper
+  - whisperkit_bakeoff
+  - on_device_memory_thermal_profile
+  - report_level_granite_critique
+
+sprint_2_tasks:
+  - id: GHS2-01
+    title: granite text backend and constrained patch facade
+    plan_task: "Task 1: Granite Text Backend"
+    status: implemented
+    files:
+      create:
+        - TCCC_IOS/Intelligence/GraniteTextLLMBackend.swift
+        - TCCC_IOS/Intelligence/GraniteGeneratedCandidatePatch.swift
+        - TCCC_IOS/Intelligence/GraniteHotSeatGenerator.swift
+        - TCCC_IOSTests/GraniteHotSeatGeneratorTests.swift
+      modify:
+        - TCCC_IOS/Intelligence/MLXBackend.swift
+        - TCCC_IOS/Intelligence/TCCCLLMBackend.swift
+        - TCCC_IOS/App/AppState.swift
+        - TCCC_IOS/Components/SettingsOverlay.swift
+        - TCCC_IOS/Components/FMStatusBadge.swift
+        - TCCC_IOSTests/LLMBackendPolicyTests.swift
+    acceptance:
+      - granite_is_explicit_alt_backend
+      - apple_foundation_remains_default
+      - mlx_generation_refuses_missing_weights_before_loader
+      - structured_patch_generation_uses_generable_schema
+      - malformed_text_output_is_rejected
+      - validation_errors_stop_candidate_patch
+    verification:
+      command: >
+        xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+        -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'
+        -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+        -only-testing:TCCC_IOSTests/LLMBackendPolicyTests
+        -only-testing:TCCC_IOSTests/GraniteHotSeatGeneratorTests
+
+  - id: GHS2-02
+    title: hot-seat invocation wiring
+    plan_task: "Task 2: Review Action Wiring"
+    status: implemented
+    files:
+      create:
+        - TCCC_IOSTests/GraniteHotSeatInvocationTests.swift
+      modify:
+        - TCCC_IOS/App/AppState.swift
+        - TCCC_IOS/Screens/LiveCaptureScreen.swift
+        - TCCC_IOS/Intelligence/GraniteReviewQueue.swift
+    acceptance:
+      - invocation_builds_packet_from_ledger
+      - unavailable_backend_appends_reviewable_status_not_crash
+      - accepted_patch_enters_review_queue_only
+      - no_patient_state_mutation
+    verification:
+      command: >
+        xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+        -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'
+        -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+        -only-testing:TCCC_IOSTests/GraniteHotSeatInvocationTests
+
+  - id: GHS2-03
+    title: granite speech wrapper scaffold
+    plan_task: "Task 3: Granite Speech TranscriptStream"
+    status: implemented_unavailable_scaffold
+    files:
+      create:
+        - TCCC_IOS/Audio/GraniteSpeechTranscriptStream.swift
+        - TCCC_IOSTests/GraniteSpeechTranscriptStreamTests.swift
+      modify:
+        - TCCC_IOS/Audio/TranscriptStream.swift
+        - TCCC_IOS/App/AppState.swift
+        - TCCC_IOS/Screens/LiveCaptureScreen.swift
+        - TCCC_IOS/Components/SettingsOverlay.swift
+    acceptance:
+      - transcript_stream_protocol_conformance_exists
+      - no_model_download_from_record_button
+      - unavailable_swift_runtime_reports_disabled
+      - apple_speech_and_parakeet_remain_selectable
+    verification:
+      command: >
+        xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+        -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'
+        -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+        -only-testing:TCCC_IOSTests/GraniteSpeechTranscriptStreamTests
+
+  - id: GHS2-04
+    title: whisperkit bake-off harness
+    plan_task: "Task 4: WhisperKit Bake-off"
+    status: specified
+    files:
+      create:
+        - docs/granite/specs/asr_bakeoff_protocol.yaml
+    acceptance:
+      - shared_eval_transcripts_and_vocab_terms
+      - same_audio_segments_run_through_available_asr_backends
+      - outputs_compare_wer_and_tccc_keyword_misses
+      - no_runtime_cloud_dependency
+
+  - id: GHS2-05
+    title: device memory and thermal profiling
+    plan_task: "Task 5: iPhone Profiling"
+    status: specified
+    files:
+      create:
+        - docs/granite/specs/device_profile_protocol.yaml
+    acceptance:
+      - granite_text_load_time_measured
+      - peak_resident_memory_recorded
+      - thermal_state_transitions_recorded
+      - fallback_thresholds_documented
+
+  - id: GHS2-06
+    title: report-level granite critique
+    plan_task: "Task 6: Report Critique"
+    status: implemented_schema_validator
+    files:
+      create:
+        - TCCC_IOS/Intelligence/GraniteReportCritique.swift
+        - TCCC_IOSTests/GraniteReportCritiqueTests.swift
+        - docs/granite/specs/report_critique_contract.yaml
+      modify:
+        - TCCC_IOS/Intelligence/HotSeatPacket.swift
+    acceptance:
+      - deterministic_reports_remain_ground_truth
+      - critique_output_has_schema
+      - critique_never_rewrites_report_directly
+      - validator_decides_review_status
+    verification:
+      command: >
+        xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS
+        -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'
+        -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
+        -only-testing:TCCC_IOSTests/GraniteReportCritiqueTests

@@ -1,0 +1,74 @@
+version: "0.1"
+name: granite_device_profile_protocol
+date: "2026-05-07"
+intent: >
+  Measure Granite text hot-seat behavior on the iPhone 17 Pro before
+  Granite-backed review becomes an operational workflow.
+
+target_device:
+  model: iPhone 17 Pro
+  expected_ram_gb: 12
+  profile_os: iOS 26.2 or newer
+
+profile_runs:
+  cold_load:
+    description: First Granite text model load after app launch.
+    required_metrics:
+      - model_id
+      - local_weight_path
+      - weight_size_mb
+      - load_time_ms
+      - resident_memory_before_mb
+      - resident_memory_after_mb
+      - memory_headroom_after_mb
+      - thermal_state_before
+      - thermal_state_after
+  constrained_patch_generation:
+    description: HotSeatPacket to GraniteCandidatePatch using schema-constrained output.
+    required_metrics:
+      - packet_segment_count
+      - packet_byte_size
+      - first_token_latency_ms
+      - completion_time_ms
+      - output_validation_status
+      - resident_memory_peak_mb
+      - memory_headroom_min_mb
+      - thermal_state_end
+  repeated_review:
+    description: Five consecutive hot-seat reviews over fixed packets.
+    required_metrics:
+      - run_count
+      - median_completion_time_ms
+      - p95_completion_time_ms
+      - memory_growth_mb
+      - thermal_state_worst
+
+fallback_thresholds:
+  disable_granite_review_when:
+    memory_headroom_below_mb: 600
+    thermal_state_at_or_above: serious
+    cold_load_above_ms: 4000
+    completion_above_ms: 8000
+  fallback_backend: apple_foundation
+  fallback_behavior: >
+    Keep deterministic report output available. Show Granite review as
+    unavailable or held; never block MEDEVAC review on Granite profiling
+    failure.
+
+output_contract:
+  result_file: artifacts/granite_profile/results.json
+  required_fields:
+    - run_id
+    - device
+    - os_version
+    - app_commit
+    - model_id
+    - profile_runs
+    - fallback_triggered
+    - notes
+
+operator_safety_rules:
+  - profiling_requires_explicit_settings_installed_weights
+  - generate_buttons_must_not_download_weights
+  - profiling_must_not_mutate_patient_state
+  - failed_profile_keeps_current_defaults

@@ -80,3 +80,17 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_STRICT_CONCURRENCY: complete
         GENERATE_INFOPLIST_FILE: NO
+  TCCC_IOSTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: TCCC_IOSTests
+    dependencies:
+      - target: TCCC_IOS
+      - package: TCCCKit
+        product: TCCCDomain
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aarzamen.TCCCaiTests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/TCCC_IOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TCCC_IOS"
+        BUNDLE_LOADER: "$(TEST_HOST)"

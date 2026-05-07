@@ -18,6 +18,7 @@ struct TransmitScript: View {
         VStack(alignment: .leading, spacing: 10) {
             scriptCard
             generationStatusLine
+            transmitStatusLine
             actionsRow
         }
     }
@@ -83,6 +84,14 @@ struct TransmitScript: View {
         return out
     }
 
+    private var blockingTransmitEntry: NineLineEntry? {
+        entries.first { !$0.isVerifiedForTransmit }
+    }
+
+    private var canTransmit: Bool {
+        blockingTransmitEntry == nil
+    }
+
     @ViewBuilder
     private var generationStatusLine: some View {
         if isGenerating {
@@ -108,6 +117,18 @@ struct TransmitScript: View {
         }
     }
 
+    @ViewBuilder
+    private var transmitStatusLine: some View {
+        if let blockingTransmitEntry {
+            Text("Line \(blockingTransmitEntry.number) \(blockingTransmitEntry.label) required before transmit")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.2)
+                .foregroundStyle(palette.crit)
+                .textCase(.uppercase)
+                .lineLimit(2)
+        }
+    }
+
     private var actionsRow: some View {
         HStack(spacing: 6) {
             BigButton(
@@ -124,9 +145,11 @@ struct TransmitScript: View {
                 BigButton(
                     "Transmit",
                     systemImage: "paperplane.fill",
-                    style: .accent
+                    style: canTransmit ? .accent : .standard
                 ) { /* handled by long-press gesture below */ }
                 .gesture(transmitHoldGesture)
+                .disabled(!canTransmit)
+                .opacity(canTransmit ? 1 : 0.45)
 
                 Rectangle()
                     .fill(palette.accent)
@@ -141,6 +164,12 @@ struct TransmitScript: View {
     private var transmitHoldGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { _ in
+                guard canTransmit else {
+                    holdTask?.cancel()
+                    holdTask = nil
+                    holdProgress = 0
+                    return
+                }
                 if holdTask == nil {
                     holdProgress = 0
                     let start = Date()

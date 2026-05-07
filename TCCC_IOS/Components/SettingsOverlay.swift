@@ -240,6 +240,8 @@ struct SettingsOverlay: View {
             "On-device · default · always available"
         case .parakeet:
             "On-device · NVIDIA Parakeet TDT 0.6B · English only"
+        case .graniteSpeech:
+            "Research scaffold · unavailable until Swift runtime ships"
         }
     }
 
@@ -345,7 +347,7 @@ struct SettingsOverlay: View {
                 }
             }
 
-            Text("Apple Foundation Models is the runtime default. LFM2 and Qwen are on ice — model weights not bundled. Selection still surfaces availability for diagnostic visibility.")
+            Text("Apple Foundation Models is the runtime default. Alt backends require an explicit Settings download before generation. Granite is for hot-seat patch review, not direct state mutation.")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(palette.fg3)
                 .lineLimit(3)
@@ -760,6 +762,7 @@ private struct LLMBackendRow: View {
         case .appleFoundation: return nil
         case .lfm2:            return "Wi-Fi · 660 MB on first download"
         case .qwen3:           return "Wi-Fi · 968 MB on first download"
+        case .graniteText:     return "Wi-Fi · 823 MB model on first download"
         }
     }
 
@@ -771,6 +774,8 @@ private struct LLMBackendRow: View {
             "On-device · LFM Open License · model weights not bundled"
         case .qwen3:
             "On-device · Apache-2.0 · model weights not bundled"
+        case .graniteText:
+            "On-device · Apache-2.0 · hot-seat JSON backend"
         }
     }
 
@@ -812,6 +817,8 @@ private struct LLMBackendRow: View {
             return await LFM2LLMBackend().availability
         case .qwen3:
             return await QwenLLMBackend().availability
+        case .graniteText:
+            return await GraniteTextLLMBackend().availability
         }
     }
 }

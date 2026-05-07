@@ -3,9 +3,9 @@ import TCCCLLM
 
 /// Generic MLX-backed LLM backend. Wraps `AnyLanguageModel.MLXLanguageModel`
 /// (re-exported through the local `TCCCLLM` shim package — see
-/// `Packages/TCCCLLM/Package.swift` for why a shim is needed). The MLX
-/// model auto-downloads its weights from the Hugging Face Hub on first
-/// use and caches them locally.
+/// `Packages/TCCCLLM/Package.swift` for why a shim is needed). The underlying
+/// MLX loader can auto-download weights, but this wrapper refuses to generate
+/// until the Settings download path has populated the local cache.
 ///
 /// The actor itself is stateless across `generate(...)` calls — every call
 /// constructs a fresh `LanguageModelSession`, so context never bleeds
@@ -29,10 +29,9 @@ actor MLXBackend: TCCCLLMBackend {
     /// Cached → `.available`. Not cached → `.modelNotProvided` (the
     /// operator can tap "Download" in Settings to pre-fetch).
     ///
-    /// `.modelNotProvided` does NOT mean inference will fail — the
-    /// underlying MLX model auto-downloads on first request. It only
-    /// means the next `generate(...)` will block on a network round-trip
-    /// before producing a token. UI should gate accordingly.
+    /// `.modelNotProvided` means inference is blocked until the operator
+    /// taps the Settings download affordance. This keeps first-use network
+    /// traffic explicit instead of smuggling it through a Generate button.
     var availability: BackendAvailability {
         get async {
             HFHubCache.contains(modelId: modelId) ? .available : .modelNotProvided
@@ -40,6 +39,10 @@ actor MLXBackend: TCCCLLMBackend {
     }
 
     func generate(instructions: String, prompt: String) async throws -> String {
+        guard HFHubCache.contains(modelId: modelId) else {
+            throw BackendError.modelNotProvided(backend: displayName)
+        }
+
         // Fresh session per call → no cross-casualty context bleed.
         // `LanguageModelSession(model:tools:instructions:)` accepts a
         // `String` directly (convenience init in
@@ -48,6 +51,39 @@ actor MLXBackend: TCCCLLMBackend {
         let session = LanguageModelSession(model: model, instructions: instructions)
         do {
             let response = try await session.respond(to: prompt)
+            return response.content
+        } catch {
+            throw BackendError.generationFailed(
+                "\(displayName): \(error.localizedDescription)"
+            )
+        }
+    }
+
+    /// Structured generation path for hot-seat JSON. This still uses the
+    /// same cache gate as plain text generation, so a model cannot download
+    /// from a Generate / Review path. AnyLanguageModel's MLX backend uses
+    /// constrained JSON generation when the requested type is `Generable`.
+    func generateStructured<Content>(
+        instructions: String,
+        prompt: String,
+        generating type: Content.Type
+    ) async throws -> Content where Content: Generable, Content: Sendable {
+        guard HFHubCache.contains(modelId: modelId) else {
+            throw BackendError.modelNotProvided(backend: displayName)
+        }
+
+        let model = MLXLanguageModel(modelId: modelId)
+        let session = LanguageModelSession(model: model, instructions: instructions)
+        var options = GenerationOptions()
+        options.maximumResponseTokens = 768
+
+        do {
+            let response = try await session.respond(
+                to: prompt,
+                generating: type,
+                includeSchemaInPrompt: true,
+                options: options
+            )
             return response.content
         } catch {
             throw BackendError.generationFailed(

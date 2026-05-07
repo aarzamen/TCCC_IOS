@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Persistent compact badge showing the live availability of the
 /// currently-selected on-device LLM backend (Apple Foundation Models,
-/// LFM2.5, or Qwen 3). Replaces the one-shot error banner pattern that
+/// LFM2.5, Qwen 3, or Granite). Replaces the one-shot error banner pattern that
 /// was confusing operators after the model finished downloading: tapping
 /// "Generate" still showed the stale error until the screen was
 /// re-entered. With this badge, the UI shows current truth on a
@@ -67,6 +67,7 @@ struct FMStatusBadge: View {
         case .appleFoundation: return "FM"
         case .lfm2:            return "LFM2"
         case .qwen3:           return "QWEN"
+        case .graniteText:     return "GRANITE"
         }
     }
 

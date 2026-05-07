@@ -1,0 +1,208 @@
+version: "0.1"
+name: granite_hot_seat_pipeline_contract
+status: planning
+owner: TCCC_IOS
+date: "2026-05-07"
+
+purpose: >
+  Define the bounded processing path that lets Granite adjudicate messy
+  speech-derived evidence without letting model output bypass deterministic
+  TCCC validators.
+
+forbidden:
+  - runtime_cloud_inference
+  - generate_button_model_download
+  - direct_model_to_patient_state_mutation
+  - free_form_report_acceptance
+  - evidence_free_fact_acceptance
+  - transcript_as_system_instruction
+
+stages:
+  - id: audio_capture
+    owner: TCCC_IOS/Audio
+    input:
+      - microphone_audio
+      - demo_audio
+      - imported_audio
+    output:
+      - audio_frame_ledger
+    required_guards:
+      - local_only
+      - protected_file_write
+      - sample_rate_recorded
+      - capture_rate_recorded
+
+  - id: asr_candidate_stream
+    owner: TranscriptStream
+    input:
+      - audio_frame_ledger
+    output:
+      - transcript_segment
+    allowed_backends:
+      - apple_speech
+      - parakeet
+      - whisperkit_candidate
+      - granite_speech_candidate
+    required_guards:
+      - backend_provenance
+      - partial_vs_final_flag
+      - timestamp_span
+      - quality_flags
+
+  - id: transcript_normalization
+    owner: TranscriptSegmentLedger
+    input:
+      - transcript_segment
+    output:
+      - normalized_transcript_segment
+    required_guards:
+      - duplicate_fragment_detection
+      - overlap_boundary_detection
+      - clipped_audio_detection
+      - prompt_injection_marker_detection
+      - raw_text_preserved
+
+  - id: deterministic_extraction
+    owner: Packages/TCCCKit/Sources/TCCCExtractor
+    input:
+      - normalized_transcript_segment
+    output:
+      - deterministic_fact
+    required_guards:
+      - evidence_ids_required
+      - patient_id_required
+      - extractor_name_required
+
+  - id: hot_seat_packet_build
+    owner: TCCC_IOS/Intelligence
+    input:
+      - normalized_transcript_segment
+      - deterministic_fact
+      - active_patient_context
+      - current_dd1380_state
+    output:
+      - hot_seat_packet
+    required_guards:
+      - transcript_is_evidence_only
+      - allowed_schema_list
+      - blocked_action_list
+      - no_raw_unbounded_prompt
+
+  - id: granite_transcript_salvage
+    owner: TCCCLLMBackend
+    input:
+      - hot_seat_packet
+    output:
+      - salvaged_transcript_patch
+    required_guards:
+      - json_only
+      - evidence_ids_required
+      - unknown_allowed
+      - conflicts_explicit
+
+  - id: granite_fact_adjudication
+    owner: TCCCLLMBackend
+    input:
+      - hot_seat_packet
+      - salvaged_transcript_patch
+    output:
+      - granite_candidate_patch
+    required_guards:
+      - grammar_constrained_json
+      - evidence_ids_required
+      - no_new_patient_without_switch_evidence
+      - no_location_fabrication
+
+  - id: schema_validation
+    owner: GraniteSchemaValidator
+    input:
+      - granite_candidate_patch
+    output:
+      - schema_validated_patch
+    required_guards:
+      - json_parse_success
+      - known_field_names_only
+      - known_enum_values_only
+      - numeric_ranges_enforced
+      - evidence_ids_exist
+
+  - id: tccc_validation
+    owner: Packages/TCCCKit/Sources/TCCCReports
+    input:
+      - schema_validated_patch
+      - current_patient_state
+    output:
+      - reviewable_state_patch
+    required_guards:
+      - dd1380_field_mapping
+      - march_paws_vocabulary_mapping
+      - medevac_validator
+      - zmist_validator
+      - location_provenance_gate
+
+  - id: operator_review
+    owner: SwiftUI
+    input:
+      - reviewable_state_patch
+    output:
+      - accepted_patient_state_update
+      - rejected_patient_state_update
+    required_guards:
+      - conflicts_visible
+      - low_confidence_visible
+      - accepted_by_recorded
+      - rejected_reason_recorded
+
+data_contracts:
+  transcript_segment:
+    required_fields:
+      - id
+      - start_ms
+      - end_ms
+      - text_raw
+      - asr_backend
+      - is_final
+      - quality_flags
+    optional_fields:
+      - text_normalized
+      - speaker_hint
+
+  deterministic_fact:
+    required_fields:
+      - id
+      - patient_id
+      - domain
+      - field
+      - value
+      - evidence_ids
+      - extractor
+      - confidence
+
+  hot_seat_packet:
+    required_fields:
+      - packet_id
+      - created_at_utc
+      - active_patient_id
+      - segments
+      - deterministic_facts
+      - known_patients
+      - allowed_schemas
+      - blocked_actions
+
+  granite_candidate_patch:
+    required_fields:
+      - packet_id
+      - patient_id
+      - candidate_facts
+      - conflicts
+      - missing_required_fields
+      - rejected_inputs
+      - model_self_check
+
+acceptance_metrics:
+  evidence_free_fact_acceptance: 0
+  generate_triggered_downloads: 0
+  pending_location_ready_count: 0
+  malformed_json_accepted_count: 0
+  deterministic_test_failures: 0
+

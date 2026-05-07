@@ -11,6 +11,7 @@ enum TranscriptStreamError: Error, LocalizedError {
     case speechDenied
     case recognizerUnavailable
     case onDeviceUnavailable
+    case backendUnavailable(String)
     case alreadyRunning
     case engineFailed(String)
 
@@ -20,6 +21,7 @@ enum TranscriptStreamError: Error, LocalizedError {
         case .speechDenied:        "Speech recognition permission denied"
         case .recognizerUnavailable: "Speech recognizer unavailable"
         case .onDeviceUnavailable: "On-device speech recognition unavailable on this device — RF Ghost discipline forbids cloud transcription"
+        case .backendUnavailable(let msg): msg
         case .alreadyRunning:      "Already recording"
         case .engineFailed(let msg): "Audio engine failed: \(msg)"
         }

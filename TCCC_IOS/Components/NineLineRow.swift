@@ -67,13 +67,30 @@ struct NineLineRow: View {
         }
     }
 
-    private var badgeText: String { entry.isAuto ? "GPS" : "EDIT" }
+    private var badgeText: String {
+        switch entry.status {
+        case .pending: "NO FIX"
+        case .demo: "DEMO"
+        case .auto: "GPS"
+        case .ok, .warn, .crit: entry.isAuto ? "GPS" : "EDIT"
+        }
+    }
 
     private var badgeIcon: String {
-        entry.isAuto ? "location.fill" : "pencil"
+        switch entry.status {
+        case .pending: "exclamationmark.triangle.fill"
+        case .demo: "flag.fill"
+        case .auto: "location.fill"
+        case .ok, .warn, .crit: entry.isAuto ? "location.fill" : "pencil"
+        }
     }
 
     private var badgeColor: Color {
-        entry.isAuto ? palette.accent : palette.fg3
+        switch entry.status {
+        case .pending: palette.crit
+        case .demo: palette.warn
+        case .auto: palette.accent
+        case .ok, .warn, .crit: entry.isAuto ? palette.accent : palette.fg3
+        }
     }
 }

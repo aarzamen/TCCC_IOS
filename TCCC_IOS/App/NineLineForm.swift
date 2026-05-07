@@ -15,12 +15,28 @@ struct NineLineEntry: Identifiable {
     let isAuto: Bool
 
     var id: Int { number }
+
+    var countsTowardCompletion: Bool {
+        value != "—" && status != .pending && status != .demo
+    }
+
+    var isVerifiedForTransmit: Bool {
+        countsTowardCompletion
+    }
 }
 
 struct NineLineForm {
     let entries: [NineLineEntry]
     let completedCount: Int
     let totalCount: Int
+
+    var isReadyForTransmit: Bool {
+        entries.count == totalCount && entries.allSatisfy(\.isVerifiedForTransmit)
+    }
+
+    var blockingTransmitEntry: NineLineEntry? {
+        entries.first { !$0.isVerifiedForTransmit }
+    }
 
     static func derive(
         from patients: [PatientState],
@@ -47,7 +63,14 @@ struct NineLineForm {
         let line1Status: NineLineEntry.Status
         if let lat = locationFix.latitude, let lon = locationFix.longitude, locationFix.isUsable {
             line1Value = formattedLocation(lat: lat, lon: lon)
-            line1Status = locationFix.source == .demo ? .demo : .auto
+            switch locationFix.source {
+            case .demo:
+                line1Status = .demo
+            case .manual:
+                line1Status = .ok
+            case .none:
+                line1Status = .pending
+            }
         } else {
             line1Value = "UNVERIFIED — set location"
             line1Status = .pending
@@ -58,7 +81,7 @@ struct NineLineForm {
             value: line1Value,
             icon: "mappin.and.ellipse",
             status: line1Status,
-            isAuto: locationFix.source != .manual
+            isAuto: line1Status == .auto
         ))
 
         // Line 2 — Frequency / Callsign
@@ -155,7 +178,7 @@ struct NineLineForm {
             isAuto: false
         ))
 
-        let completed = entries.filter { $0.value != "—" }.count
+        let completed = entries.filter(\.countsTowardCompletion).count
         return NineLineForm(entries: entries, completedCount: completed, totalCount: 9)
     }
 

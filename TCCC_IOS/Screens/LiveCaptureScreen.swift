@@ -1,5 +1,4 @@
 import SwiftUI
-import FoundationModels
 
 struct LiveCaptureScreen: View {
     let state: AppState
@@ -77,6 +76,8 @@ struct LiveCaptureScreen: View {
                 }
             }
             return p
+        case .graniteSpeech:
+            return GraniteSpeechTranscriptStream()
         }
     }
 
@@ -361,39 +362,20 @@ struct LiveCaptureScreen: View {
             isCleaningTranscript = true
             defer { isCleaningTranscript = false }
 
-            let availability = TCCCLanguageModel.availability()
+            let backend = state.currentBackend
+            let availability = await backend.availability
             guard availability == .available else {
-                cleanError = unavailabilityMessage(availability)
+                cleanError = availability.message(for: backend.displayName)
                 return
             }
 
             do {
-                let cleaner = TranscriptCleaner(backend: state.currentBackend)
+                let cleaner = TranscriptCleaner(backend: backend)
                 let cleaned = try await cleaner.clean(lines)
                 state.transcriptCleaned = cleaned
             } catch {
                 cleanError = error.localizedDescription
             }
-        }
-    }
-
-    private func unavailabilityMessage(_ availability: SystemLanguageModel.Availability) -> String {
-        switch availability {
-        case .available:
-            return ""
-        case .unavailable(let reason):
-            switch reason {
-            case .deviceNotEligible:
-                return "Foundation Model unavailable on this device."
-            case .appleIntelligenceNotEnabled:
-                return "Enable Apple Intelligence in Settings."
-            case .modelNotReady:
-                return "Foundation Model is still downloading."
-            @unknown default:
-                return "Foundation Model unavailable."
-            }
-        @unknown default:
-            return "Foundation Model unavailable."
         }
     }
 
@@ -608,7 +590,7 @@ struct LiveCaptureScreen: View {
                     if Task.isCancelled { break }
                     if update.isFinal {
                         partialCommitTask?.cancel()
-                        state.appendFinal(update.text)
+                        state.appendFinal(update.text, timestamp: update.timestamp)
                     } else {
                         state.partialTranscript = update.text
                         scheduleSilenceCommit()
@@ -647,7 +629,7 @@ struct LiveCaptureScreen: View {
                     if Task.isCancelled { break }
                     if update.isFinal {
                         partialCommitTask?.cancel()
-                        state.appendFinal(update.text)
+                        state.appendFinal(update.text, timestamp: update.timestamp)
                     } else {
                         state.partialTranscript = update.text
                         scheduleSilenceCommit()
@@ -699,4 +681,3 @@ struct LiveCaptureScreen: View {
         }
     }
 }
-

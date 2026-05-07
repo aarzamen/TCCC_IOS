@@ -88,7 +88,12 @@ xcodegen generate
 # build for simulator
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
-  -configuration Debug build CODE_SIGNING_ALLOWED=NO
+  -configuration Debug build CODE_SIGNING_ALLOWED=NO \
+  -skipMacroValidation
+
+`-skipMacroValidation` is required for CLI builds because the
+AnyLanguageModel dependency ships Swift macros that Xcode normally asks
+you to trust interactively.
 
 # run kit unit tests in isolation
 cd Packages/TCCCKit && swift test
@@ -100,7 +105,8 @@ be set to a value the local Xcode toolchain can sign with:
 ```bash
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'id=<device-uuid>' \
-  -configuration Debug build CODE_SIGNING_ALLOWED=YES
+  -configuration Debug build CODE_SIGNING_ALLOWED=YES \
+  -skipMacroValidation
 
 xcrun devicectl device install app --device <device-uuid> \
   ~/Library/Developer/Xcode/DerivedData/TCCC_IOS-*/Build/Products/Debug-iphoneos/TCCC_IOS.app
