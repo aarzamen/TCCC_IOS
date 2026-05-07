@@ -28,6 +28,7 @@ jobs:
         run: |
           xcodebuild -project TCCC_IOS.xcodeproj \
             -scheme TCCC_IOS \
+            -skipMacroValidation \
             -resolvePackageDependencies
 
       - name: Simulator build
@@ -37,4 +38,5 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             build \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            -skipMacroValidation
