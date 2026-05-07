@@ -39,6 +39,12 @@ actor DiagnosticsLogger {
 
     /// Open a new log file for the current session. Returns the URL (also
     /// stored on the actor) so callers can stash it for later sharing.
+    ///
+    /// Lives in the Documents root (not a subfolder) so it sits alongside
+    /// the encounter audio and transcript and shows up in Files.app /
+    /// Finder iPhone view alongside them. UIFileSharingEnabled +
+    /// LSSupportsOpeningDocumentsInPlace are set in Info.plist so this
+    /// folder is browsable.
     func startSession() -> URL? {
         if fileHandle != nil { closeFile() }
 
@@ -46,17 +52,14 @@ actor DiagnosticsLogger {
         guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first else {
             return nil
         }
-        let dir = docs.appendingPathComponent("diagnostics", isDirectory: true)
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-
         let stampF = DateFormatter()
         stampF.dateFormat = "yyyyMMdd-HHmmss"
         let stamp = stampF.string(from: Date())
-        let url = dir.appendingPathComponent("run-\(stamp).log")
+        let url = docs.appendingPathComponent("diagnostics-\(stamp).log")
         try? ProtectedWrite.createEmpty(at: url)
         fileHandle = try? FileHandle(forWritingTo: url)
         currentLogURL = url
-        writeLine("=== diagnostics session start · \(stamp) ===", category: "session")
+        writeLine("=== diagnostics session start · \(stamp) · path=\(url.path) ===", category: "session")
         return url
     }
 
