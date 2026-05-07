@@ -2,6 +2,35 @@ import SwiftUI
 
 struct ContentView: View {
     let state: AppState
+    @State private var rootRoute: RootRoute = .splash
+
+    var body: some View {
+        Group {
+            switch rootRoute {
+            case .splash:
+                SplashView(
+                    onOpenMain: { rootRoute = .main },
+                    onOpenDevTools: { rootRoute = .devTools }
+                )
+            case .main:
+                MainAppShell(state: state)
+            case .devTools:
+                DevToolsRootView(onReturnToSplash: { rootRoute = .splash })
+            }
+        }
+        .preferredColorScheme(state.theme.preferredColorScheme)
+        .environment(\.palette, state.theme.palette)
+    }
+
+    private enum RootRoute {
+        case splash
+        case main
+        case devTools
+    }
+}
+
+private struct MainAppShell: View {
+    let state: AppState
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -40,8 +69,6 @@ struct ContentView: View {
             VoiceCommandBanner(state: state)
                 .zIndex(3)
         }
-        .preferredColorScheme(state.theme.preferredColorScheme)
-        .environment(\.palette, state.theme.palette)
         .ignoresSafeArea(.keyboard)
         .animation(.fast, value: state.settingsOpen)
         .animation(.fast, value: state.quickActionsOpen)
