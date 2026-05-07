@@ -596,6 +596,35 @@ actor ParakeetTranscriptStream: TranscriptStream {
             "partial · len=\(partial.count) tail=\"\(String(partial.suffix(40)))\"",
             category: "asr"
         )
+
+        // Implicit-EOU detection. If Parakeet's new partial is not a
+        // continuation of `currentPartial` (i.e., neither a forward
+        // extension nor a small backward revision), treat that as an
+        // utterance boundary and commit the prior partial as a final
+        // line BEFORE adopting the new one. Without this, fast continuous
+        // speech where Parakeet's internal silence threshold never fires
+        // EOU produces visible bubble-overwriting: the partial visually
+        // replaces itself instead of growing into a new finalised line.
+        //
+        // Bug report 2026-05-07 documented this as MEDIC 01:40 bubbles
+        // wiping their content as new utterances came in. Ground truth
+        // showed 4 distinct utterances; only ~1 was being committed.
+        let isContinuation = partial.hasPrefix(currentPartial)
+        let isShortRevision = currentPartial.hasPrefix(partial)
+        let priorIsSubstantial = currentPartial.count > 20
+        if !currentPartial.isEmpty,
+           !isContinuation,
+           !isShortRevision,
+           priorIsSubstantial {
+            DiagnosticsLogger.shared.log(
+                "partial · IMPLICIT-EOU committing prior (len=\(currentPartial.count)) before new utterance",
+                category: "asr"
+            )
+            let priorPartial = currentPartial
+            currentPartial = ""
+            emitFinal(priorPartial)
+        }
+
         currentPartial = partial
         // Defensive ceiling: if the partial grows beyond
         // `partialStringCeiling` chars without an EOU final, force-finalize

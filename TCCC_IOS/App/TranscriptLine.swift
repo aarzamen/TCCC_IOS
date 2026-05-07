@@ -38,7 +38,10 @@ extension TranscriptLine {
 extension DateFormatter {
     static let transcriptTime: DateFormatter = {
         let f = DateFormatter()
-        f.dateFormat = "HH:mm"
+        // HH:mm:ss — same-minute lines need to be visually distinct, or
+        // adjacent finalised utterances all show "MEDIC 01:40" and look
+        // like a single bubble being overwritten. Bug report 2026-05-07.
+        f.dateFormat = "HH:mm:ss"
         return f
     }()
 }
