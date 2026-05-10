@@ -10,6 +10,7 @@
 		011044132DFFBA16EF141AAB /* GraniteReportCritique.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5959AC638D222EE02AB9E658 /* GraniteReportCritique.swift */; };
 		01FA7C3D781CBC3B614FC2F8 /* HotSeatPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DABF7F4742C5E33EE2AADC7 /* HotSeatPacket.swift */; };
 		02CC048641A4480724BA6208 /* TranscriptSegmentLedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77172C1FDE135370A2934BB7 /* TranscriptSegmentLedgerTests.swift */; };
+		02D929228BAB1F766E1D8613 /* GraniteLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF42F804C8A546D9B349D000 /* GraniteLiveView.swift */; };
 		02E2F29FF4D03B5D753AAC95 /* TCCCLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 7C05242315C20E90671FAFE2 /* TCCCLLM */; };
 		02FA2B240432E7BD37A49D38 /* GraniteLocalModelAssetGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E3FDCFE95B25704BCF644DC /* GraniteLocalModelAssetGate.swift */; };
 		03123FCFDF4C95F89710CE1B /* Field.swift in Sources */ = {isa = PBXBuildFile; fileRef = 587404AC0A87B848DF7E9B6E /* Field.swift */; };
@@ -268,6 +269,7 @@
 		EB23DCCB7B28461988442861 /* PlaybackVisualizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackVisualizer.swift; sourceTree = "<group>"; };
 		EC7666599E263562C0948458 /* RadioScriptGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioScriptGenerator.swift; sourceTree = "<group>"; };
 		EEF67D464862430720D81313 /* GraniteHotSeatPacketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteHotSeatPacketTests.swift; sourceTree = "<group>"; };
+		EF42F804C8A546D9B349D000 /* GraniteLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteLiveView.swift; sourceTree = "<group>"; };
 		F48B5D0360FEBA8E93DB1F20 /* GraniteGeneratedCandidatePatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteGeneratedCandidatePatch.swift; sourceTree = "<group>"; };
 		F4CC2166C5D1EA72E2BCE496 /* TCCCKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCKit; path = Packages/TCCCKit; sourceTree = SOURCE_ROOT; };
 		F4CF80413C3312E9574BA4EA /* GraniteSchemaValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteSchemaValidatorTests.swift; sourceTree = "<group>"; };
@@ -374,6 +376,7 @@
 				130A60CA016A0775525BB5F9 /* DevToolsLandingView.swift */,
 				F7CC523213C16C2AFD23DDFF /* DevToolsRootView.swift */,
 				D4696F5D7C473458EB42D1AD /* GraniteBakeoffView.swift */,
+				EF42F804C8A546D9B349D000 /* GraniteLiveView.swift */,
 				2C3A951F721B164346611BE7 /* Audio */,
 				9CBC438C3E2B91AC19E40290 /* Receiver */,
 				9EF6144CB5E5C9C0233DD76D /* Sender */,
@@ -744,6 +747,7 @@
 				DC37FBCD7F9DDDB148EE7051 /* GraniteBakeoffView.swift in Sources */,
 				BE3307F53C3A6140AF8EB5FC /* GraniteGeneratedCandidatePatch.swift in Sources */,
 				2EBBAB3052AB516334173286 /* GraniteHotSeatGenerator.swift in Sources */,
+				02D929228BAB1F766E1D8613 /* GraniteLiveView.swift in Sources */,
 				02FA2B240432E7BD37A49D38 /* GraniteLocalModelAssetGate.swift in Sources */,
 				434A512EC4D22D590B8B3324 /* GraniteLocalTextLLMBackend.swift in Sources */,
 				705764D88BAA68B5EF64CFDF /* GranitePromptBuilder.swift in Sources */,

@@ -21,7 +21,8 @@ struct DevToolsRootView: View {
                         DevToolsLandingView(
                             onOpenSender: { route = .sender },
                             onOpenReceiver: { route = .receiver },
-                            onOpenBakeoff: { route = .graniteBakeoff }
+                            onOpenBakeoff: { route = .graniteBakeoff },
+                            onOpenLive: { route = .graniteLive }
                         )
                     case .sender:
                         SenderPlaybackView(onBack: { route = .landing })
@@ -29,6 +30,8 @@ struct DevToolsRootView: View {
                         ReceiverPlaceholderView(onBack: { route = .landing })
                     case .graniteBakeoff:
                         GraniteBakeoffView(state: state, onBack: { route = .landing })
+                    case .graniteLive:
+                        GraniteLiveView(state: state, onBack: { route = .landing })
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -74,10 +77,11 @@ struct DevToolsRootView: View {
 
     private var headerSubtitle: String {
         switch route {
-        case .landing:        "Sender / Receiver / Bake-off"
+        case .landing:        "Sender / Receiver / Bake-off / Live"
         case .sender:         "TTS Sender"
         case .receiver:       "Receiver Stub"
         case .graniteBakeoff: "Granite Bake-off"
+        case .graniteLive:    "Granite Live (mic)"
         }
     }
 }
@@ -87,6 +91,7 @@ private enum DevToolsRoute {
     case sender
     case receiver
     case graniteBakeoff
+    case graniteLive
 }
 
 private struct HeaderButton: View {

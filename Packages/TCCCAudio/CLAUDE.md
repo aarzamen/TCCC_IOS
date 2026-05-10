@@ -209,4 +209,79 @@ Recognized form is correct — keyword recall **6/20 (30%)**, expected because t
 3. **Empty-result display bug fixed in commit.** `.result` STT events sometimes carry `output.text == ""` and rely on the caller's accumulator. Earlier code overwrote `transcriptText` to empty on result; fixed to only overwrite when `final.isEmpty == false`.
 4. **Live mic capture via `TranscriptStream.start(audioURL:)` still throws.** G2 ships only the file-based transcribe path through the bake-off. Live mic chunked decode is a future phase.
 
-(G3, G4 sections will be appended as those phases land.)
+### G3 — Live mic record-then-transcribe (2026-05-10)
+
+- `TCCC_IOS/Audio/GraniteSpeechTranscriptStream.swift` placeholder body
+  replaced with a real live-mic implementation. Cribs the
+  `AVAudioEngine` + `AVAudioFile` AAC writer pattern from
+  `SpeechRecognizer.swift` (configureSession, installTap on input
+  node, applyGain / copyBuffer / computeRMS helpers, ProtectedWrite
+  pre-create + markProtected). On `stop()` the actor closes the
+  file and runs `runtime.transcribe(audioURL:)` over the captured
+  M4A; emits a single final `RecognitionUpdate` with the full
+  transcript before finishing the stream. Real-time chunked decode
+  is **not** implemented — see "Known limitations" §1 below.
+- `TCCC_IOS/DevTools/GraniteLiveView.swift` — DevTools view: red
+  RECORD button (toggles to STOP), three memory gauges
+  (Resident / **Footprint** in bold / Available) with color thresholds
+  off `MemoryMonitorObserver.warning/criticalThresholdBytes`, memory
+  pressure event banner, resolver-source line. Status pill
+  reflects priming → recording → transcribing → complete | failed.
+- `DevToolsLandingView` adds a fourth "Live" tile alongside Sender /
+  Receiver / Bake-off. `DevToolsRootView` adds `.graniteLive` route.
+- `GraniteSpeechTranscriptStream.primedSource` exposed so the live
+  view can render the resolver-source row.
+
+### G3 — Hardware validation (iPhone 17 Pro, iOS 26.2)
+
+- DevTools → Live view loads cleanly, mic permission prompt fires on
+  first RECORD tap.
+- Resident + Footprint + Available gauges tick at 1 Hz; pressure
+  banner does not fire under normal load.
+- Recording produces an M4A file in the app's temp directory
+  (or the operator-supplied audioURL if any), then the runtime
+  transcribes it on STOP and the transcript appears in the panel.
+- **Crash mode**: a long-running RECORD session (multi-tens of
+  seconds) ramps `phys_footprint` from the 2.2 GB post-load
+  baseline up toward the 6 GB cap. Memory pressure crosses
+  warning then critical, and eventually iOS jetsam-kills the app.
+  Root cause documented in "Known limitations" §2.
+
+### G3 — Known limitations (carried into Sprint 2)
+
+1. **Single-shot transcribe still hits the encoder cap.** The
+   record-then-transcribe path runs the full captured audio through
+   `model.generateStream(audio: fullArray)` in one pass — same
+   single-shot pattern that crashes on the 5-min fixture per G2.
+   Recordings beyond ~30 s will fail at transcribe time.
+   Sprint 2/3 work is to wire chunked-encode using the patterns
+   documented in `RECON_NOTES.md`'s sibling
+   `PRIOR_AUDIO_PATTERNS.md` — specifically the 60 s-with-3 s-overlap
+   shape from Mike's Python prototype at
+   `TCCC_FEB_2026/src/audio.py:115-173`.
+2. **Live-recording mailbox leak.** Tap-callback fires ~46 Hz at
+   16 kHz / 1024-frame buffers; each callback enqueues a
+   `Task { await self?.ingestBuffer(copy) }` carrying a buffer
+   copy. The actor's effective drain rate is bounded by AVAudioFile
+   write latency + AAC encode, which is slower than the producer
+   under sustained recording. Mailbox grows unboundedly, holding
+   buffer copies in memory. Observed: footprint reached 4.46 GB
+   (post-load baseline 2.16 GB → +2.3 GB live-mic accumulation)
+   inside ~30 s of mic capture. The fix is a back-pressured writer
+   queue (bounded mailbox, drop-oldest on overflow) — captured in
+   `PRIOR_AUDIO_PATTERNS.md`'s anti-pattern list and slated for
+   Sprint 2's chunked-encode work where the same pipeline is
+   rebuilt with explicit back-pressure.
+3. **MemoryMonitorLog.csv not yet wired during recording.** v3 §13
+   acceptance criterion 7 expects `MemoryMonitorLog.csv` to be
+   non-empty after a Granite Live session; the `MemoryMonitorCSVLogger`
+   class exists in TCCCAudio but isn't called from the live view
+   yet. Future polish; doesn't block Sprint 1's primary deliverable.
+4. **Long-form fixture still doesn't validate.** v3 §13 criterion 5
+   expects "5-min fixture transcribes with keyword recall ≥ 90%"
+   — that's the §6 narrative the bake-off was built for. The 14 s
+   fixture works, the 100 s fixture crashes (G2 §"Known
+   limitations"), so this acceptance criterion lands as **partial**
+   in Sprint 1's acceptance gate.
+
+(G4 section will be appended when the acceptance gate commit lands.)

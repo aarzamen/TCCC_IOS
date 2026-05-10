@@ -4,17 +4,20 @@ struct DevToolsLandingView: View {
     let onOpenSender: (() -> Void)?
     let onOpenReceiver: () -> Void
     let onOpenBakeoff: (() -> Void)?
+    let onOpenLive: (() -> Void)?
 
     @Environment(\.palette) private var palette
 
     init(
         onOpenSender: (() -> Void)? = nil,
         onOpenReceiver: @escaping () -> Void,
-        onOpenBakeoff: (() -> Void)? = nil
+        onOpenBakeoff: (() -> Void)? = nil,
+        onOpenLive: (() -> Void)? = nil
     ) {
         self.onOpenSender = onOpenSender
         self.onOpenReceiver = onOpenReceiver
         self.onOpenBakeoff = onOpenBakeoff
+        self.onOpenLive = onOpenLive
     }
 
     var body: some View {
@@ -47,6 +50,15 @@ struct DevToolsLandingView: View {
                     accent: false,
                     isEnabled: onOpenBakeoff != nil,
                     action: onOpenBakeoff
+                )
+
+                modeCard(
+                    title: "Live",
+                    subtitle: onOpenLive == nil ? "Pending" : "Mic → Granite Speech",
+                    icon: "mic.circle.fill",
+                    accent: false,
+                    isEnabled: onOpenLive != nil,
+                    action: onOpenLive
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
