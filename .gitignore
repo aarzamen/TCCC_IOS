@@ -32,3 +32,5 @@ reference/design_mockup/
 # the codebase binds to them as ground truth for the 2026 sprint.
 reference/rubric/*
 !reference/rubric/extracted/
+.claude/
+PROJECT.gdu
