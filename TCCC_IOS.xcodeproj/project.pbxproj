@@ -32,6 +32,7 @@
 		26D89FA35AB5FF6B37E05F0B /* GraniteSpeechTranscriptStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD2E4CE27D7E01F8784D6FB /* GraniteSpeechTranscriptStream.swift */; };
 		26EE401843975B9BD94BE8A6 /* GraniteRealModelArtifactWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 964B8C2C0FCE0BD01341208E /* GraniteRealModelArtifactWriter.swift */; };
 		27A0A3C2D7235CEDE2CD642A /* AudioSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232370BA9225A54377B43108 /* AudioSessionCoordinator.swift */; };
+		291DEA3105574F2859756D97 /* TCCCAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 246BDEF8AF6DC3A67A5B4DB9 /* TCCCAudio */; };
 		2D32BE161689099A00EC6DBA /* TCCC_IOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */; };
 		2DB8ED3856F8A0E263A4A795 /* FactRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC8E752C934974E83313217 /* FactRow.swift */; };
 		2EBBAB3052AB516334173286 /* GraniteHotSeatGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD7A4AB0CC63247D094DFCC /* GraniteHotSeatGenerator.swift */; };
@@ -178,6 +179,7 @@
 		36B14D02B33CC2F5C91E8003 /* BackOfCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackOfCardView.swift; sourceTree = "<group>"; };
 		3872D635F3CEBAE50C1908D4 /* AmbientMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientMeter.swift; sourceTree = "<group>"; };
 		38B8FC6324D1C8E2E96EB894 /* MedevacScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedevacScreen.swift; sourceTree = "<group>"; };
+		3B167DCB9BE8AEEE451933B5 /* TCCC_IOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TCCC_IOS.entitlements; sourceTree = "<group>"; };
 		3CAAF88DF513C78083F43399 /* SumLineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SumLineView.swift; sourceTree = "<group>"; };
 		3E1035E8B149E396C8EED9FC /* TranscriptLineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptLineView.swift; sourceTree = "<group>"; };
 		44D1BCE15092A382D0C8A83E /* VoiceCommandChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandChip.swift; sourceTree = "<group>"; };
@@ -232,6 +234,7 @@
 		A1EA433E85994D4343C0AF2D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA865D94AC15BA6F345C5C8B /* ReceiverPlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverPlaceholderView.swift; sourceTree = "<group>"; };
 		AB573FE657D740D397D5C736 /* HoldToConfirmButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldToConfirmButton.swift; sourceTree = "<group>"; };
+		AC0EF0B04ABAB9BAD0EBBABE /* TCCCAudio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCAudio; path = Packages/TCCCAudio; sourceTree = SOURCE_ROOT; };
 		AD0894014601F9571B1B376A /* NineLineForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NineLineForm.swift; sourceTree = "<group>"; };
 		AE5BC27729D5C0A981AAAC9D /* GraniteReportCritiqueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteReportCritiqueTests.swift; sourceTree = "<group>"; };
 		AFAA6C0033E6E1A9DB176C2E /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -291,6 +294,7 @@
 				9959847700098A8A614CA581 /* TCCCDesign in Frameworks */,
 				468C37A64328FDD233CDDA1F /* FluidAudio in Frameworks */,
 				02E2F29FF4D03B5D753AAC95 /* TCCCLLM in Frameworks */,
+				291DEA3105574F2859756D97 /* TCCCAudio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -509,6 +513,7 @@
 				A1EA433E85994D4343C0AF2D /* Assets.xcassets */,
 				BB801690CCDCF2E1C0E6BBC3 /* ContentView.swift */,
 				54C7D8865C785C102A2EA60B /* PrivacyInfo.xcprivacy */,
+				3B167DCB9BE8AEEE451933B5 /* TCCC_IOS.entitlements */,
 				DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */,
 				9202B98779DFB85D02958F79 /* App */,
 				9F25F086BF1BAD127F5DBE51 /* Audio */,
@@ -528,6 +533,7 @@
 		D00E829784C1881DECEAEC5E /* Packages */ = {
 			isa = PBXGroup;
 			children = (
+				AC0EF0B04ABAB9BAD0EBBABE /* TCCCAudio */,
 				F4CC2166C5D1EA72E2BCE496 /* TCCCKit */,
 				2FBF5305914733F1DD379359 /* TCCCLLM */,
 			);
@@ -622,6 +628,7 @@
 				1E9168029DF6BAD8005DF319 /* TCCCDesign */,
 				A8F77C2EE2AAC88A70372F62 /* FluidAudio */,
 				7C05242315C20E90671FAFE2 /* TCCCLLM */,
+				246BDEF8AF6DC3A67A5B4DB9 /* TCCCAudio */,
 			);
 			productName = TCCC_IOS;
 			productReference = 45432B79F663572BEAD08956 /* TCCC_IOS.app */;
@@ -657,6 +664,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				35B6BAABE4FDA0FD108D7B1F /* XCRemoteSwiftPackageReference "FluidAudio" */,
+				0A1863AD31E8BFFDF6FBF809 /* XCLocalSwiftPackageReference "Packages/TCCCAudio" */,
 				AAE3596B57A6C7320B2E4F4A /* XCLocalSwiftPackageReference "Packages/TCCCKit" */,
 				12638EB2CA8D1B16ED5263B4 /* XCLocalSwiftPackageReference "Packages/TCCCLLM" */,
 			);
@@ -913,6 +921,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TCCC_IOS/TCCC_IOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = TCCC_IOS/Generated/Info.plist;
@@ -948,6 +957,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TCCC_IOS/TCCC_IOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = TCCC_IOS/Generated/Info.plist;
@@ -1054,6 +1064,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		0A1863AD31E8BFFDF6FBF809 /* XCLocalSwiftPackageReference "Packages/TCCCAudio" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/TCCCAudio;
+		};
 		12638EB2CA8D1B16ED5263B4 /* XCLocalSwiftPackageReference "Packages/TCCCLLM" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TCCCLLM;
@@ -1083,6 +1097,10 @@
 		1EBADE04B1405565EC85AC04 /* TCCCReports */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TCCCReports;
+		};
+		246BDEF8AF6DC3A67A5B4DB9 /* TCCCAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TCCCAudio;
 		};
 		7C05242315C20E90671FAFE2 /* TCCCLLM */ = {
 			isa = XCSwiftPackageProductDependency;

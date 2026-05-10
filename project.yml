@@ -23,6 +23,15 @@ packages:
   # AnyLanguageModel module — that's TCCCLLM at Packages/TCCCLLM.
   TCCCLLM:
     path: Packages/TCCCLLM
+  # 2026-05-10 Granite Speech Foundation Sprint 1 (v3 §G0): TCCCAudio
+  # is a local SPM shim wrapping Blaizzy/mlx-audio-swift. Heavy MLX
+  # audio deps (mlx-swift, mlx-swift-lm, swift-transformers,
+  # swift-huggingface) live behind this shim, not in TCCCKit (pure
+  # logic) and not in the app target (AGENTS.md "no logic in app
+  # target"). Mirrors TCCCLLM pattern. Pinned to v0.1.2 commit SHA in
+  # Packages/TCCCAudio/Package.swift.
+  TCCCAudio:
+    path: Packages/TCCCAudio
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -74,12 +83,15 @@ targets:
         product: FluidAudio
       - package: TCCCLLM
         product: TCCCLLM
+      - package: TCCCAudio
+        product: TCCCAudio
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aarzamen.TCCCai
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_STRICT_CONCURRENCY: complete
         GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: TCCC_IOS/TCCC_IOS.entitlements
   TCCC_IOSTests:
     type: bundle.unit-test
     platform: iOS
