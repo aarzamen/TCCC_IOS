@@ -1,4 +1,6 @@
 import SwiftUI
+import TCCCAudio
+import UniformTypeIdentifiers
 
 struct SettingsOverlay: View {
     let state: AppState
@@ -7,6 +9,16 @@ struct SettingsOverlay: View {
     @State private var wipeProgress: CGFloat = 0
     @State private var wipeTask: Task<Void, Never>?
     private let wipeDuration: Double = 3.0
+
+    /// Granite Speech Foundation Sprint 1 v3 §G1: file-importer
+    /// presentation toggle for "Select Granite Speech Model Folder".
+    /// Local UI state — the persistent bookmark itself lives in
+    /// `state.graniteSpeechBookmarkStore`.
+    @State private var graniteSpeechPickerOpen: Bool = false
+    /// Bumped after a successful pick or a clear-bookmark action so
+    /// `graniteSpeechBookmarkStatus` re-evaluates. UserDefaults reads
+    /// don't trigger SwiftUI invalidation on their own.
+    @State private var graniteSpeechStatusRevision: Int = 0
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -157,6 +169,11 @@ struct SettingsOverlay: View {
                     parakeetStatusRow
                         .padding(.top, 4)
                 }
+
+                if state.asrBackend == .graniteSpeech {
+                    graniteSpeechModelFolderRow
+                        .padding(.top, 4)
+                }
             }
 
             // ── Mic gain slider ────────────────────────────────────
@@ -241,7 +258,7 @@ struct SettingsOverlay: View {
         case .parakeet:
             "On-device · NVIDIA Parakeet TDT 0.6B · English only"
         case .graniteSpeech:
-            "Research scaffold · unavailable until Swift runtime ships"
+            "On-device · IBM Granite Speech 4.0 1B 5-bit · pick model folder below"
         }
     }
 
@@ -308,6 +325,154 @@ struct SettingsOverlay: View {
         switch state.parakeetStatus {
         case .unknown, .notDownloaded, .failed: return true
         case .downloading, .ready:              return false
+        }
+    }
+
+    // MARK: - Granite Speech model folder (Sprint 1 v3 §G1)
+
+    private enum GraniteSpeechBookmarkUIStatus {
+        case noBookmark
+        case active(folderName: String)
+        case stale(folderName: String)
+        case error(message: String)
+
+        /// True when bookmark data exists in UserDefaults — even if it
+        /// fails to resolve. Drives whether the row shows "Re-select"
+        /// + Clear (any picked state) vs the initial "Select Model
+        /// Folder" CTA (`.noBookmark` only).
+        var isPicked: Bool {
+            switch self {
+            case .noBookmark:                return false
+            case .active, .stale, .error:    return true
+            }
+        }
+    }
+
+    private func graniteSpeechBookmarkStatus() -> GraniteSpeechBookmarkUIStatus {
+        // Touch the revision so SwiftUI re-evaluates after a pick.
+        _ = graniteSpeechStatusRevision
+        do {
+            let (url, isStale) = try state.graniteSpeechBookmarkStore.resolve()
+            let name = url.lastPathComponent
+            return isStale ? .stale(folderName: name) : .active(folderName: name)
+        } catch GraniteSpeechBookmarkError.noBookmarkSaved {
+            return .noBookmark
+        } catch {
+            return .error(message: error.localizedDescription)
+        }
+    }
+
+    private var graniteSpeechModelFolderRow: some View {
+        let status = graniteSpeechBookmarkStatus()
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(graniteSpeechStatusColor(status))
+                    .frame(width: 8, height: 8)
+                Text(graniteSpeechStatusLabel(status))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(palette.fg)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    Haptics.selection()
+                    graniteSpeechPickerOpen = true
+                } label: {
+                    Text(status.isPicked ? "Re-select Model Folder" : "Select Model Folder")
+                        .font(.system(size: 10, weight: .heavy))
+                        .tracking(1.4)
+                        .textCase(.uppercase)
+                        .foregroundStyle(palette.accent)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity)
+                        .overlay(
+                            Rectangle()
+                                .strokeBorder(palette.accent, lineWidth: Layout.hairline)
+                        )
+                }
+                .buttonStyle(.plain)
+
+                if status.isPicked {
+                    Button {
+                        state.graniteSpeechBookmarkStore.clear()
+                        graniteSpeechStatusRevision &+= 1
+                    } label: {
+                        Text("Clear")
+                            .font(.system(size: 10, weight: .heavy))
+                            .tracking(1.4)
+                            .textCase(.uppercase)
+                            .foregroundStyle(palette.fg2)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 12)
+                            .overlay(
+                                Rectangle()
+                                    .strokeBorder(palette.line, lineWidth: Layout.hairline)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(palette.bg2)
+        .overlay(
+            Rectangle()
+                .strokeBorder(palette.line, lineWidth: Layout.hairline)
+        )
+        .fileImporter(
+            isPresented: $graniteSpeechPickerOpen,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            handleGraniteSpeechPick(result)
+        }
+    }
+
+    private func handleGraniteSpeechPick(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            // The picker URL carries an implicit security scope.
+            // Activate it briefly so `bookmarkData` succeeds, then
+            // release. The runtime re-activates scope on prime().
+            let didStart = url.startAccessingSecurityScopedResource()
+            defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+            do {
+                try state.graniteSpeechBookmarkStore.save(url: url)
+                graniteSpeechStatusRevision &+= 1
+            } catch {
+                // Surface the failure inline by setting the status
+                // revision; on next render `graniteSpeechBookmarkStatus`
+                // will see no bookmark and report `.noBookmark`.
+                graniteSpeechStatusRevision &+= 1
+            }
+        case .failure:
+            // Picker dismissed or failed — no state change.
+            break
+        }
+    }
+
+    private func graniteSpeechStatusLabel(_ status: GraniteSpeechBookmarkUIStatus) -> String {
+        switch status {
+        case .noBookmark:               return "No model folder selected"
+        case .active(let name):         return "Active · \(name)"
+        case .stale(let name):          return "Stale · re-select \(name)"
+        case .error(let message):       return "Error · \(message)"
+        }
+    }
+
+    private func graniteSpeechStatusColor(_ status: GraniteSpeechBookmarkUIStatus) -> Color {
+        switch status {
+        case .active:     return palette.ok
+        case .stale:      return palette.warn
+        case .error:      return palette.crit
+        case .noBookmark: return palette.fg3
         }
     }
 

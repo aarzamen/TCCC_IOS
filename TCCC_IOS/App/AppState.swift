@@ -2,6 +2,7 @@ import AVFoundation
 import Foundation
 import Observation
 import os
+import TCCCAudio
 import TCCCDomain
 import TCCCExtractor
 
@@ -89,8 +90,11 @@ final class AppState {
     /// Apple Speech is the proven default. Parakeet is on ice — the
     /// actor compiles and is reachable behind this toggle, but
     /// requires the operator to supply a model directory before
-    /// `start()` will succeed. Granite Speech is research-only until
-    /// a Swift runtime exists.
+    /// `start()` will succeed. Granite Speech is an alternate ASR
+    /// (per Granite Speech Foundation Sprint 1 v3 §G1, 2026-05-10);
+    /// requires a configured local Granite Speech model folder via
+    /// Settings → "Select Granite Speech Model Folder" before
+    /// `start()` will succeed.
     enum ASRBackend: String, Sendable, CaseIterable, Identifiable, Codable {
         case appleSpeech
         case parakeet
@@ -100,7 +104,7 @@ final class AppState {
             switch self {
             case .appleSpeech:   "Apple Speech"
             case .parakeet:      "Parakeet (alt)"
-            case .graniteSpeech: "Granite Speech (research)"
+            case .graniteSpeech: "Granite Speech (alt)"
             }
         }
     }
@@ -111,6 +115,16 @@ final class AppState {
     /// model bundle. Nil → Parakeet backend uses FluidAudio's auto-
     /// download path on first start().
     var parakeetModelDirectory: URL?
+
+    /// Persistent security-scoped bookmark store for the Granite
+    /// Speech model folder (Granite Speech Foundation Sprint 1 v3
+    /// §G1, 2026-05-10). The operator selects a folder once via
+    /// Settings → "Select Granite Speech Model Folder"; the bookmark
+    /// survives app reinstalls when the folder lives in user-managed
+    /// iCloud Drive or "On My iPhone" storage. The runtime in
+    /// TCCCAudio reads the same UserDefaults key by default, so this
+    /// shared instance keeps Settings and runtime in sync.
+    let graniteSpeechBookmarkStore = GraniteSpeechBookmarkStore()
 
     /// Lifecycle state of the Parakeet model bundle on disk.
     enum ParakeetStatus: Sendable, Equatable {
