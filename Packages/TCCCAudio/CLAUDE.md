@@ -350,6 +350,28 @@ any chunked-decode notes from the upstream `mlx-audio-swift` repo
 since v0.1.2 was tagged. The chunk-vs-overlap research is then a
 gated-by-spec activity, not a pure code activity.
 
+## Sprint 2 design research (2026-05-10)
+
+Research document: `docs/research/2026-05-10-audio-ingestion-comparison.md`.
+
+Status: **source-backed but not physically complete**. Do not tag
+`sprint-2-research-complete` until the A/B/C chunking sweep runs on the
+physical iPhone and fills the doc's `BLOCKED:` measurement gaps.
+
+Important correction: pinned `mlx-audio-swift` source shows Granite
+Speech `context_size=200` is about **4 seconds** of raw 16 kHz audio,
+not about 10 seconds. The path is 160-sample STFT hop (100 mel frames/s)
+then pair-stacking into about 50 encoder frames/s. Ten-second chunks may
+still win after measurement, but they are an engineering latency/quality
+choice, not the native encoder context boundary.
+
+Architecture conclusion for Sprint 2 planning: treat Granite
+`generateStream(audio:)` as independent chunked batch ASR. The pinned
+implementation creates fresh audio features and a fresh decoder KV cache
+per call; it does not expose encoder-state continuation across chunks.
+Back-pressure on the capture side remains mandatory regardless of window
+size.
+
 ---
 
 ### G4 — Sprint 1 acceptance gate (2026-05-10)
