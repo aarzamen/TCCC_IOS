@@ -284,4 +284,18 @@ Recognized form is correct — keyword recall **6/20 (30%)**, expected because t
    limitations"), so this acceptance criterion lands as **partial**
    in Sprint 1's acceptance gate.
 
-(G4 section will be appended when the acceptance gate commit lands.)
+### G4 — Sprint 1 acceptance gate (2026-05-10)
+
+- `SPRINT_1_ACCEPTANCE.md` written at repo root. Walks v3 §13's nine
+  criteria with pass / partial / fail markings + evidence per
+  criterion.
+- Outcome: **partial Sprint 1 acceptance**. Granite Speech runs
+  end-to-end on physical iPhone 17 Pro within the 6 GB entitlement
+  cap for short audio (≤ 14 s file fixture, ≤ ~30 s live mic).
+  Long-form audio + back-pressured live-mic capture are Sprint 2's
+  primary work, guided by the patterns in `PRIOR_AUDIO_PATTERNS.md`.
+- Commit tagged `sprint-1-granite-speech-foundation` on push.
+- Sprint 2 carry-over enumerated in `SPRINT_1_ACCEPTANCE.md`
+  §"Carry-over to Sprint 2" — chunked-encode, back-pressured writer,
+  CSV logger wiring, §6 5-min fixture re-run, hot-seat integration,
+  real iCloud-Drive (not in-sandbox) reinstall test.

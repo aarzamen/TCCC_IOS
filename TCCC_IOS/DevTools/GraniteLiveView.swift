@@ -33,6 +33,23 @@ struct GraniteLiveView: View {
     @State private var stream: GraniteSpeechTranscriptStream?
     @State private var lastError: String?
 
+    /// Wall-clock start of the current recording session. Drives the
+    /// long-form warning banner's 60-s duration sentinel. Reset on
+    /// stop / failed / complete.
+    @State private var recordingStartedAt: Date?
+
+    /// Per-session CSV logger writing to `Documents/MemoryMonitorLog.csv`
+    /// (v3 §13 criterion 7). Allocated on recording start, drained on
+    /// every monitor tick + pressure transition + lifecycle event.
+    @State private var csvLogger: MemoryMonitorCSVLogger?
+
+    /// Sprint 1 long-form-recording duration ceiling. Past this point
+    /// the unbounded actor mailbox is observed accumulating buffer
+    /// copies faster than the AAC writer drains them (G3 known
+    /// limitation §2). The banner fires; the operator can stop or
+    /// continue at their own risk.
+    private static let longFormWarningSeconds: TimeInterval = 60.0
+
     private enum Phase: Equatable {
         case idle
         case priming
@@ -47,15 +64,20 @@ struct GraniteLiveView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Layout.gridGap) {
-            statusPanel
-            memoryPanel
-            transcriptPanel
-            controls
+        TimelineView(.periodic(from: .now, by: 1.0)) { _ in
+            VStack(alignment: .leading, spacing: Layout.gridGap) {
+                statusPanel
+                memoryPanel
+                if shouldShowLongFormBanner {
+                    longFormWarningBanner
+                }
+                transcriptPanel
+                controls
+            }
+            .padding(.horizontal, Layout.outerPadding)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .padding(.horizontal, Layout.outerPadding)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
             monitor.start()
         }
@@ -64,6 +86,13 @@ struct GraniteLiveView: View {
             lifecycleTask?.cancel()
             streamWatchTask?.cancel()
             Task { await stream?.stopImmediate() }
+            csvLogger = nil
+        }
+        .onChange(of: monitor.current) { _, reading in
+            csvLogger?.append(reading, pressure: monitor.pressure)
+        }
+        .onChange(of: monitor.pressure) { _, pressure in
+            csvLogger?.append(monitor.current, pressure: pressure, event: "pressure_\(pressure.rawValue)")
         }
     }
 
@@ -227,6 +256,9 @@ struct GraniteLiveView: View {
         lastError = nil
         transcriptText = ""
         resolverSource = nil
+        recordingStartedAt = nil
+        csvLogger = MemoryMonitorCSVLogger()
+        csvLogger?.append(monitor.current, pressure: monitor.pressure, event: "record_start")
 
         let runtime = GraniteSpeechRuntime(
             resolver: GraniteSpeechModelResolver(
@@ -251,6 +283,8 @@ struct GraniteLiveView: View {
 
                 await MainActor.run {
                     self.resolverSource = source
+                    self.recordingStartedAt = Date()
+                    self.csvLogger?.append(self.monitor.current, pressure: self.monitor.pressure, event: "primed")
                     self.phase = .recording
                 }
 
@@ -262,6 +296,8 @@ struct GraniteLiveView: View {
                         await MainActor.run {
                             self.transcriptText = update.text
                             if update.isFinal {
+                                self.csvLogger?.append(self.monitor.current, pressure: self.monitor.pressure, event: "transcribe_complete")
+                                self.recordingStartedAt = nil
                                 self.phase = .complete
                             }
                         }
@@ -270,6 +306,8 @@ struct GraniteLiveView: View {
             } catch {
                 await MainActor.run {
                     self.lastError = error.localizedDescription
+                    self.csvLogger?.append(self.monitor.current, pressure: self.monitor.pressure, event: "failed")
+                    self.recordingStartedAt = nil
                     self.phase = .failed(message: error.localizedDescription)
                 }
                 Self.logger.error("Granite Live start failed: \(error.localizedDescription, privacy: .public)")
@@ -280,10 +318,74 @@ struct GraniteLiveView: View {
     private func stopRecording() {
         guard let s = stream else { return }
         phase = .transcribing
+        csvLogger?.append(monitor.current, pressure: monitor.pressure, event: "record_stop")
         lifecycleTask?.cancel()
         lifecycleTask = Task {
             await s.stop()
         }
+    }
+
+    // MARK: - Long-form warning banner
+
+    private var recordingDuration: TimeInterval {
+        guard let started = recordingStartedAt else { return 0 }
+        return Date().timeIntervalSince(started)
+    }
+
+    private var shouldShowLongFormBanner: Bool {
+        guard phase == .recording else { return false }
+        if recordingDuration >= Self.longFormWarningSeconds { return true }
+        if monitor.pressure != .normal { return true }
+        return false
+    }
+
+    private var longFormWarningBanner: some View {
+        let isCritical = monitor.pressure == .critical
+        let elapsedExceeded = recordingDuration >= Self.longFormWarningSeconds
+        let accent = isCritical ? palette.crit : palette.warn
+        let icon = isCritical ? "exclamationmark.octagon.fill" : "exclamationmark.triangle.fill"
+
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .heavy))
+                .foregroundStyle(accent)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Long-form recording is unstable in Sprint 1 — see G3 limitations in CLAUDE.md.")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(palette.fg)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(longFormBannerSubtitle(elapsedExceeded: elapsedExceeded, isCritical: isCritical))
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundStyle(palette.fg3)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(palette.bg2)
+        .overlay(
+            Rectangle()
+                .strokeBorder(accent, lineWidth: Layout.hairline)
+        )
+    }
+
+    private func longFormBannerSubtitle(elapsedExceeded: Bool, isCritical: Bool) -> String {
+        var parts: [String] = []
+        if elapsedExceeded {
+            parts.append(String(format: "duration %0.0fs ≥ %0.0fs",
+                                recordingDuration, Self.longFormWarningSeconds))
+        }
+        switch monitor.pressure {
+        case .normal: break
+        case .warning:
+            parts.append("memory pressure: warning (≥ 75% of cap)")
+        case .critical:
+            parts.append("memory pressure: critical (≥ 90% of cap)")
+        }
+        if parts.isEmpty {
+            parts.append("triggered by Sprint 1 G3 known limitations")
+        }
+        return parts.joined(separator: " · ")
     }
 
     // MARK: - Helpers
