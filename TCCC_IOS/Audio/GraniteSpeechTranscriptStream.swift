@@ -73,11 +73,17 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
     }
 
     func start(audioURL: URL?) async throws -> AsyncStream<RecognitionUpdate> {
-        // G2 lands the real implementation: feeds 16 kHz mono PCM into
-        // MLXAudioSTT.GraniteSpeechModel.generateStream(...) and yields
-        // RecognitionUpdate values as the model decodes.
+        // Sprint 1 G2 ships the model load + transcribe path through
+        // `GraniteSpeechRuntime.transcribe(audioURL:)`. Live mic capture
+        // through this `TranscriptStream` surface is a future phase
+        // (mic → 16 kHz PCM chunks → continuous generateStream).
+        // For G2, the DevTools "Granite Bake-off" view bypasses
+        // TranscriptStream entirely and calls
+        // `GraniteSpeechRuntime.transcribe(audioURL:)` on a bundled
+        // fixture WAV. That validates the model on hardware without
+        // the additional complexity of real-time chunked decoding.
         throw TranscriptStreamError.backendUnavailable(
-            "Granite Speech transcription is not implemented in this build. Sprint 1 G1 ships resolver + scope lifecycle only; G2 wires the model."
+            "Granite Speech: live RECORD path is not wired in this build. Use DevTools → Granite Bake-off to transcribe the bundled fixture, or wait for the G3 live-mic phase."
         )
     }
 

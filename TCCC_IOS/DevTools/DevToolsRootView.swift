@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DevToolsRootView: View {
+    let state: AppState
     let onReturnToSplash: () -> Void
 
     @Environment(\.palette) private var palette
@@ -19,12 +20,15 @@ struct DevToolsRootView: View {
                     case .landing:
                         DevToolsLandingView(
                             onOpenSender: { route = .sender },
-                            onOpenReceiver: { route = .receiver }
+                            onOpenReceiver: { route = .receiver },
+                            onOpenBakeoff: { route = .graniteBakeoff }
                         )
                     case .sender:
                         SenderPlaybackView(onBack: { route = .landing })
                     case .receiver:
                         ReceiverPlaceholderView(onBack: { route = .landing })
+                    case .graniteBakeoff:
+                        GraniteBakeoffView(state: state, onBack: { route = .landing })
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -70,9 +74,10 @@ struct DevToolsRootView: View {
 
     private var headerSubtitle: String {
         switch route {
-        case .landing:  "Sender / Receiver"
-        case .sender:   "TTS Sender"
-        case .receiver: "Receiver Stub"
+        case .landing:        "Sender / Receiver / Bake-off"
+        case .sender:         "TTS Sender"
+        case .receiver:       "Receiver Stub"
+        case .graniteBakeoff: "Granite Bake-off"
         }
     }
 }
@@ -81,6 +86,7 @@ private enum DevToolsRoute {
     case landing
     case sender
     case receiver
+    case graniteBakeoff
 }
 
 private struct HeaderButton: View {

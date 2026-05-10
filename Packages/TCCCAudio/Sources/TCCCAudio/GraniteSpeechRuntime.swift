@@ -1,28 +1,24 @@
 import Foundation
+import MLXAudioCore
+import MLXAudioSTT
 
-/// Owns the loaded Granite Speech model and the security-scoped URL
-/// that anchors its weight files.
-///
-/// Sprint 1 (v3 §G1) ships only the resolver + scope lifecycle. The
-/// real `MLXAudioSTT.GraniteSpeechModel.fromPretrained(...)` call lands
-/// in §G2 once the resolver-to-loader binding has been verified on
-/// physical iPhone. Until then, `prime()` resolves a URL and holds the
-/// security scope; `transcribe(...)` is unimplemented.
+/// Owns the loaded Granite Speech model + the security-scoped URL
+/// that anchors its weight files (Sprint 1 v3 §G1 lifecycle, §G2
+/// model load + transcribe).
 ///
 /// Why an actor:
-/// - Model loading + transcribe calls are async/IO-bound.
+/// - Model loading + transcription are async/IO-bound.
 /// - The security-scope handle must be paired exactly once with
 ///   `start...` / `stop...`; reentrant prime calls would double-start
 ///   and leak. Actor serialization gives that guarantee for free.
-/// - mlx-audio-swift's model object is not Sendable; isolating it
+/// - mlx-audio-swift's model object is not `Sendable`; isolating it
 ///   inside an actor avoids forcing it across concurrency boundaries.
 public actor GraniteSpeechRuntime {
     public enum State: Sendable, Equatable {
         case idle
         case priming
         /// Primed state. `scopedURL` is non-nil only when the resolver
-        /// returned a bookmark-source URL (the only case that requires
-        /// a held scope handle).
+        /// returned a bookmark-source URL.
         case primed(modelURL: URL, source: GraniteSpeechModelResolver.Source)
         case unloading
     }
@@ -34,14 +30,33 @@ public actor GraniteSpeechRuntime {
     /// source is `.bookmark`. `nil` for bundle / HF-cache sources.
     private var scopedURL: URL?
 
+    /// The loaded MLX model. Nil when not primed. Not Sendable, hence
+    /// kept inside the actor's isolation.
+    private var loadedModel: GraniteSpeechModel?
+
+    /// Memory readings captured around `prime()` for diagnostics. Set
+    /// when the load completes; reset on `unload()`.
+    public private(set) var primeMemoryDelta: PrimeMemoryDelta?
+
+    public struct PrimeMemoryDelta: Sendable, Equatable {
+        public let physFootprintBeforeBytes: UInt64
+        public let physFootprintAfterBytes: UInt64
+        public let availableBeforeBytes: UInt64
+        public let availableAfterBytes: UInt64
+        public let loadDurationSeconds: Double
+
+        public var physFootprintDeltaMB: Double {
+            (Double(physFootprintAfterBytes) - Double(physFootprintBeforeBytes)) / 1_048_576.0
+        }
+    }
+
     public init(resolver: GraniteSpeechModelResolver = GraniteSpeechModelResolver()) {
         self.resolver = resolver
     }
 
-    /// Resolve the model URL and (if from a bookmark source) activate
-    /// the security scope. Holds the scope until `unload()` or actor
-    /// teardown. Idempotent if already primed — repeated calls return
-    /// without re-activating the scope.
+    /// Resolve the model URL, activate security scope (if from
+    /// bookmark), and load `GraniteSpeechModel` into memory.
+    /// Idempotent if already primed.
     public func prime() async throws {
         switch state {
         case .primed:
@@ -52,25 +67,55 @@ public actor GraniteSpeechRuntime {
             break
         }
         state = .priming
+
+        let resolved: GraniteSpeechModelResolver.Resolved
         do {
-            let resolved = try await resolver.resolve()
-            if resolved.needsScopeActivation {
-                let didStart = resolved.url.startAccessingSecurityScopedResource()
-                guard didStart else {
-                    state = .idle
-                    throw GraniteSpeechRuntimeError.scopeAccessDenied(url: resolved.url)
-                }
-                scopedURL = resolved.url
-            }
-            state = .primed(modelURL: resolved.url, source: resolved.source)
+            resolved = try await resolver.resolve()
         } catch {
             state = .idle
             throw error
         }
+
+        if resolved.needsScopeActivation {
+            let didStart = resolved.url.startAccessingSecurityScopedResource()
+            guard didStart else {
+                state = .idle
+                throw GraniteSpeechRuntimeError.scopeAccessDenied(url: resolved.url)
+            }
+            scopedURL = resolved.url
+        }
+
+        let memoryBefore = MemoryMonitor.reading()
+        let loadStart = Date()
+        let model: GraniteSpeechModel
+        do {
+            model = try await GraniteSpeechModelLoader.loadFromModelDirectory(resolved.url)
+        } catch {
+            if let url = scopedURL {
+                url.stopAccessingSecurityScopedResource()
+                scopedURL = nil
+            }
+            state = .idle
+            throw GraniteSpeechRuntimeError.loadFailed(
+                underlying: error.localizedDescription
+            )
+        }
+        let loadEnd = Date()
+        let memoryAfter = MemoryMonitor.reading()
+
+        loadedModel = model
+        primeMemoryDelta = PrimeMemoryDelta(
+            physFootprintBeforeBytes: memoryBefore.physFootprintBytes,
+            physFootprintAfterBytes: memoryAfter.physFootprintBytes,
+            availableBeforeBytes: memoryBefore.availableBytes,
+            availableAfterBytes: memoryAfter.availableBytes,
+            loadDurationSeconds: loadEnd.timeIntervalSince(loadStart)
+        )
+        state = .primed(modelURL: resolved.url, source: resolved.source)
     }
 
-    /// Release the security scope (if held) and return to `.idle`.
-    /// Safe to call from any state — no-op when already idle.
+    /// Release the loaded model, the security scope, and reset to
+    /// `.idle`. Safe to call from any state.
     public func unload() async {
         switch state {
         case .idle, .priming:
@@ -79,12 +124,50 @@ public actor GraniteSpeechRuntime {
             return
         case .primed:
             state = .unloading
+            loadedModel = nil
             if let url = scopedURL {
                 url.stopAccessingSecurityScopedResource()
                 scopedURL = nil
             }
+            primeMemoryDelta = nil
             state = .idle
         }
+    }
+
+    /// Transcribe a pre-recorded audio file. Streams `STTGeneration`
+    /// events (`.token / .info / .result`) so callers can render
+    /// partial transcripts as the model decodes. Audio is loaded via
+    /// `MLXAudioCore.loadAudioArray(from:)`, which handles
+    /// re-sampling to the encoder's required 16 kHz mono.
+    ///
+    /// `prompt` defaults to `GraniteSpeechPrompt.asr` (TCCC keyword
+    /// biasing). Pass `nil` to bypass biasing for a baseline run.
+    public func transcribe(
+        audioURL: URL,
+        prompt: String? = GraniteSpeechPrompt.asr,
+        maxTokens: Int = 4096,
+        temperature: Float = 0.0
+    ) async throws -> AsyncThrowingStream<STTGeneration, Error> {
+        guard case .primed = state else {
+            throw GraniteSpeechRuntimeError.notPrimed
+        }
+        guard let model = loadedModel else {
+            throw GraniteSpeechRuntimeError.notPrimed
+        }
+
+        // Load audio off the actor's hot path. `loadAudioArray` does
+        // disk I/O + AVAudioFile decode + resampling; cheap enough to
+        // keep on the same actor for now, but if it blocks too long
+        // on long fixtures we move it to a Task.detached later.
+        let (_, audio) = try loadAudioArray(from: audioURL, sampleRate: 16_000)
+
+        return model.generateStream(
+            audio: audio,
+            maxTokens: maxTokens,
+            temperature: temperature,
+            prompt: prompt,
+            language: nil
+        )
     }
 
     public var primedURL: URL? {
@@ -101,19 +184,17 @@ public actor GraniteSpeechRuntime {
         return nil
     }
 
-    deinit {
-        // Best-effort scope release if the actor is destroyed without
-        // an explicit `unload()`. URL is Sendable, so accessing
-        // `scopedURL` from the synchronous deinit is safe in Swift 6.
-        scopedURL?.stopAccessingSecurityScopedResource()
+    public var isPrimed: Bool {
+        if case .primed = state { return true }
+        return false
     }
 }
 
-public enum GraniteSpeechRuntimeError: Error, Sendable, Equatable {
+public enum GraniteSpeechRuntimeError: Error, LocalizedError, Sendable, Equatable {
     case busy
     case scopeAccessDenied(url: URL)
-    /// G2 placeholder — `start(audioURL:)` not yet implemented.
-    case transcribeNotYetImplemented
+    case notPrimed
+    case loadFailed(underlying: String)
 
     public var errorDescription: String? {
         switch self {
@@ -121,8 +202,10 @@ public enum GraniteSpeechRuntimeError: Error, Sendable, Equatable {
             return "Granite Speech runtime is mid-priming or unloading."
         case .scopeAccessDenied(let url):
             return "iOS denied security-scoped access for \(url.lastPathComponent). Re-select the model folder in Settings."
-        case .transcribeNotYetImplemented:
-            return "Granite Speech transcription is not implemented in this build (Sprint 1 G1 ships resolver + scope lifecycle only; G2 wires the model)."
+        case .notPrimed:
+            return "Granite Speech runtime must be primed before transcription. Call prime() first."
+        case .loadFailed(let m):
+            return "Granite Speech model load failed: \(m)"
         }
     }
 }

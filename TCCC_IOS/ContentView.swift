@@ -15,7 +15,7 @@ struct ContentView: View {
             case .main:
                 MainAppShell(state: state)
             case .devTools:
-                DevToolsRootView(onReturnToSplash: { rootRoute = .splash })
+                DevToolsRootView(state: state, onReturnToSplash: { rootRoute = .splash })
             }
         }
         .preferredColorScheme(state.theme.preferredColorScheme)

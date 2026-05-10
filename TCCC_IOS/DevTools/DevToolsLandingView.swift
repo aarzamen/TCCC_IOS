@@ -3,15 +3,18 @@ import SwiftUI
 struct DevToolsLandingView: View {
     let onOpenSender: (() -> Void)?
     let onOpenReceiver: () -> Void
+    let onOpenBakeoff: (() -> Void)?
 
     @Environment(\.palette) private var palette
 
     init(
         onOpenSender: (() -> Void)? = nil,
-        onOpenReceiver: @escaping () -> Void
+        onOpenReceiver: @escaping () -> Void,
+        onOpenBakeoff: (() -> Void)? = nil
     ) {
         self.onOpenSender = onOpenSender
         self.onOpenReceiver = onOpenReceiver
+        self.onOpenBakeoff = onOpenBakeoff
     }
 
     var body: some View {
@@ -35,6 +38,15 @@ struct DevToolsLandingView: View {
                     accent: false,
                     isEnabled: true,
                     action: onOpenReceiver
+                )
+
+                modeCard(
+                    title: "Bake-off",
+                    subtitle: onOpenBakeoff == nil ? "Pending" : "Granite Speech 5-bit",
+                    icon: "gauge.with.dots.needle.bottom.50percent",
+                    accent: false,
+                    isEnabled: onOpenBakeoff != nil,
+                    action: onOpenBakeoff
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

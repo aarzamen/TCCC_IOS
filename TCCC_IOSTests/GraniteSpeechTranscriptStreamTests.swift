@@ -117,18 +117,20 @@ final class GraniteSpeechTranscriptStreamTests: XCTestCase {
         }
     }
 
-    func testGraniteSpeechStartAlwaysThrowsInG1() async {
-        // start(audioURL:) is unimplemented in Sprint 1 G1 by design;
-        // G2 wires the actual MLX model. The throw guards against any
-        // accidental UI path that calls start before G2 lands.
+    func testGraniteSpeechStartThrowsUntilLiveMicLands() async {
+        // G2 ships model load + transcribe via the runtime, but live
+        // mic capture through this `TranscriptStream` surface is a
+        // future phase — bake-off takes the runtime path directly.
+        // This guard ensures no UI path can quietly start a live RECORD
+        // session against Granite Speech before that wiring lands.
         let stream = GraniteSpeechTranscriptStream()
         do {
             _ = try await stream.start(audioURL: nil)
-            XCTFail("start(audioURL:) should throw in Sprint 1 G1.")
+            XCTFail("start(audioURL:) should throw until live-mic capture is wired.")
         } catch TranscriptStreamError.backendUnavailable(let message) {
             XCTAssertTrue(
-                message.contains("not implemented"),
-                "Expected message to flag the unimplemented state, got: \(message)"
+                message.contains("Granite Speech"),
+                "Expected error message to name Granite Speech, got: \(message)"
             )
         } catch {
             XCTFail("Unexpected error: \(error)")

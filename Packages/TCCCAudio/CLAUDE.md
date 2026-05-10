@@ -169,4 +169,44 @@ test had a sim launch flake ("Application failed preflight checks /
 Busy") — unrelated to G1 code; targeted regression run after sim
 reset was clean.
 
-(G2, G3, G4 sections will be appended as those phases land.)
+### G2 — Real model load + transcribe on physical iPhone (2026-05-10)
+
+- New `GraniteSpeechModelLoader.swift` mirrors `GraniteSpeechModel.fromPretrained`'s post-resolve body but takes a directory URL directly. Bypasses the upstream `ModelUtils.resolveOrDownloadModel` cache-path mangling (`<cacheDir>/mlx-audio/<owner>_<repo>/`) so the operator can pick a flat folder of `config.json + *.safetensors + tokenizer files` via the Files picker.
+- New `MemoryMonitor.swift` (per v3 §7): `phys_footprint` from `task_vm_info`, `os_proc_available_memory()`, `mach_task_basic_info.resident_size`. Includes a SwiftUI-friendly `MemoryMonitorObserver` (1 Hz polling + system memory-pressure subscription) and a CSV logger for jetsam forensics.
+- New `GraniteSpeechPrompt.swift` — keyword-biased ASR prompt sourced from v1 §6 acceptance baseline + the medications/interventions listed in `GraniteCandidatePatch`.
+- `GraniteSpeechRuntime` now actually loads the model in `prime()` (timed; captures pre/post `phys_footprint` snapshots) and exposes `transcribe(audioURL:prompt:maxTokens:temperature:)` returning `AsyncThrowingStream<STTGeneration, Error>`.
+- `Packages/TCCCAudio/Package.swift` adds explicit deps on `mlx-swift`, `mlx-swift-lm`, `swift-transformers` so the loader can `import MLX`, `import MLXNN`, `import Tokenizers` directly. (Previously these were only transitive through mlx-audio-swift.)
+
+App-target additions:
+- `TCCC_IOS/DevTools/GraniteBakeoffView.swift` (~280 lines) — bake-off harness. Resolves model via the shared bookmark store, primes, transcribes the bundled fixture, captures peak `phys_footprint`, computes keyword recall against the v1 §6 token list, appends a row to `Documents/BAKEOFF_RESULTS.md`.
+- `DevToolsLandingView` adds a third "Bake-off" tile alongside Sender/Receiver.
+- `DevToolsRootView` threads `state: AppState` through (so the bake-off can read the shared bookmark store) and adds a `.graniteBakeoff` route.
+- `TCCC_IOS/Resources/test_5min.wav` — 14-s fixture, 16 kHz mono Float32 WAV. **The file name is historical — see "Long-form encoder caveat" below.** Generated via `say` + `afconvert` from the first paragraph of the v1 §6 narrative.
+
+### G2 — Hardware validation results (iPhone 17 Pro, iOS 26.2)
+
+Cold prime + transcribe of a 14-s fixture:
+- Prime: **1.99 s**, `phys_footprint` Δ **+2196.3 MB** (matches the safetensors size; quantize step doesn't double-buffer).
+- Post-load resident: 2.16 GB.
+- Available headroom post-load: **3.84 GB** → total runtime cap **6.0 GB** (the `com.apple.developer.kernel.increased-memory-limit` entitlement is being honored on Apple Personal Team certificates — surprise upside; documented for future reference).
+- Transcribe: **5.78 s for 14-s audio** = 2.4× real-time decode.
+- Peak `phys_footprint` during transcribe: **2.46 GB** (only +250 MB above post-load).
+- Warm-run prime time: **1.04 s** (Δ +49 MB only) — model weights stay page-cached across `unload()` → `prime()`.
+
+Sample transcript (cold run):
+```
+break break this is medic kilo 6 i have a metavac request grid
+co-ordinate 8734-9012-0 frequency 444.50 call sign reaper one
+urgent surgical gsw to the chest
+```
+
+Recognized form is correct — keyword recall **6/20 (30%)**, expected because the test fixture only covers the first paragraph of the v1 §6 narrative.
+
+### G2 — Known limitations (carried into future work)
+
+1. **Long-form encoder crash.** The full v1 §6 narrative (synthesized via `say` to ~100 s of audio) crashes the app with SIGKILL/jetsam ~3 s into transcription, before any tokens come back. The CTC Conformer encoder's block-wise attention is configured for `context_size=200` so memory should stay bounded, but something during the encoder forward pass on the 1.6 M-sample input pushes the app over the 6 GB cap. Future work: chunked encode (process audio in 30-s windows, free intermediate tensors between), KV cache pruning, or upstream investigation. Sprint 1 G2 ships with a 14-s fixture as the working baseline; long-form audio is parked for a Sprint 2/3 polish.
+2. **Keyword biasing under-tuned.** "MEDEVAC" → "metavac"; "8734" → kept; "9120" → "9012-0"; "44.50" → "444.50". The keyword list in `GraniteSpeechPrompt.asr` is concatenated as plain text — Granite Speech doesn't expose a separate biasing parameter. Future work: experiment with prompt phrasing, evaluate whether the upstream model card's "keyword list biasing" doc applies to mlx-community quantizations.
+3. **Empty-result display bug fixed in commit.** `.result` STT events sometimes carry `output.text == ""` and rely on the caller's accumulator. Earlier code overwrote `transcriptText` to empty on result; fixed to only overwrite when `final.isEmpty == false`.
+4. **Live mic capture via `TranscriptStream.start(audioURL:)` still throws.** G2 ships only the file-based transcribe path through the bake-off. Live mic chunked decode is a future phase.
+
+(G3, G4 sections will be appended as those phases land.)

@@ -34,6 +34,15 @@ let package = Package(
             url: "https://github.com/Blaizzy/mlx-audio-swift.git",
             revision: "fcbd04daa1bfebe881932f630af2ba6ce9af3274"
         ),
+        // Transitive deps from mlx-audio-swift, declared explicitly so
+        // TCCCAudio's own sources can `import` them. Versions match
+        // mlx-audio-swift v0.1.2's lower bounds (per its Package.swift).
+        // Used by GraniteSpeechModelLoader to load the model from a
+        // user-picked URL directly (bypassing fromPretrained's
+        // baked-in HF cache path mangling — see G2 commit message).
+        .package(url: "https://github.com/ml-explore/mlx-swift.git", from: "0.30.6"),
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", from: "2.30.3"),
+        .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.1.6"),
     ],
     targets: [
         .target(
@@ -41,6 +50,10 @@ let package = Package(
             dependencies: [
                 .product(name: "MLXAudioCore", package: "mlx-audio-swift"),
                 .product(name: "MLXAudioSTT", package: "mlx-audio-swift"),
+                .product(name: "MLX", package: "mlx-swift"),
+                .product(name: "MLXNN", package: "mlx-swift"),
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+                .product(name: "Transformers", package: "swift-transformers"),
             ]
         ),
     ]
