@@ -353,10 +353,13 @@ gated-by-spec activity, not a pure code activity.
 ## Sprint 2 design research (2026-05-10)
 
 Research document: `docs/research/2026-05-10-audio-ingestion-comparison.md`.
+Physical-device addendum:
+`docs/research/2026-05-10-audio-ingestion-device-results.md`.
 
-Status: **source-backed but not physically complete**. Do not tag
-`sprint-2-research-complete` until the A/B/C chunking sweep runs on the
-physical iPhone and fills the doc's `BLOCKED:` measurement gaps.
+Status: **chunk-window decision measured, live-capture blocker still open**. Do not tag
+`sprint-2-research-complete` yet: the 30 s / 60 s / 111.5 s physical file-backed
+chunking sweeps are done, but the five-minute live capture/back-pressure acceptance run
+has not been implemented or measured.
 
 Important correction: pinned `mlx-audio-swift` source shows Granite
 Speech `context_size=200` is about **4 seconds** of raw 16 kHz audio,
@@ -371,6 +374,14 @@ implementation creates fresh audio features and a fresh decoder KV cache
 per call; it does not expose encoder-state continuation across chunks.
 Back-pressure on the capture side remains mandatory regardless of window
 size.
+
+Physical iPhone 17 Pro result: default to **8-second chunks with 1 second overlap**.
+Eight seconds beat 4/10/15 seconds on the 60-second sweep's quality/memory/latency
+tradeoff and completed the 111.5-second sustained fixture at 22.40 s wall, 1.59 s p95
+chunk wall, 3.63 GB peak `phys_footprint`, and 15/20 keyword recall. Ten seconds is a
+viable tuning option but used about 380 MB more peak memory and slightly lower recall
+on the sustained fixture. Fifteen seconds should be post-encounter or ceiling-finding
+only, not the live default.
 
 ---
 

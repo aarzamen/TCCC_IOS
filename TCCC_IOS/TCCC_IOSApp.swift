@@ -6,7 +6,11 @@ struct TCCC_IOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(state: state)
+            if GraniteAudioBenchmarkView.shouldRun {
+                GraniteAudioBenchmarkView(state: state)
+            } else {
+                ContentView(state: state)
+            }
         }
     }
 }

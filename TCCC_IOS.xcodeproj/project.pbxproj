@@ -118,6 +118,7 @@
 		CA4EC2183B056422C16E94E5 /* BodyMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA4BB66A62C7E065D6C2282 /* BodyMap.swift */; };
 		CC431037BDB5DAE9F34FBA76 /* PAWSRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EED0969895F125C962A9134 /* PAWSRowView.swift */; };
 		CF2A891275EF13C4AAD3F116 /* PageHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D59C15139886E7B8C11A614 /* PageHeader.swift */; };
+		D028CA48835686577DA6E477 /* GraniteAudioBenchmarkRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E0C63B7775AF019B709EA3 /* GraniteAudioBenchmarkRunner.swift */; };
 		D0E1D462FCB005800E7E6772 /* PlaceholderBody.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FE3B8D34AC99C28F9DB2B61 /* PlaceholderBody.swift */; };
 		D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904C678A5044C0CC41C1D43F /* ScreenPager.swift */; };
 		D556473072B2E63B261ADA9A /* DevToolsLandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130A60CA016A0775525BB5F9 /* DevToolsLandingView.swift */; };
@@ -236,6 +237,7 @@
 		9D59C15139886E7B8C11A614 /* PageHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageHeader.swift; sourceTree = "<group>"; };
 		9EF4359B55FA4EEAF1485551 /* TranscriptStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStream.swift; sourceTree = "<group>"; };
 		A1EA433E85994D4343C0AF2D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A4E0C63B7775AF019B709EA3 /* GraniteAudioBenchmarkRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteAudioBenchmarkRunner.swift; sourceTree = "<group>"; };
 		AA865D94AC15BA6F345C5C8B /* ReceiverPlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverPlaceholderView.swift; sourceTree = "<group>"; };
 		AB573FE657D740D397D5C736 /* HoldToConfirmButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldToConfirmButton.swift; sourceTree = "<group>"; };
 		AC0EF0B04ABAB9BAD0EBBABE /* TCCCAudio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCAudio; path = Packages/TCCCAudio; sourceTree = SOURCE_ROOT; };
@@ -375,6 +377,7 @@
 			children = (
 				130A60CA016A0775525BB5F9 /* DevToolsLandingView.swift */,
 				F7CC523213C16C2AFD23DDFF /* DevToolsRootView.swift */,
+				A4E0C63B7775AF019B709EA3 /* GraniteAudioBenchmarkRunner.swift */,
 				D4696F5D7C473458EB42D1AD /* GraniteBakeoffView.swift */,
 				EF42F804C8A546D9B349D000 /* GraniteLiveView.swift */,
 				2C3A951F721B164346611BE7 /* Audio */,
@@ -744,6 +747,7 @@
 				2DB8ED3856F8A0E263A4A795 /* FactRow.swift in Sources */,
 				03123FCFDF4C95F89710CE1B /* Field.swift in Sources */,
 				86BA530C6C55B2B98D486750 /* FooterHints.swift in Sources */,
+				D028CA48835686577DA6E477 /* GraniteAudioBenchmarkRunner.swift in Sources */,
 				DC37FBCD7F9DDDB148EE7051 /* GraniteBakeoffView.swift in Sources */,
 				BE3307F53C3A6140AF8EB5FC /* GraniteGeneratedCandidatePatch.swift in Sources */,
 				2EBBAB3052AB516334173286 /* GraniteHotSeatGenerator.swift in Sources */,

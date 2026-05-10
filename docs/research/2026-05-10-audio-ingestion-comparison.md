@@ -6,19 +6,34 @@
 
 **Audience:** Sprint 2 planning session for the TCCC.ai iOS Granite Speech path.
 
-**Status:** source-backed research document with explicit physical-measurement blockers.
+**Status:** source-backed research document with a physical-device follow-up.
 
-**Tag status:** do not tag `sprint-2-research-complete` from this document alone. The
-three strategy runs requested in the prompt still need to be executed on the physical
-iPhone 17 Pro after a chunking harness is added.
+**Device addendum:** `docs/research/2026-05-10-audio-ingestion-device-results.md`
+contains the 30 s, 60 s, and 111.5 s physical iPhone 17 Pro benchmark runs.
 
-**Why this document is still useful:** two of the uncertain questions were answerable
-from pinned source, and one of the prompt assumptions is wrong in a load-bearing way:
-Granite's `context_size=200` is about four seconds of encoder frames in the current
-`mlx-audio-swift` implementation, not about ten seconds of raw audio.
+**Tag status:** do not tag `sprint-2-research-complete` yet. The chunk-window decision
+now has physical evidence, but the five-minute live capture/back-pressure acceptance
+run remains open.
+
+**Why this document is still useful:** source inspection corrected a load-bearing
+prompt assumption: Granite's `context_size=200` is about four seconds of encoder frames
+in the current `mlx-audio-swift` implementation, not about ten seconds of raw audio.
+The device addendum then shows that the product default should still be closer to an
+8-second engineering window than to a literal 4-second encoder block.
 
 ---
 ## 1. Executive Summary
+
+**Physical-device update:** after adding a gated benchmark harness and running the
+connected iPhone 17 Pro, the recommended Sprint 2 default is **8-second independent
+Granite chunks with 1 second overlap**. On the 60-second sweep, 8 seconds had the best
+recall (11/20), near-best total wall time (11.57 s), p95 chunk wall time of 1.50 s, and
+peak `phys_footprint` of 3640.4 MB. On the 111.5-second sustained fixture, 8 seconds
+completed in 22.40 s with p95 chunk wall time of 1.59 s, peak `phys_footprint` of
+3630.8 MB, and recall of 15/20. Ten seconds is viable but heavier; four seconds is too
+fragmented for the durable transcript; fifteen seconds loses on memory, latency, and
+quality. See `docs/research/2026-05-10-audio-ingestion-device-results.md` for the
+measured tables.
 
 The Sprint 2 implementation should start with bounded, independent Granite Speech
 transcription windows fed from a back-pressured capture pipeline. In the terms of the
@@ -60,20 +75,19 @@ worker.
 My recommendation for the Sprint 2 spec writer is:
 1. Build the capture pipeline first: exact 16 kHz mono windowing, bounded ring buffer,
    no per-callback unstructured task fan-out, raw audio separate from UI gain.
-2. Implement Granite transcription as independent chunks with one to two seconds of
+2. Implement Granite transcription as independent **8-second** chunks with **1 second**
    overlap and deterministic boundary stitching.
-3. Run the physical-device window sweep in this order: 4 s, 8 s, 10 s, 15 s, 20 s,
-   30 s. Stop increasing as soon as peak `phys_footprint` trends above the 75% warning
-   band or the profile stops returning to baseline after `Memory.clearCache()`.
-4. Use 8-10 seconds only if it stays stable in the five-minute run; otherwise use
-   4-second windows as the architecture-aligned fallback.
-5. Keep 3-4 second chunks as a possible low-latency preview lane, not the durable
-   transcript path, unless keyword recall and boundary continuity beat expectations.
+3. Keep the window as a configurable constant so 10 seconds can be re-tested against
+   real field audio, but do not hard-code 10 seconds as the model boundary.
+4. Treat 3-4 second chunks as a possible low-latency preview lane, not the durable
+   transcript path.
+5. Treat 15 seconds and beyond as post-encounter retranscription or ceiling-finding
+   territory, not the live default.
 
-This document does not contain the median/p95 latency and five-minute
-`phys_footprint` curves requested for final Sprint 2 sign-off. Those require an
-instrumented physical-device run. The absence is marked as `BLOCKED:` in the strategy
-sections and is the reason this commit should remain untagged.
+The physical addendum resolves the chunk-window blocker for file-backed Granite
+transcription. It does not close the five-minute live capture/back-pressure blocker:
+Sprint 2 still needs an instrumented hot-seat run proving the capture ring and writer
+stay bounded while the model is consuming chunks.
 
 ---
 ## 2. Method
@@ -196,26 +210,30 @@ afconvert -f WAVE -d LEF32@16000 -c 1 .tmp/audio-fixtures/section6-raw.aiff .tmp
 That command is a fixture-generation starting point, not a guarantee of final duration.
 The benchmark harness should explicitly trim or repeat narrative spans to create the
 target lengths.
-### 2.5 Device Method Needed For Completion
+### 2.5 Device Method And Follow-Up
 
-The requested median/p95 latency, five-minute footprint profile, keyword recall, and
-boundary continuity require the physical iPhone. Simulator is not acceptable because MLX
-on iOS simulator is not the same runtime path and may not run the required Metal
-workload.
+The requested median/p95 latency, keyword recall, and boundary continuity required the
+physical iPhone. Simulator is not acceptable because MLX on iOS simulator is not the
+same runtime path and may not run the required Metal workload.
 
-The device run should:
+The follow-up benchmark did:
 - use the existing model resolver and bookmark store;
 - avoid hidden downloads;
-- use `MemoryMonitorCSVLogger`;
-- record `Memory.reading()` or `Memory.snapshot()` around every chunk;
+- record `MemoryMonitor.reading().physFootprintBytes` around every chunk;
 - record `STTGenerationInfo.tokensPerSecond`;
 - record first-token time, final-result time, and chunk-complete time;
 - write one JSONL or CSV row per chunk;
 - preserve exact chunk boundary timestamps and overlap spans;
 - compute keyword recall on the transcribed portion actually attempted.
+
+The remaining completion gap is not the file-backed chunk-window choice. It is the
+five-minute live capture profile with the new back-pressured capture pipeline, which
+does not exist yet.
 ### 2.6 What I Did Not Measure Here
 
-I did not run the A/B/C strategy sweep on the physical iPhone in this session.
+I did not run a five-minute live mic capture profile in this session. The physical
+device follow-up used file-backed fixtures split into chunk files so it could isolate
+Granite window size from the capture mailbox bug.
 
 I attempted a local macOS SwiftPM MLX slice probe in a temporary directory to test
 slice memory directly. The probe built, but execution failed because the standalone
@@ -223,9 +241,8 @@ SwiftPM executable could not load MLX's default Metal library:
 
 `MLX error: Failed to load the default metallib. library not found`
 
-That means the slice answer below is source-backed, not device-measured.
-BLOCKED: physical-device benchmark harness and runs are still required before this
-research can be called complete.
+That means the first-pass slice answer below was source-backed. The follow-up harness
+then resolved it on the physical device; see the device addendum's MLX slice probe.
 
 ---
 ## 3. Strategy A Results: Moderate Independent Windows
@@ -266,7 +283,8 @@ Therefore:
 This table is why I do not want the Sprint 2 spec to assert that ten seconds is a
 native model boundary.
 ### 3.3 Wall-Clock Latency
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 
 Relevant Sprint 1 baseline:
 - 14 s fixture completed in 5.78 s, about 2.4 audio-seconds per wall-second.
@@ -277,9 +295,11 @@ Expected Strategy A latency:
   first spoken words;
 - for an 8 s window, first display likely lands closer to 8-12 s;
 - overlap and stitching add small CPU cost but should be minor compared with Granite.
-BLOCKED: median and p95 mic-input-to-display latency need physical-device runs.
+Resolved for file-backed chunks in the device addendum. True mic-input-to-display
+latency remains tied to the Sprint 2 live capture pipeline.
 ### 3.4 Peak `phys_footprint`
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 
 Relevant Sprint 1 baseline:
 - post-load footprint/resident area was about 2.16 GB resident;
@@ -293,9 +313,11 @@ Expected Strategy A profile:
 
 Strategy A's main memory advantage is not magic encoder state. It is simply not asking
 Granite to encode the entire encounter in one call.
-BLOCKED: five-minute steady-state capture+transcribe profile needs device CSV.
+File-backed chunk peaks were measured. Five-minute steady-state live capture+transcribe
+still needs device CSV after the capture pipeline is fixed.
 ### 3.5 Tokens/Sec Throughput
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 
 The upstream `generateStream` emits `STTGenerationInfo.tokensPerSecond` after each call.
 The Sprint 2 harness should persist that value per chunk.
@@ -303,9 +325,10 @@ Expected shape:
 - 8-10 s chunks should amortize fixed prefill better than 3-4 s chunks;
 - token/s may look deceptively healthy even if first-token latency is poor;
 - report both token/s and wall-clock chunk completion.
-BLOCKED: device strategy rows needed.
+Resolved for file-backed chunks in the device addendum.
 ### 3.6 Keyword Recall
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 
 Strategy A should be evaluated against the v1 Section 6 token list already visible in
 `GraniteBakeoffView`. The recall denominator must be restricted to the fixture portion
@@ -315,9 +338,10 @@ Expected behavior:
 - one to two seconds of overlap should recover most word cuts;
 - deterministic dedupe is needed so overlapped drugs and vitals are not double-applied
   into the encounter ledger.
-BLOCKED: recall requires physical transcriptions.
+Resolved for the 30 s, 60 s, and 111.5 s file-backed fixtures in the device addendum.
 ### 3.7 Boundary Continuity
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected continuity risk:
 - a phrase such as "needle decompression" can split across windows;
 - medication plus dose can split across windows;
@@ -328,9 +352,10 @@ Recommended annotation in the benchmark output:
 - print the first 15 words of chunk N+1;
 - print the stitched span;
 - mark whether the overlap deduper kept, dropped, or merged each repeated phrase.
-BLOCKED: transcript samples need the chunking harness.
+Resolved for file-backed chunking in the device addendum.
 ### 3.8 Encoder Warmup Amortization
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 
 Sprint 1 warm reprime was 1.04 seconds. That number is a useful warning but not the same
 as per-chunk overhead inside a primed runtime. The per-chunk overhead for Strategy A
@@ -346,7 +371,8 @@ Expected amortization:
 - much better than Strategy B;
 - much worse than true stateful streaming, which Granite does not currently expose.
 ### 3.9 MLX Allocation Pattern
-Measured in this session: source-inspected, not device-measured.
+First source pass: source-inspected only. Physical follow-up sampled MLX active/cache
+memory per chunk and is summarized in the device addendum.
 
 `generateStream` calls `Memory.clearCache()` at the end. That should reduce cache
 growth, but MLX documentation says buffers can remain cached until limit behavior is
@@ -378,7 +404,8 @@ The source says otherwise:
 So Strategy B is not a weird sub-context fragment. It is close to the actual encoder
 attention context duration.
 ### 4.3 Wall-Clock Latency
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected behavior:
 - first durable text can appear after about 3-4 seconds plus inference time;
 - if inference is faster than real time, perceived latency may be tolerable;
@@ -386,9 +413,11 @@ Expected behavior:
 
 The key metric is not one isolated 4 s chunk. The metric is whether a five-minute stream
 keeps queue depth bounded while the operator keeps talking.
-BLOCKED: median/p95 latency and queue depth need device runs.
+File-backed 4-second chunks had the lowest per-chunk wall time, but the transcript was
+too fragmented. Queue depth still needs the live capture implementation.
 ### 4.4 Peak `phys_footprint`
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected memory profile:
 - best per-call activation bound among A/B/C;
 - more total calls, more opportunities for cache fragmentation;
@@ -398,9 +427,10 @@ Expected memory profile:
 
 Strategy B will not rescue a bad capture pipeline. If tap callbacks keep spawning tasks,
 3-second chunking only moves the bottleneck.
-BLOCKED: five-minute profile needed.
+Five-minute live capture profile still needed.
 ### 4.5 Tokens/Sec Throughput
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected behavior:
 - token/s may be lower than Strategy A because prefill/setup happens more often;
 - warm-start effects may hide the cost in short tests;
@@ -410,7 +440,8 @@ The Sprint 1 warm reprime of 1.04 s is the warning sign. If a 3 s slice spends a
 one second on fixed overhead, roughly a quarter to a third of the budget is overhead
 before useful decode is considered.
 ### 4.6 Keyword Recall
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected risk:
 - 3-4 s windows may split many TCCC facts;
 - overlap can help, but overlap consumes a larger fraction of each slice;
@@ -418,7 +449,8 @@ Expected risk:
 
 Strategy B needs a stronger boundary ledger than A because boundaries occur more often.
 ### 4.7 Boundary Continuity
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected continuity:
 - higher risk of clipped clauses;
 - higher risk of repeated partial words;
@@ -427,7 +459,8 @@ Expected continuity:
 The benchmark should compare 3 s, 4 s, and 4 s with 1 s overlap. It should not report
 "Strategy B" as one number.
 ### 4.8 Encoder Warmup Amortization
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 
 This is the central downside.
 
@@ -439,7 +472,8 @@ If the chunk is 4 s of speech and the model takes 1.6 s wall time, then fixed ov
 is tolerable only if most of that 1.6 s is useful compute. If the chunk takes 3-5 s wall
 time, the worker falls behind.
 ### 4.9 MLX Allocation Pattern
-Measured in this session: source-inspected, not device-measured.
+First source pass: source-inspected only. Physical follow-up sampled MLX active/cache
+memory per chunk and is summarized in the device addendum.
 
 Each call creates a fresh decoder KV cache. Each call also extracts features and
 computes audio features from scratch. There is no retained encoder state across calls.
@@ -472,7 +506,8 @@ But the implementation still:
 This matches the Sprint 1 observation that the about 100-second input dies during the
 encoder forward pass before long-form decoding can matter.
 ### 5.3 Wall-Clock Latency
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected behavior:
 - 15 s window: first durable text likely too slow for live extraction but maybe
   acceptable for record-and-review.
@@ -481,9 +516,11 @@ Expected behavior:
 
 Strategy C may still be valuable for post-encounter re-transcription or high-quality
 repair after a lower-latency preview lane.
-BLOCKED: device runs needed.
+The measured 15-second file-backed run had p95 chunk wall time of 3.17 seconds on the
+60-second fixture, worse than the 8-second and 10-second alternatives.
 ### 5.4 Peak `phys_footprint`
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected memory profile:
 - each larger window increases full-input feature and activation memory;
 - cache reuse may help after the first same-size call;
@@ -496,15 +533,18 @@ The safe way to run Strategy C is a bisect with hard stop rules:
 - run 20 s only if 15 s is stable;
 - run 30 s only if 20 s is stable;
 - stop if footprint exceeds warning threshold or if post-call cache does not settle.
-BLOCKED: no Strategy C sweep was run here.
+The measured 15-second file-backed run peaked at 4517.8 MB `phys_footprint`, about
+877 MB above 8-second chunks on the same fixture, with no recall gain.
 ### 5.5 Tokens/Sec Throughput
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected behavior:
 - if memory fits, longer windows should amortize fixed setup better;
 - token/s alone may look better while operator latency gets worse;
 - the benchmark should report both generation token/s and audio-seconds/wall-second.
 ### 5.6 Keyword Recall
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected behavior:
 - best chance of preserving long clauses and phrase context;
 - lower boundary count;
@@ -514,7 +554,8 @@ If Strategy C can complete the full five-minute fixture through 30-second window
 may produce the best durable transcript. That is plausible enough to test, but not
 plausible enough to assume.
 ### 5.7 Boundary Continuity
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected behavior:
 - fewer boundaries than A/B;
 - fewer stitch points;
@@ -522,13 +563,15 @@ Expected behavior:
 
 Boundary stitching remains necessary because every call is independent.
 ### 5.8 Encoder Warmup Amortization
-Measured in this session: not measured.
+First source pass: not measured. Physical follow-up results are summarized in the
+device addendum.
 Expected behavior:
 - best amortization among the independent-window strategies;
 - worst first-display latency;
 - risk that memory headroom disappears before amortization matters.
 ### 5.9 MLX Allocation Pattern
-Measured in this session: source-inspected, not device-measured.
+First source pass: source-inspected only. Physical follow-up sampled MLX active/cache
+memory per chunk and is summarized in the device addendum.
 
 The source does not show stateful encoder reuse. Strategy C is therefore not "long
 stateful streaming." It is "bigger independent batches."
@@ -569,10 +612,10 @@ chunk arrays while expecting memory to drop. That can retain the full parent aud
 array, and it still risks evaluated slice outputs. Build chunk arrays from a bounded
 PCM ring or read bounded spans from disk so the long parent never exists in MLX memory.
 Measurement status:
-BLOCKED: the iPhone MLX memory probe still needs to measure `Memory.snapshot()` before
-slice, after slice, after `eval(slice)`, after parent release, and after
-`Memory.clearCache()`. A macOS temporary probe failed because the standalone SwiftPM
-binary could not load MLX's default Metal library.
+Resolved on the physical iPhone in the device addendum. The slice probe did not show a
+new full-size allocation at slice construction or `eval(slice)`, but active memory
+remained tied to the evaluated base/slice. That supports chunking before MLX arrays are
+created, not slicing one long parent array.
 ### 6.2 Does `model.generateStream(audio:)` Retain Encoder State Across Calls?
 
 Short answer: no, not through the public Granite implementation pinned in this repo.
@@ -625,8 +668,8 @@ Design implication:
 
 The Sprint 2 spec should remove or correct the old "context_size=200 ≈ 10 s" note in
 `Packages/TCCCAudio/CLAUDE.md`. The attention block is about 4 s. Ten-second windows may
-still be selected, but they should be selected because the physical sweep says they are
-stable and better for recall/latency, not because they are the native context size.
+still be tested, but the physical sweep favored 8-second windows for the live default.
+That is a product latency/quality/memory decision, not the native context size.
 ### 6.4 Does The Encoder Long-Form Crash Mean Block-Wise Attention Is Broken?
 
 Not necessarily.
@@ -811,8 +854,9 @@ to make one buffer size satisfy all consumers.
 
 Use bounded independent Granite windows with overlap, driven by a back-pressured capture
 pipeline. Treat 4 seconds as the source-backed encoder attention block duration. Treat
-8-10 seconds as the likely product window if physical measurement says it is stable.
-Treat 15-30 seconds as benchmark-only until proven safe.
+**8 seconds with 1 second overlap** as the measured Sprint 2 live default. Treat 10
+seconds as a tuning option, and treat 15-30 seconds as benchmark/post-encounter
+territory until proven safe for live capture.
 
 In prompt terminology:
 - Strategy A is the recommended starting architecture, corrected for the true
@@ -870,26 +914,27 @@ The writer should:
 - mark files with `NSFileProtectionComplete`.
 ### 8.4 Window Sizing
 
-Initial physical sweep:
+Physical sweep:
 | Candidate | Purpose |
 | ---: | --- |
-| 4 s | true context-block baseline |
-| 8 s | two-block latency/quality compromise |
-| 10 s | prompt's moderate-window hypothesis |
-| 15 s | lower-bound Strategy C |
-| 20 s | memory ceiling probe |
-| 30 s | high-risk ceiling probe |
+| 4 s | true context-block baseline; stable but too fragmented |
+| 8 s | measured live default candidate; best quality/memory/latency tradeoff |
+| 10 s | viable tuning option; faster overall in sustained run but heavier |
+| 15 s | lower-bound Strategy C; worse memory/latency without recall gain |
+| 20 s | unneeded for Sprint 2 default after 15 s result |
+| 30 s | high-risk ceiling probe/post-encounter only |
 
 Production default after sweep:
-- Use 8 s if recall and latency are acceptable and five-minute memory is stable.
-- Use 10 s if it clearly improves recall/continuity without memory creep.
-- Use 4 s if 8-10 s does not remain stable.
+- Use 8 s as the default for the first live implementation.
+- Keep 10 s as a runtime/config constant for field retesting.
+- Use 4 s only as a fallback or preview lane if live capture memory forces it.
 - Do not ship 15-30 s as the live path unless five-minute memory and first-display
   latency are both acceptable.
 
 Overlap:
 - Start with 1 s overlap for 4 s windows.
-- Start with 1.5-2 s overlap for 8-10 s windows.
+- Start with 1 s overlap for 8 s windows because that is what was measured.
+- Test 1.5-2 s overlap later only if boundary errors remain material.
 - Keep 2-3 s overlap for 15-30 s windows if those are tested.
 
 The overlap should be defined in samples, not floating timestamps.
@@ -1032,18 +1077,19 @@ Missing:
 - warmup amortization by chunk size;
 - device-measured MLX allocation behavior around slices.
 
-This is why the commit should remain untagged.
+This is why the commit should remain untagged as full research completion, even though
+the file-backed chunk-window decision now has physical evidence.
 ### 9.2 iOS Version Mismatch
 
-The prompt mentions iOS 26.4 in one place. `SPRINT_1_ACCEPTANCE.md` records iOS 26.2.
-The device must be re-identified during the final benchmark run, and the doc should be
-updated with the actual OS version.
-### 9.3 MLX Slice Semantics Need Device Confirmation
+The prompt mentions iOS 26.4 in one place. The physical benchmark device reported iOS
+26.2 through `devicectl`. Future runs should keep recording the actual OS version
+instead of trusting prompt memory.
+### 9.3 MLX Slice Semantics Are Narrowly Measured
 
-Source says slice is lazy and references the parent. That is enough to reject designs
-that hold a long parent array and hope slicing saves memory.
-
-It is not a substitute for measured active/cache/footprint deltas on iPhone.
+The physical slice probe supports the source answer that simple slicing is not an eager
+full copy. That is enough to reject designs that hold a long parent array and hope
+slicing saves memory. It is not a full proof for every MLX slicing path or downstream
+operation.
 ### 9.4 Warm Runtime Is Not Stateful Runtime
 
 A second call may be faster than a first call, but that does not mean the model kept
@@ -1101,19 +1147,18 @@ The Sprint 2 spec can take these as established unless the upstream dependency c
 ### 10.2 Decide In The Sprint 2 Spec
 
 The Sprint 2 spec writer still needs to decide:
-- exact benchmark harness surface;
-- whether harness lives in app DevTools, package research target, or both;
+- whether the benchmark harness remains app DevTools-only or gets promoted into a
+  package research target as well;
 - file replay fixture generation commands;
 - live capture simulation method;
 - starting `Memory.cacheLimit`;
-- chunk window candidates;
-- overlap duration candidates;
+- whether to expose the 8-second default as a debug-tunable setting;
+- whether to test 1.5-2 s overlap after the 1 s overlap baseline;
 - keyword list source of truth;
 - stitcher acceptance criteria;
 - degraded-state UI copy;
-- failure thresholds for stopping Strategy C;
-- whether Strategy B becomes preview-only;
-- whether the final production default is 4 s, 8 s, or 10 s;
+- failure thresholds for any future Strategy C ceiling probe;
+- whether Strategy B becomes preview-only or is dropped entirely;
 - whether DD-1380 extraction consumes stitched text only or also chunk-local raw text;
 - how to persist benchmark artifacts from the app container.
 ### 10.3 Minimum Benchmark Rows
@@ -1167,34 +1212,34 @@ Before the Sprint 2 production path can be considered ready:
 
 Do not start by making the UI pretty.
 
-Start with a small benchmark harness that can transcribe fixed file windows from a
-known fixture and write rows to a durable artifact. Then add live capture segmentation.
-Then pick the production window from data.
+Start from the benchmark harness that now transcribes fixed file windows from a known
+fixture and writes rows to a durable artifact. Then add live capture segmentation and
+prove the capture side stays bounded.
 
 The minimal useful implementation order:
 1. `AudioWindowDescriptor` and exact sample math.
-2. File-based chunk replay using the existing Granite resolver.
-3. Per-chunk metrics rows.
-4. Stitcher prototype.
-5. Strategy sweep on device.
-6. Bounded capture pipeline.
-7. Live capture five-minute run.
-8. Production integration into `TranscriptStream`.
+2. Bounded capture pipeline.
+3. Live segmenter emitting 8 s / 1 s overlap descriptors.
+4. Stitcher prototype using the file-backed benchmark text.
+5. Per-chunk metrics rows in the live path.
+6. Live capture five-minute run.
+7. Production integration into `TranscriptStream`.
+8. Optional 10 s retest after the live path is stable.
 
 That order prevents the sprint from burying the core uncertainty under UI work.
 ### 10.6 Closing State
 
-This document should be read as a decision aid and a correction pass, not as the final
-benchmark report.
+This document should be read as a decision aid and correction pass, with the physical
+device addendum as the current benchmark report.
 
 The strongest current conclusion is not "Strategy A wins forever."
 
 The strongest current conclusion is:
 
 Granite Speech in this repo is not stateful streaming ASR, the encoder context math is
-four seconds rather than ten, the current live capture mailbox is unsafe, and Sprint 2
-should implement bounded independent chunking with physical-device measurement before
-choosing the final window.
+four seconds rather than ten, the current live capture mailbox is unsafe, and the best
+measured Sprint 2 default is bounded independent 8-second chunking with 1 second
+overlap.
 
-That is enough to write a sharper Sprint 2 spec. It is not enough to tag the research as
-complete.
+That is enough to write a sharper Sprint 2 spec. It is still not enough to tag the
+research as complete until the live capture/back-pressure run is measured.
