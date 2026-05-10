@@ -284,6 +284,74 @@ Recognized form is correct — keyword recall **6/20 (30%)**, expected because t
    limitations"), so this acceptance criterion lands as **partial**
    in Sprint 1's acceptance gate.
 
+## Sprint 2 design research blockers (2026-05-10, post-Sprint-1)
+
+Recorded after Sprint 1 closure (tag `sprint-1-granite-speech-foundation`,
+commit `e13ecc4`). **The Sprint 2 spec cannot be written until this
+research lands** — the choice between the three approaches below has
+load-bearing architectural consequences (chunk-boundary stitching, KV
+cache lifetime, mailbox backpressure shape, transcript continuity UX,
+all flow from this decision).
+
+The three approaches to compare for chunked-encode in Granite Speech 4.0
+1B 5-bit:
+
+1. **Single-shot encode (current Sprint 1 baseline) vs non-encoded
+   chunking.** The current pipeline runs the full audio array through
+   `model.generateStream(audio: fullArray)` in one pass — works for ≤14
+   s, crashes the encoder forward pass past ~30 s. A "non-encoded
+   chunking" variant feeds audio into the model in some chunked shape
+   *without* invoking the full encoder per chunk (e.g., streaming raw
+   PCM windows into a shared encoder state, or sliding-window encode
+   without re-encoding overlapped frames). Need quantified comparison:
+   total wall-clock, peak `phys_footprint`, tokens-per-second on iPhone
+   17 Pro, transcript quality vs single-shot baseline.
+
+2. **Non-encoded chunking, very short windows (~3-4 s).** Hypothesis:
+   tiny PCM windows fed directly into the model's audio path keep the
+   per-chunk encoder pass small enough that peak memory stays well
+   under the 6 GB cap, at the cost of more chunk-boundary stitching and
+   higher per-token amortized overhead. Open question: does
+   `MLXAudioSTT.GraniteSpeechModel` support state continuity across
+   sub-encoder-block-size inputs at all, or does the encoder's
+   `context_size=200` (≈ 10 s of audio at 16 kHz / 160-hop / 5×
+   downsample) make 3-4 s windows degenerate into independent
+   transcripts that need post-hoc stitching?
+
+3. **Encoded chunking, longer windows (~10 s).** Hypothesis: 10 s
+   chunks align with the encoder's native `context_size=200`, so each
+   chunk is a clean encoder pass with a complete attention window. Boundary
+   stitching uses 1-3 s overlap (matches `TCCC_FEB_2026/src/audio.py:115-173`'s
+   60s/3s pattern but at smaller scale). Open question: does running
+   the encoder at its native block size give sane memory bounds (the
+   single-shot 100 s case crashes at ~3 s into transcribe = first
+   encoder pass on 1.6 M samples; a 10 s chunk is 1/10 the input —
+   peak should fit), and do the decoded chunks compose into a coherent
+   transcript when the LM decoder sees them as separate
+   `generateStream` invocations vs one continuous one?
+
+**What to measure on each approach:**
+- Wall-clock total transcribe time for a fixed-length input (use the
+  existing 14 s and 100 s fixtures for parity).
+- Peak `phys_footprint` (MemoryMonitor + CSV logger captured per-tick).
+- Tokens-per-second (via STTGenerationInfo).
+- Keyword recall on the v1 §6 token list (use the full 5-min narrative
+  re-synthesized — Sprint 1 punted at the first paragraph).
+- Transcript continuity at chunk boundaries (manual eyeball + diff
+  against single-shot baseline on short fixtures where single-shot
+  works).
+
+**Resumption pointer**: when Sprint 2 starts, the design pass reads
+back from `SPRINT_1_ACCEPTANCE.md` §"Sprint 2 carry-over" +
+`PRIOR_AUDIO_PATTERNS.md` Top Pattern #1 + this blocker section.
+Spawn a research subagent (same shape as the one that produced
+`PRIOR_AUDIO_PATTERNS.md`) to fetch the IBM Granite Speech model card +
+any chunked-decode notes from the upstream `mlx-audio-swift` repo
+since v0.1.2 was tagged. The chunk-vs-overlap research is then a
+gated-by-spec activity, not a pure code activity.
+
+---
+
 ### G4 — Sprint 1 acceptance gate (2026-05-10)
 
 - `SPRINT_1_ACCEPTANCE.md` written at repo root. Walks v3 §13's nine
