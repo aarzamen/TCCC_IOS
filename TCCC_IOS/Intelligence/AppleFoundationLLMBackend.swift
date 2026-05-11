@@ -2,14 +2,14 @@ import Foundation
 import FoundationModels
 
 /// Apple Foundation Models backend conformer for `TCCCLLMBackend`.
-/// Wraps the existing `TCCCLanguageModel` actor pattern so the four
-/// generators (radio, narrative, ZMIST, cleaner) can swap to a
+/// Wraps the existing `TCCCLanguageModel` actor pattern so the
+/// generators (radio, narrative, ZMIST) can swap to a
 /// different backend at runtime per night-pass Track C.
 ///
 /// This is the **default** backend — operator does nothing and Apple
-/// Foundation Models is what runs. The four generators
+/// Foundation Models is what runs. The generators
 /// (`RadioScriptGenerator`, `EncounterNarrativeGenerator`,
-/// `ZMISTNarrativeGenerator`, `TranscriptCleaner`) all consume
+/// `ZMISTNarrativeGenerator`) all consume
 /// `any TCCCLLMBackend` per call (vended by `AppState.currentBackend`),
 /// so flipping the Settings backend toggle swaps engines at runtime.
 actor AppleFoundationLLMBackend: TCCCLLMBackend {

@@ -70,11 +70,11 @@ App layer:
 - [x] Phase E — Screen 05 Handoff. Encounter Summary + Timeline + Export · Transmit. **QR · OFFLINE export is functional end-to-end** — `JSONEncoder().encode(primaryPatient)` rendered via `CIQRCodeGenerator` into a 360pt sheet. DD-1380 PDF / Audio bundle / CSV stubbed READY/PENDING. Selected destination is read by Screen 04's transmit handler.
 - [x] Phase F — Screen 02 Vitals. BigVital (52pt mono) / SmallVital tiles, ECG canvas (Canvas + TimelineView, ~80 BPM PQRST scrolling 80pt/s), TrendChart (3 series over rolling 15-min `VitalsHistory` buffer, recorded each engine snapshot), InterventionRow filtered to non-medication kinds.
 - [x] Phase G — Settings + Quick Actions overlays. Settings: RF discipline visual confirmation (5 line-through radio cards + 3 egress cards), 3-theme picker (live applies via environment), 5 system toggles, operator profile fields, NEW CAS + WIPE (HOLD 3s with progress bar). Quick Actions: 3×2 action grid feeding system transcript lines. Both presented as ZStack overlays; tap-on-scrim dismisses. Footer gear / plus icons trigger them on every screen.
-- [x] Audio capture lead/tail — 10s pre-roll ring buffer + 10s post-roll tail in `SpeechRecognizer`. Pre-roll drains into the recognizer + a `.wav` audio file on `start(audioURL:)`. Tail keeps recognising for 10s after `stop()` so trailing sentences aren't cut off. Engine continues to be primed across Live Capture's lifetime.
+- [x] Audio capture lead/tail — 30s pre-roll ring buffer + 30s post-roll tail in `SpeechRecognizer`. Pre-roll drains into the recognizer + a `.wav` audio file on `start(audioURL:)`. Tail keeps recognising for 30s after `stop()` so trailing sentences aren't cut off. Engine continues to be primed across Live Capture's lifetime.
 - [x] Real exports — Handoff cards now wire JSON / Audio + Transcript / Vitals CSV through `UIActivityViewController`. QR sheet has Save-to-Photos + Share buttons. (DD-1380 PDF still PEND.)
 - [x] Lifecycle quick-tap — footer NEW / END / WIPE buttons with top-positioned big-letter confirmation banner. No more navigating into Settings every time.
 - [x] SLM v1 — `TCCCLanguageModel` + `RadioScriptGenerator` (natural-language MEDEVAC radio call from 9-line) wired into Screen 04.
-- [x] SLM v2 — `EncounterNarrativeGenerator` (2-3 sentence prose summary), `ZMISTNarrativeGenerator` (SLM-formatted ZMIST on top of `TCCCReports.ZMISTGenerator` fallback), `TranscriptCleaner` (fix ASR mishearings of drugs/anatomy/military shorthand). Surfaced on Handoff + Live Capture.
+- [x] SLM v2 — `EncounterNarrativeGenerator` (2-3 sentence prose summary) and `ZMISTNarrativeGenerator` (SLM-formatted ZMIST on top of `TCCCReports.ZMISTGenerator` fallback). Surfaced on Handoff.
 - [x] Silence-debounce on partial transcripts — 1.5s of partial stability commits the line and runs the engine. `SpeechRecognizer.forceFinalize()` resets the recognition context so subsequent partials don't redundantly include already-committed text. `appendFinal` dedupes if SFSpeechRecognizer's own `isFinal` later fires the same string.
 - [x] Permissive vitals regex — HR / BP / SpO₂ / RR now accept `is | was | of | at | around | reading | came` between keyword and digits. Catches natural medic phrasings like "BP was 120/80" without breaking the 33 existing vitals tests.
 
@@ -287,9 +287,9 @@ post-sprint review:
   `ZMISTGenerator` text instead. `TCCCLanguageModel` now uses
   a fresh `LanguageModelSession` per `generate()` call so
   context never bleeds between casualties or generation
-  kinds. All four generators (`RadioScriptGenerator`,
-  `ZMISTNarrativeGenerator`, `EncounterNarrativeGenerator`,
-  `TranscriptCleaner`) now take an injected
+  kinds. The three generators (`RadioScriptGenerator`,
+  `ZMISTNarrativeGenerator`, and `EncounterNarrativeGenerator`)
+  now take an injected
   `any TCCCLLMBackend`; `AppState.currentBackend` vends the
   right wrapper for the operator's selected backend. Settings
   has a matching LLM backend picker.
@@ -356,10 +356,10 @@ session.
    has not been added (only the ASR toggle is there). Symmetric
    to the ASR section: radio between Apple Foundation / LFM2 /
    Qwen with status indicators.
-6. **Refactor the four generators to consume `TCCCLLMBackend`.**
+6. **Refactor the three generators to consume `TCCCLLMBackend`.**
    `RadioScriptGenerator`, `EncounterNarrativeGenerator`,
-   `ZMISTNarrativeGenerator`, and `TranscriptCleaner` currently
-   instantiate `TCCCLanguageModel` directly. Once they accept a
+   and `ZMISTNarrativeGenerator` currently instantiate
+   `TCCCLanguageModel` directly. Once they accept a
    backend, the LLM toggle in (5) actually swaps engines at
    runtime.
 7. **Ship LFM2.5-1.2B-Instruct or Qwen 3 1.7B for real.** The

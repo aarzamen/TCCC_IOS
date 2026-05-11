@@ -1,11 +1,10 @@
 import Foundation
 
-/// Backend abstraction for the four on-device LLM use cases the app
+/// Backend abstraction for the three on-device LLM use cases the app
 /// currently runs through Apple Foundation Models:
 ///   1. Radio-script generation from a structured 9-line
 ///   2. 2–3 sentence encounter narrative
 ///   3. ZMIST handoff format
-///   4. TranscriptCleaner — fix ASR mishearings
 ///
 /// Per night-pass Track C (2026-05-05). Apple Foundation Models stays
 /// the runtime default. Stub backends for LFM2.5-1.2B-Instruct and
