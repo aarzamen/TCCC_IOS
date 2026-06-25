@@ -696,9 +696,13 @@ final class AppState {
             do {
                 try await encounterStore?.purgeAll()
                 let enc = documentsURL.appendingPathComponent("encounters")
-                assert(!FileManager.default.fileExists(atPath: enc.path), "WIPE must purge the archive")
+                // PURGE gate: a failed delete must SURFACE to the operator, never crash a
+                // field device (an assert() here SIGTRAPs debug/test builds). The runtime
+                // check is the real gate on the "complete" signal.
                 if FileManager.default.fileExists(atPath: enc.path) {
                     appendSystem("WIPE INCOMPLETE · archive still present")
+                } else {
+                    appendSystem("WIPE COMPLETE · archive purged")
                 }
             } catch {
                 appendSystem("WIPE FAILED · \(error.localizedDescription)")
