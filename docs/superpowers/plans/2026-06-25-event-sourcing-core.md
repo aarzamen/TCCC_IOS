@@ -65,7 +65,7 @@
 - Test: `Packages/TCCCKit/Tests/TCCCExtractorTests/EncounterEventTests.swift`
 
 **Interfaces:**
-- Produces: `PatientStateDelta` (37-case enum), `EncounterEvent` (5 cases) + `ASRSegmentPayload`, `DeterministicFactPayload`, `OperatorDecisionPayload`, `LifecyclePayload`, `EncounterLog`. Consumed by every later task.
+- Produces: `PatientStateDelta` (36-case enum — one per writable field of PatientState/MARCHState/Vitals/PAWS; `patientId` is the identity key, not a delta), `EncounterEvent` (5 cases) + `ASRSegmentPayload`, `DeterministicFactPayload`, `OperatorDecisionPayload`, `LifecyclePayload`, `EncounterLog`. Consumed by every later task.
 - Consumes: `PatientState`, `MARCHState`, `Vitals`, `BloodPressure`, `Intervention`, `MarchPhase`, `Classification` (TCCCDomain); `PatientStateFieldWrite` (TCCCExtractor).
 
 - [ ] **Step 1: Write the failing test**
