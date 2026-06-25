@@ -120,7 +120,7 @@ public actor PatientStateEngine {
         }
 
         emitEvents(text: text, before: before, timestamp: unixTimestamp)   // A3 dual-write
-        // A5 will append: patients = Self.project(log)
+        patients = Self.project(log)              // ← FLIP: state flows from the log
     }
 
     /// Snapshot copy of the entire patient dict.
@@ -152,17 +152,19 @@ public actor PatientStateEngine {
 
     private var opCount = 0
 
-    /// Record + apply an operator-accepted fact. A4: imperative apply (reuse apply) +
-    /// append the event. A5 adds `patients = Self.project(log)` after the append.
+    /// Record + apply an operator-accepted fact. A5: append event then project so
+    /// state flows from the log. `ensurePatientExists` keeps `currentPatientID`/row
+    /// bookkeeping consistent before project rebuilds `patients`.
     public func recordOperatorAcceptedFact(write: PatientStateFieldWrite, factId: String?,
         domain: String, field: String, rawValue: String?, to patientId: String,
         timestamp: Date = Date()) {
+        ensurePatientExists(patientId)
         let unix = timestamp.timeIntervalSince1970
-        apply([write], to: patientId)                              // imperative (A4)
         opCount += 1
         log.append(.operatorAcceptedFact(.init(
             id: "op-\(opCount)", patientId: patientId, timestampUnix: unix,
             write: write, sourceFactId: factId, domain: domain, field: field, rawValue: rawValue)))
+        patients = Self.project(log)              // ← FLIP
     }
 
     /// Record an operator rejection (audit only — never mutates state).

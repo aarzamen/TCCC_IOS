@@ -55,4 +55,14 @@ final class LogEquivalenceTests: XCTestCase {
             if case .deterministicFact(let p) = $0, case .vitalsHR(110) = p.delta { return true }; return false
         })
     }
+
+    func testAfterFlipSnapshotIsTheProjection() async throws {
+        let engine = PatientStateEngine.standard()
+        await engine.processTranscript(try loadScenario("scenario_1_gsw_thigh"))
+        let snap = await engine.snapshot()
+        let projected = PatientStateEngine.project(await engine.snapshotLog())
+        XCTAssertEqual(snap, projected)            // snapshot IS the fold, not a parallel imperative copy
+        // And a known field still lands (guards against an all-empty projection passing trivially):
+        XCTAssertEqual(snap["PATIENT_1"]?.vitals.hr, 110)
+    }
 }
