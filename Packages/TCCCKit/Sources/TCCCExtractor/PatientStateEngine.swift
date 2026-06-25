@@ -124,6 +124,33 @@ public actor PatientStateEngine {
         return patients[patientId]
     }
 
+    /// Apply typed field writes to one patient. This is the ONLY non-extraction
+    /// mutation entry; it accepts only the typed `PatientStateFieldWrite` vocabulary,
+    /// so the engine remains the sole writer of `PatientState`.
+    public func apply(_ writes: [PatientStateFieldWrite], to patientId: String) {
+        guard !writes.isEmpty else { return }
+        ensurePatientExists(patientId)
+        var p = patients[patientId]!
+        for write in writes {
+            switch write {
+            case .heartRate(let v):            p.vitals.hr = v
+            case .spo2(let v):                 p.vitals.spo2 = v
+            case .respiratoryRate(let v):      p.vitals.rr = v
+            case .bloodPressure(let s, let d, let pal):
+                p.vitals.bp = BloodPressure(systolic: s, diastolic: d, palpated: pal)
+            case .hemorrhageLocation(let v):   p.march.hemorrhageLocation = v
+            case .hemorrhageIntervention(let v): p.march.hemorrhageIntervention = v
+            case .airwayIntervention(let v):   p.march.airwayIntervention = v
+            case .consciousness(let v):        p.march.consciousness = v
+            case .hypothermiaPrevention(let v): p.march.hypothermiaPrevention = v
+            case .pain(let v):                 p.paws.pain = v
+            case .antibiotics(let v):          p.paws.antibiotics = v
+            }
+        }
+        p.timestampLastUpdate = Date().timeIntervalSince1970
+        patients[patientId] = p
+    }
+
     // MARK: - Internal helpers
 
     /// Ensure a row exists for `patientId`. Mirrors `_ensure_patient_exists`.
