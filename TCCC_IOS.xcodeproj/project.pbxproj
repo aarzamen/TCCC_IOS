@@ -135,6 +135,7 @@
 		E428CE9A30111501BF2B2AC6 /* GraniteApplyPathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57F59E6CBC6F3FA2FDDB02D2 /* GraniteApplyPathTests.swift */; };
 		E4A00614965DC23F19655DB3 /* TimelineRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50B99A85E24F06AE0266CF3F /* TimelineRow.swift */; };
 		E4B0C26E661601755A05E425 /* HandoffDestination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ECA9A5D8E6ECA17682B5CF0 /* HandoffDestination.swift */; };
+		E88C26AA6BB613B594E8BE40 /* FieldRouterRubricDriftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2337B01F20082D87FE2495 /* FieldRouterRubricDriftTests.swift */; };
 		E90C0A613B8EA36C543B92AD /* PageIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635AA31015FB0ED0FBA93821 /* PageIndicator.swift */; };
 		EA0E82AD806714E1EA67862C /* GraniteTextLLMBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = D92AFFBFEF3AD64083C4D399 /* GraniteTextLLMBackend.swift */; };
 		EB1082DF7933BED4F6A20806 /* ReceiverPlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA865D94AC15BA6F345C5C8B /* ReceiverPlaceholderView.swift */; };
@@ -266,6 +267,7 @@
 		C640369EA0F3741F8FA36A0B /* VoiceCommandBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandBanner.swift; sourceTree = "<group>"; };
 		C6B68FDA05142786243C6B85 /* QuickActionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsSheet.swift; sourceTree = "<group>"; };
 		C9BF9330833CB47EE20E378B /* GraniteHotSeatIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteHotSeatIntegrationTests.swift; sourceTree = "<group>"; };
+		CC2337B01F20082D87FE2495 /* FieldRouterRubricDriftTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldRouterRubricDriftTests.swift; sourceTree = "<group>"; };
 		CDE96C18B6902CC8A8BC5418 /* GraniteRealModelRunTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteRealModelRunTests.swift; sourceTree = "<group>"; };
 		D0E8A8809F6836FEB72686A5 /* GraniteHotSeatGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteHotSeatGeneratorTests.swift; sourceTree = "<group>"; };
 		D1E92BC23E69C490B140D2E2 /* ZMISTNarrativeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZMISTNarrativeGenerator.swift; sourceTree = "<group>"; };
@@ -590,6 +592,7 @@
 			children = (
 				6DEE262741052B0E405D0A19 /* DeterministicFactProjectorTests.swift */,
 				A2BE707617C0EEFDF5A336E6 /* FieldRouterBoundaryGateTests.swift */,
+				CC2337B01F20082D87FE2495 /* FieldRouterRubricDriftTests.swift */,
 				57F59E6CBC6F3FA2FDDB02D2 /* GraniteApplyPathTests.swift */,
 				ADEE08E0BFEDC68F86D96611 /* GraniteConflictRoutingTests.swift */,
 				D0E8A8809F6836FEB72686A5 /* GraniteHotSeatGeneratorTests.swift */,
@@ -857,6 +860,7 @@
 			files = (
 				A864CDAF43DD094DA4A508A4 /* DeterministicFactProjectorTests.swift in Sources */,
 				2182CB3F9A4CAA0904FA1B9E /* FieldRouterBoundaryGateTests.swift in Sources */,
+				E88C26AA6BB613B594E8BE40 /* FieldRouterRubricDriftTests.swift in Sources */,
 				E428CE9A30111501BF2B2AC6 /* GraniteApplyPathTests.swift in Sources */,
 				26D89955BC75F9F1190690BE /* GraniteConflictRoutingTests.swift in Sources */,
 				8871F674573C46343C29CF83 /* GraniteHotSeatGeneratorTests.swift in Sources */,
