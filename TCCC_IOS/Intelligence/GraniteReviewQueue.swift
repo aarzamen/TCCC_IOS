@@ -117,6 +117,9 @@ extension AppState {
             await engine.recordOperatorRejectedFact(
                 factId: fact.id, domain: fact.domain, field: fact.field,
                 rawValue: fact.value, to: fact.patientId)
+            await persistNewEvents()   // flush the audit event now (reject never changes state,
+                                       // so refreshPatientSnapshot isn't needed — but the
+                                       // rejection must reach disk, not wait for the next mutation)
             appendSystem("GRANITE REJECTED · \(fact.field) · \(reason)")
         }
     }

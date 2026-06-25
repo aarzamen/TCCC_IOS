@@ -39,7 +39,12 @@ actor EncounterStore {
 
     func startNewCasualty(id: String, startUnix: Double) throws {
         try ensureEncountersDir()
-        let dirName = "\(id)_\(Int(startUnix))"
+        // Collision-proof: the integer-second stamp alone is NOT unique — End Care reuses
+        // the same casualtyId with startUnix=now, and createDirectory(withIntermediateDirectories:)
+        // does not throw on an existing dir. A same-second rotation would otherwise reuse the
+        // just-archived dir and resurrect its PHI as "active" on next launch. The UUID suffix
+        // removes the wall-clock-second uniqueness dependency entirely.
+        let dirName = "\(id)_\(Int(startUnix))_\(UUID().uuidString.prefix(8))"
         let dir = encountersDir.appendingPathComponent(dirName, isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
             attributes: [.protectionKey: FileProtectionType.complete])

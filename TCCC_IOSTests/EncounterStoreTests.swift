@@ -39,7 +39,11 @@ final class EncounterStoreTests: XCTestCase {
         try await store.startNewCasualty(id: "C-04", startUnix: 100)
         try await store.appendToActive([event("seg-1"), event("seg-2")])
         // Simulate a crash mid-write: append a truncated JSON line.
-        let dir = base.appendingPathComponent("encounters/C-04_100", isDirectory: true)
+        // Discover the dir (the name now carries a collision-proof UUID suffix).
+        let enc = base.appendingPathComponent("encounters")
+        let dirName = try XCTUnwrap(FileManager.default.contentsOfDirectory(atPath: enc.path)
+            .first { $0.hasPrefix("C-04_") })
+        let dir = enc.appendingPathComponent(dirName, isDirectory: true)
         let file = dir.appendingPathComponent("events.jsonl")
         let handle = try FileHandle(forWritingTo: file)
         try handle.seekToEnd(); try handle.write(contentsOf: Data("{\"asrSegment\":{\"id\":\"seg-3\"".utf8)); try handle.close()
@@ -54,5 +58,22 @@ final class EncounterStoreTests: XCTestCase {
         try await store.appendToActive([event("seg-1")])
         try await store.purgeAll()
         XCTAssertFalse(FileManager.default.fileExists(atPath: base.appendingPathComponent("encounters").path))
+    }
+
+    /// Regression (whole-branch review #1): End Care reuses the same casualtyId with
+    /// startUnix=now, so a same-integer-second rotation must NOT reuse the just-archived
+    /// directory — else the fresh "active" casualty inherits the ended casualty's PHI.
+    func testSameIdSameSecondRotationDoesNotInheritArchivedEvents() async throws {
+        let store = EncounterStore(baseURL: base)
+        try await store.startNewCasualty(id: "C-04", startUnix: 100)
+        try await store.appendToActive([event("seg-1")])
+        try await store.archiveActive(endedUnix: 100)
+        // Same id, same integer second as the just-archived casualty.
+        try await store.startNewCasualty(id: "C-04", startUnix: 100)
+        try await store.appendToActive([event("seg-2")])
+        let loaded = try await EncounterStore(baseURL: base).loadActiveEncounter()
+        let log = try XCTUnwrap(loaded).log
+        XCTAssertEqual(log.events.map(\.id), ["seg-2"],
+                       "the fresh casualty must not inherit the archived casualty's events")
     }
 }
