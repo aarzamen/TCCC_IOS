@@ -18,9 +18,14 @@ final class FieldRouterRubricDriftTests: XCTestCase {
         // Field-label tokens the router wires (human terms present verbatim in the rubric files).
         // "tourniquet" is lowercase throughout both rubric files (field labels use abbreviation "TQ";
         // prose/format_constraints and march_paws sections use lowercase "tourniquet").
+        // "Hemorrhage" is capitalized in march_paws_vocabulary_2026.json line 28 ("Massive Hemorrhage")
+        // and covers the FieldRouter.swift:59 `("march", "hemorrhageLocation")` wired path.
+        // "SpO2" appears verbatim in march_paws_vocabulary_2026.json (continuous EtCO2 and SpO2
+        // monitoring entry, tension pneumothorax SpO2 threshold, NDC success SpO2 criterion).
         let wiredRubricTerms = [
-            "Pulse", "SpO", "Resp", "Blood Pressure", "AVPU",
+            "Pulse", "SpO2", "Resp", "Blood Pressure", "AVPU",
             "tourniquet", "Airway", "Hypothermia", "Analgesic", "Antibiotic",
+            "Hemorrhage",
         ]
         for term in wiredRubricTerms {
             XCTAssertTrue(ddText.contains(term) || mpText.contains(term),
