@@ -5,7 +5,7 @@ import Foundation
 /// field. Typed cases, never free-form strings: an LLM-originated string can reach
 /// a setter only by being translated into one of these cases by the rubric-bounded
 /// `FieldRouter`. The engine applies these and remains the sole writer of state.
-public enum PatientStateFieldWrite: Sendable, Equatable {
+public enum PatientStateFieldWrite: Sendable, Equatable, Codable {
     // Vitals (TCCC DD-1380 §C)
     case heartRate(Int)
     case spo2(Int)
