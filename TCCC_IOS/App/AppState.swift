@@ -83,6 +83,7 @@ final class AppState {
     var theme: Theme = .dark
     var settingsOpen: Bool = false
     var quickActionsOpen: Bool = false
+    var reviewOpen: Bool = false
 
     var rfState: RFState = .ghost
 

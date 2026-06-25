@@ -16,10 +16,12 @@
 		03123FCFDF4C95F89710CE1B /* Field.swift in Sources */ = {isa = PBXBuildFile; fileRef = 587404AC0A87B848DF7E9B6E /* Field.swift */; };
 		03E2E966AFCFB4A4EBB0399F /* StatusStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F6D97B7FB9AB745F523F49 /* StatusStrip.swift */; };
 		053C6224571C815A36C1D8D1 /* LiveCaptureScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F2B33AA3BB5856ECC1D263 /* LiveCaptureScreen.swift */; };
+		077A774DA8030419DF201C93 /* GraniteReviewOverlayWiringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36ADDBDF7BE8903D0609E7AB /* GraniteReviewOverlayWiringTests.swift */; };
 		0A6ECC8B5E35C5BA1DEED09A /* GraniteHotSeatInvocationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2BBD2CDEBC19D38494D7C7 /* GraniteHotSeatInvocationTests.swift */; };
 		0A854C4EC5C0B63AFBDAFCFB /* AudioMeterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6329758947011BA2C164B43 /* AudioMeterView.swift */; };
 		0A9AA237302FD35F3D5BC61C /* QuickActionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B68FDA05142786243C6B85 /* QuickActionsSheet.swift */; };
 		0B6D4A2413CEAC0EF9B72964 /* FieldRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944F636FDD4A4E6BA3430099 /* FieldRouter.swift */; };
+		0CACB4189E46A6C6B77973F0 /* GraniteReviewOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A6D13AD6EE561AF81059590 /* GraniteReviewOverlay.swift */; };
 		1106BABC6C0D1D9B4D6ECEE1 /* AmbientMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3872D635F3CEBAE50C1908D4 /* AmbientMeter.swift */; };
 		11EB9CB58A7D41B0938679CE /* GraniteRealModelRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAFA9B2EA3CCFF87951FD0A /* GraniteRealModelRunner.swift */; };
 		17188C8A87B777FCDD8A6308 /* BigButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB6B06BC0C11180630E4CE /* BigButton.swift */; };
@@ -189,6 +191,7 @@
 		2FBE6D7852D92258C933FEF8 /* ThemeOptCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeOptCard.swift; sourceTree = "<group>"; };
 		2FBF5305914733F1DD379359 /* TCCCLLM */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCLLM; path = Packages/TCCCLLM; sourceTree = SOURCE_ROOT; };
 		33F22514A911F9EEFD2C8C51 /* SenderComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SenderComposeView.swift; sourceTree = "<group>"; };
+		36ADDBDF7BE8903D0609E7AB /* GraniteReviewOverlayWiringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteReviewOverlayWiringTests.swift; sourceTree = "<group>"; };
 		36B14D02B33CC2F5C91E8003 /* BackOfCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackOfCardView.swift; sourceTree = "<group>"; };
 		3872D635F3CEBAE50C1908D4 /* AmbientMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientMeter.swift; sourceTree = "<group>"; };
 		38B8FC6324D1C8E2E96EB894 /* MedevacScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedevacScreen.swift; sourceTree = "<group>"; };
@@ -246,6 +249,7 @@
 		966DDC69FD2BA6744149DD70 /* RFGhostBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RFGhostBadge.swift; sourceTree = "<group>"; };
 		99C033D7A4B1BF4742D8F743 /* InterventionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterventionRow.swift; sourceTree = "<group>"; };
 		99C27EEE70AAB07FCBBDDD46 /* TCCC_IOSTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TCCC_IOSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9A6D13AD6EE561AF81059590 /* GraniteReviewOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteReviewOverlay.swift; sourceTree = "<group>"; };
 		9D59C15139886E7B8C11A614 /* PageHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageHeader.swift; sourceTree = "<group>"; };
 		9EF4359B55FA4EEAF1485551 /* TranscriptStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStream.swift; sourceTree = "<group>"; };
 		A1EA433E85994D4343C0AF2D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -338,6 +342,7 @@
 				0CC8E752C934974E83313217 /* FactRow.swift */,
 				587404AC0A87B848DF7E9B6E /* Field.swift */,
 				80B0398ABF53C55C63CA91DE /* FMStatusBadge.swift */,
+				9A6D13AD6EE561AF81059590 /* GraniteReviewOverlay.swift */,
 				FA68EA014729F86EDAF38A92 /* Haptics.swift */,
 				AB573FE657D740D397D5C736 /* HoldToConfirmButton.swift */,
 				99C033D7A4B1BF4742D8F743 /* InterventionRow.swift */,
@@ -602,6 +607,7 @@
 				5F65E49B6C7026C97C109E10 /* GranitePromptBuilderTests.swift */,
 				CDE96C18B6902CC8A8BC5418 /* GraniteRealModelRunTests.swift */,
 				AE5BC27729D5C0A981AAAC9D /* GraniteReportCritiqueTests.swift */,
+				36ADDBDF7BE8903D0609E7AB /* GraniteReviewOverlayWiringTests.swift */,
 				F4CF80413C3312E9574BA4EA /* GraniteSchemaValidatorTests.swift */,
 				B0C00F5F9B9A4182B60FAA2A /* GraniteSpeechTranscriptStreamTests.swift */,
 				E774A5672369442A1E8C33C3 /* KokoroEngineTests.swift */,
@@ -781,6 +787,7 @@
 				4F75F5B02F6AC561F07B7D83 /* GraniteRealModelFixtures.swift in Sources */,
 				11EB9CB58A7D41B0938679CE /* GraniteRealModelRunner.swift in Sources */,
 				011044132DFFBA16EF141AAB /* GraniteReportCritique.swift in Sources */,
+				0CACB4189E46A6C6B77973F0 /* GraniteReviewOverlay.swift in Sources */,
 				772F8924AED6A64FF9563720 /* GraniteReviewQueue.swift in Sources */,
 				AA367998012E407F1E779239 /* GraniteSchemaValidator.swift in Sources */,
 				26D89FA35AB5FF6B37E05F0B /* GraniteSpeechTranscriptStream.swift in Sources */,
@@ -870,6 +877,7 @@
 				8CDE5D6D6A712608D4B9162F /* GranitePromptBuilderTests.swift in Sources */,
 				3035A2E5FD0CD76D0C2D1021 /* GraniteRealModelRunTests.swift in Sources */,
 				3AFD0BF4799175DAD7A77305 /* GraniteReportCritiqueTests.swift in Sources */,
+				077A774DA8030419DF201C93 /* GraniteReviewOverlayWiringTests.swift in Sources */,
 				8359BAE7142E42E4A383DFD0 /* GraniteSchemaValidatorTests.swift in Sources */,
 				5641D9E0E3BAD7EAB1B47C3E /* GraniteSpeechTranscriptStreamTests.swift in Sources */,
 				6E62EEBDDFEA180DAD15F78F /* KokoroEngineTests.swift in Sources */,

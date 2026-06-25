@@ -121,7 +121,47 @@ struct FooterHints: View {
             ) {
                 state.quickActionsOpen = true
             }
+
+            if state.graniteReviewQueue.count > 0 {
+                divider
+
+                reviewButton
+            }
         }
+    }
+
+    private var reviewButton: some View {
+        Button {
+            Haptics.tap()
+            state.reviewOpen = true
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                VStack(spacing: 1) {
+                    Image(systemName: "checkmark.seal")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(palette.ok)
+                    Text("Review")
+                        .font(.system(size: 8, weight: .heavy))
+                        .tracking(0.8)
+                        .foregroundStyle(palette.fg2)
+                        .textCase(.uppercase)
+                }
+                .padding(.horizontal, 6)
+                .frame(minWidth: 44, minHeight: Layout.footerHintHeight)
+
+                // Badge showing pending count
+                Text("\(state.graniteReviewQueue.count)")
+                    .font(.system(size: 7, weight: .heavy))
+                    .foregroundStyle(palette.bg)
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 1)
+                    .background(palette.ok)
+                    .clipShape(Capsule())
+                    .offset(x: -2, y: 2)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var divider: some View {

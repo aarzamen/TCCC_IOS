@@ -56,6 +56,12 @@ private struct MainAppShell: View {
                     .zIndex(2)
             }
 
+            if state.reviewOpen {
+                GraniteReviewOverlay(state: state)
+                    .transition(.opacity)
+                    .zIndex(2)
+            }
+
             // Confirmation banner sits at z=3 so it floats above everything
             // else — including the Settings overlay if a wipe is requested
             // while Settings is open.
@@ -72,6 +78,7 @@ private struct MainAppShell: View {
         .ignoresSafeArea(.keyboard)
         .animation(.fast, value: state.settingsOpen)
         .animation(.fast, value: state.quickActionsOpen)
+        .animation(.fast, value: state.reviewOpen)
         .animation(.fast, value: state.pendingConfirmation?.id)
         .animation(.fast, value: state.pendingVoiceCommand?.command)
     }
