@@ -698,11 +698,9 @@ final class AppState {
                 let enc = documentsURL.appendingPathComponent("encounters")
                 // PURGE gate: a failed delete must SURFACE to the operator, never crash a
                 // field device (an assert() here SIGTRAPs debug/test builds). The runtime
-                // check is the real gate on the "complete" signal.
+                // check is the real gate; success is confirmed after re-arm below.
                 if FileManager.default.fileExists(atPath: enc.path) {
                     appendSystem("WIPE INCOMPLETE · archive still present")
-                } else {
-                    appendSystem("WIPE COMPLETE · archive purged")
                 }
             } catch {
                 appendSystem("WIPE FAILED · \(error.localizedDescription)")
@@ -733,11 +731,20 @@ final class AppState {
         lastMedevacTransmitTime = nil
         graniteReviewQueue.removeAll()
         lastConflictMessage = nil
-        // After purge the encounters/ tree is gone. Reset cursor so future persistence
-        // starts clean. A fresh encounters dir is opened lazily on the next load() call
-        // (e.g. next app launch) rather than here — keeps on-disk state empty as
-        // verified by testWipePurgesEntireArchive.
+        // Re-arm persistence (operator's continuous-persistence choice): the prior archive
+        // is purged; open a FRESH empty casualty so post-WIPE care is crash-safe too. The
+        // new casualty holds no patient data yet — OPSEC-clean (prior PHI is gone).
         persistedCursor = 0
+        if encounterStore != nil {
+            do {
+                try await encounterStore?.startNewCasualty(
+                    id: casualtyId, startUnix: Date().timeIntervalSince1970)
+                await persistNewEvents()   // flush the fresh engine's lc-1 seed to disk
+                appendSystem("WIPE COMPLETE · archive purged · \(casualtyId) ready")
+            } catch {
+                appendSystem("RE-ARM FAILED · \(error.localizedDescription)")
+            }
+        }
     }
 
     /// Begin a new casualty. Increments the casualty counter, wipes

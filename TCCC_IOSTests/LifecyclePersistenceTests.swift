@@ -47,12 +47,28 @@ final class LifecyclePersistenceTests: XCTestCase {
         XCTAssertNotEqual(state.casualtyId, priorId, "a new casualty id is assigned")
     }
 
-    func testWipePurgesEntireArchive() async throws {
+    func testWipePurgesPriorDataAndRearmsFreshCasualty() async throws {
         let state = await makeState()
         await state.processWithEngineForTest("GSW right thigh.")
+        XCTAssertEqual(state.primaryPatient?.mechanismOfInjury, "GSW")
+
         await state.wipeSession()
-        XCTAssertFalse(FileManager.default.fileExists(atPath: base.appendingPathComponent("encounters").path),
-                       "WIPE must delete the entire encounters tree")
+
+        // Post-WIPE in-memory state is clean (prior PHI gone).
+        XCTAssertNil(state.primaryPatient?.mechanismOfInjury, "post-WIPE state must be clean")
+
+        // A fresh casualty is armed AND persisting: a new app launch recovers an
+        // encounter that has NONE of the prior casualty's facts — only the fresh seed.
+        let loaded = try await EncounterStore(baseURL: base).loadActiveEncounter()
+        let log = try XCTUnwrap(loaded, "WIPE must re-arm a fresh persisting casualty").log
+        XCTAssertFalse(log.events.contains {
+            if case .deterministicFact(let p) = $0, case .mechanismOfInjury("GSW") = p.delta { return true }
+            return false
+        }, "the prior casualty's facts must be purged from disk")
+        XCTAssertTrue(log.events.contains {
+            if case .lifecycle(let p) = $0, p.kind == .encounterStarted { return true }
+            return false
+        }, "the fresh casualty's seed must be on disk (persistence re-armed)")
     }
 
     // B4 configures the store MANUALLY (load() doesn't exist until B5).
