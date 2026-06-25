@@ -32,6 +32,7 @@
 		200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 966DDC69FD2BA6744149DD70 /* RFGhostBadge.swift */; };
 		2182CB3F9A4CAA0904FA1B9E /* FieldRouterBoundaryGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BE707617C0EEFDF5A336E6 /* FieldRouterBoundaryGateTests.swift */; };
 		23E8E301CCFC88AB85C589FC /* ZMISTNarrativeGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E92BC23E69C490B140D2E2 /* ZMISTNarrativeGenerator.swift */; };
+		26D89955BC75F9F1190690BE /* GraniteConflictRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADEE08E0BFEDC68F86D96611 /* GraniteConflictRoutingTests.swift */; };
 		26D89FA35AB5FF6B37E05F0B /* GraniteSpeechTranscriptStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD2E4CE27D7E01F8784D6FB /* GraniteSpeechTranscriptStream.swift */; };
 		26EE401843975B9BD94BE8A6 /* GraniteRealModelArtifactWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 964B8C2C0FCE0BD01341208E /* GraniteRealModelArtifactWriter.swift */; };
 		27A0A3C2D7235CEDE2CD642A /* AudioSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232370BA9225A54377B43108 /* AudioSessionCoordinator.swift */; };
@@ -252,6 +253,7 @@
 		AB573FE657D740D397D5C736 /* HoldToConfirmButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldToConfirmButton.swift; sourceTree = "<group>"; };
 		AC0EF0B04ABAB9BAD0EBBABE /* TCCCAudio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCAudio; path = Packages/TCCCAudio; sourceTree = SOURCE_ROOT; };
 		AD0894014601F9571B1B376A /* NineLineForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NineLineForm.swift; sourceTree = "<group>"; };
+		ADEE08E0BFEDC68F86D96611 /* GraniteConflictRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteConflictRoutingTests.swift; sourceTree = "<group>"; };
 		AE5BC27729D5C0A981AAAC9D /* GraniteReportCritiqueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteReportCritiqueTests.swift; sourceTree = "<group>"; };
 		AFAA6C0033E6E1A9DB176C2E /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		B0C00F5F9B9A4182B60FAA2A /* GraniteSpeechTranscriptStreamTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteSpeechTranscriptStreamTests.swift; sourceTree = "<group>"; };
@@ -589,6 +591,7 @@
 				6DEE262741052B0E405D0A19 /* DeterministicFactProjectorTests.swift */,
 				A2BE707617C0EEFDF5A336E6 /* FieldRouterBoundaryGateTests.swift */,
 				57F59E6CBC6F3FA2FDDB02D2 /* GraniteApplyPathTests.swift */,
+				ADEE08E0BFEDC68F86D96611 /* GraniteConflictRoutingTests.swift */,
 				D0E8A8809F6836FEB72686A5 /* GraniteHotSeatGeneratorTests.swift */,
 				C9BF9330833CB47EE20E378B /* GraniteHotSeatIntegrationTests.swift */,
 				8A2BBD2CDEBC19D38494D7C7 /* GraniteHotSeatInvocationTests.swift */,
@@ -855,6 +858,7 @@
 				A864CDAF43DD094DA4A508A4 /* DeterministicFactProjectorTests.swift in Sources */,
 				2182CB3F9A4CAA0904FA1B9E /* FieldRouterBoundaryGateTests.swift in Sources */,
 				E428CE9A30111501BF2B2AC6 /* GraniteApplyPathTests.swift in Sources */,
+				26D89955BC75F9F1190690BE /* GraniteConflictRoutingTests.swift in Sources */,
 				8871F674573C46343C29CF83 /* GraniteHotSeatGeneratorTests.swift in Sources */,
 				B8CC14AA88D7DF45A0F91212 /* GraniteHotSeatIntegrationTests.swift in Sources */,
 				0A6ECC8B5E35C5BA1DEED09A /* GraniteHotSeatInvocationTests.swift in Sources */,

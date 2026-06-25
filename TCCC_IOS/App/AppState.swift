@@ -451,6 +451,11 @@ final class AppState {
     var casualtyCounter: Int = 4
     var graniteReviewQueue: [GraniteReviewItem] = []
 
+    /// Most recent contradiction surfaced by the apply path (engine value vs model
+    /// value). Held for review; the engine value remains shown until the operator
+    /// actively overrides. `nil` when there is no pending conflict.
+    var lastConflictMessage: String?
+
     func appendFinal(
         _ text: String,
         speaker: TranscriptLine.Speaker = .medic,
@@ -659,6 +664,7 @@ final class AppState {
         vitalsLog.removeAll()
         lastMedevacTransmitTime = nil
         graniteReviewQueue.removeAll()
+        lastConflictMessage = nil
     }
 
     /// Begin a new casualty. Increments the casualty counter, wipes
@@ -691,6 +697,7 @@ final class AppState {
         vitalsLog.removeAll()
         lastMedevacTransmitTime = nil
         graniteReviewQueue.removeAll()
+        lastConflictMessage = nil
         appendSystem("NEW CASUALTY · \(casualtyId) · \(oldId) archived")
     }
 
@@ -721,6 +728,7 @@ final class AppState {
         vitalsLog.removeAll()
         lastMedevacTransmitTime = nil
         graniteReviewQueue.removeAll()
+        lastConflictMessage = nil
     }
 
     // MARK: - SLM-generated text (persists across screen switches)

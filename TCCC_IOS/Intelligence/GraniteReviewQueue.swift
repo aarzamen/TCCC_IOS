@@ -67,10 +67,23 @@ extension AppState {
             .first { $0.domain == domain && $0.field == field }?.value
     }
 
-    /// Apply one operator-accepted fact, through the engine. (Contradiction routing
-    /// is added in the next task; here, a routed mutation is applied directly.)
+    /// Apply one operator-accepted fact, through the engine.
+    /// Contradiction check runs BEFORE routing: if the engine already holds a
+    /// different value for this (domain, field), the fact is NOT applied — the
+    /// engine ground truth holds and `lastConflictMessage` is surfaced for the
+    /// operator. An agreeing value (same string) routes normally.
     func acceptGraniteFact(_ accepted: OperatorAcceptedFact, in item: GraniteReviewItem) async {
         let fact = accepted.fact
+
+        // ④ Contradiction → conflict path. Engine ground truth holds; never auto-resolve.
+        if let existing = currentEngineValue(domain: fact.domain, field: fact.field),
+           let proposed = fact.value, existing != proposed {
+            let msg = "GRANITE CONFLICT · \(fact.field): engine '\(existing)' vs model '\(proposed)' · operator override required"
+            lastConflictMessage = msg
+            appendSystem(msg)
+            return   // do NOT apply; engine value holds
+        }
+
         switch FieldRouter.route(domain: fact.domain, field: fact.field, value: fact.value) {
         case .mutation(let write):
             await engine.apply([write], to: fact.patientId)
