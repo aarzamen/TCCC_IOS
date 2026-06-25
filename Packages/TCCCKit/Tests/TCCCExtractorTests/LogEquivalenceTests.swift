@@ -56,6 +56,22 @@ final class LogEquivalenceTests: XCTestCase {
         })
     }
 
+    func testProjectionReconstructsSwitchedPatientKeySet() async throws {
+        // A patient switch must reconstruct the second patient's row in the projection,
+        // so project(log)'s key set matches the imperative dict. Guards the key-set
+        // invariant that sub-cycle B's replay-on-launch depends on.
+        let engine = PatientStateEngine.standard()
+        let text = try loadScenario("scenario_2_blast_multi")   // known to trigger a PATIENT_2 switch
+        await engine.processTranscript(text)
+        let imperative = await engine.snapshot()
+        let projected = PatientStateEngine.project(await engine.snapshotLog())
+        XCTAssertTrue(imperative.keys.contains("PATIENT_2"),
+                      "precondition: the fixture must actually switch to PATIENT_2 (else the test is vacuous)")
+        XCTAssertEqual(Set(projected.keys), Set(imperative.keys),
+                       "project(log) must reconstruct the same patient key set as the imperative dict")
+        XCTAssertEqual(projected, imperative)
+    }
+
     func testAfterFlipSnapshotIsTheProjection() async throws {
         let engine = PatientStateEngine.standard()
         await engine.processTranscript(try loadScenario("scenario_1_gsw_thigh"))
