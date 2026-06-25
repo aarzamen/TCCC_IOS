@@ -18,7 +18,7 @@ struct GraniteValidationResult: Sendable, Equatable {
 }
 
 enum GraniteSchemaValidator {
-    private static let allowedFields: Set<String> = [
+    static let allowedFields: Set<String> = [
         "airway",
         "airwayIntervention",
         "allergies",
