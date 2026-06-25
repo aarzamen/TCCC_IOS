@@ -97,16 +97,28 @@ extension AppState {
 
         switch FieldRouter.route(domain: fact.domain, field: fact.field, value: fact.value) {
         case .mutation(let write):
-            await engine.apply([write], to: fact.patientId)
+            await engine.recordOperatorAcceptedFact(
+                write: write, factId: fact.id, domain: fact.domain, field: fact.field,
+                rawValue: fact.value, to: fact.patientId)
             await refreshPatientSnapshot()
             appendSystem("GRANITE ACCEPTED · \(fact.field) = \(fact.value ?? "")")
         case .rejected(let reason):
+            await engine.recordOperatorRejectedFact(
+                factId: fact.id, domain: fact.domain, field: fact.field,
+                rawValue: fact.value, to: fact.patientId)
             appendSystem("GRANITE REJECTED · \(fact.field) · \(reason)")
         }
     }
 
     /// Reject the whole review item: no mutation, drop it from the queue.
     func rejectGraniteReviewItem(_ item: GraniteReviewItem) {
+        let pid = primaryPatient?.patientId ?? "PATIENT_1"
+        Task { [engine] in
+            for fact in item.patch.candidateFacts where fact.patientId == pid {
+                await engine.recordOperatorRejectedFact(
+                    factId: fact.id, domain: fact.domain, field: fact.field, rawValue: fact.value, to: pid)
+            }
+        }
         graniteReviewQueue.removeAll { $0.id == item.id }
         appendSystem("GRANITE REVIEW REJECTED · discarded")
     }

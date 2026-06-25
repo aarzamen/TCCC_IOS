@@ -148,6 +148,32 @@ public actor PatientStateEngine {
         patients[patientId] = p
     }
 
+    // MARK: - Operator event recording (A4 dual-write)
+
+    private var opCount = 0
+
+    /// Record + apply an operator-accepted fact. A4: imperative apply (reuse apply) +
+    /// append the event. A5 adds `patients = Self.project(log)` after the append.
+    public func recordOperatorAcceptedFact(write: PatientStateFieldWrite, factId: String?,
+        domain: String, field: String, rawValue: String?, to patientId: String,
+        timestamp: Date = Date()) {
+        let unix = timestamp.timeIntervalSince1970
+        apply([write], to: patientId)                              // imperative (A4)
+        opCount += 1
+        log.append(.operatorAcceptedFact(.init(
+            id: "op-\(opCount)", patientId: patientId, timestampUnix: unix,
+            write: write, sourceFactId: factId, domain: domain, field: field, rawValue: rawValue)))
+    }
+
+    /// Record an operator rejection (audit only — never mutates state).
+    public func recordOperatorRejectedFact(factId: String?, domain: String, field: String,
+        rawValue: String?, to patientId: String, timestamp: Date = Date()) {
+        opCount += 1
+        log.append(.operatorRejectedFact(.init(
+            id: "op-\(opCount)", patientId: patientId, timestampUnix: timestamp.timeIntervalSince1970,
+            write: nil, sourceFactId: factId, domain: domain, field: field, rawValue: rawValue)))
+    }
+
     // MARK: - Internal helpers
 
     /// Emit the asrSegment + per-patient deterministicFact events for one transcript call.

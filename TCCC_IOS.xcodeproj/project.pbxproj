@@ -138,6 +138,7 @@
 		E428CE9A30111501BF2B2AC6 /* GraniteApplyPathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57F59E6CBC6F3FA2FDDB02D2 /* GraniteApplyPathTests.swift */; };
 		E4A00614965DC23F19655DB3 /* TimelineRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50B99A85E24F06AE0266CF3F /* TimelineRow.swift */; };
 		E4B0C26E661601755A05E425 /* HandoffDestination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ECA9A5D8E6ECA17682B5CF0 /* HandoffDestination.swift */; };
+		E7287D82B2A32D6C58AB6B72 /* EventSourcingApplyPathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 507459C6ED5524BF0A96256B /* EventSourcingApplyPathTests.swift */; };
 		E88C26AA6BB613B594E8BE40 /* FieldRouterRubricDriftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2337B01F20082D87FE2495 /* FieldRouterRubricDriftTests.swift */; };
 		E90C0A613B8EA36C543B92AD /* PageIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635AA31015FB0ED0FBA93821 /* PageIndicator.swift */; };
 		EA0E82AD806714E1EA67862C /* GraniteTextLLMBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = D92AFFBFEF3AD64083C4D399 /* GraniteTextLLMBackend.swift */; };
@@ -205,6 +206,7 @@
 		45432B79F663572BEAD08956 /* TCCC_IOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TCCC_IOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		488B93C595B14353B319A9B4 /* ConfirmationBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationBanner.swift; sourceTree = "<group>"; };
 		4FE705B82DF14560228BED9B /* DeterministicFactProjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicFactProjector.swift; sourceTree = "<group>"; };
+		507459C6ED5524BF0A96256B /* EventSourcingApplyPathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventSourcingApplyPathTests.swift; sourceTree = "<group>"; };
 		50B99A85E24F06AE0266CF3F /* TimelineRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineRow.swift; sourceTree = "<group>"; };
 		5199AF612A48F51F9282732A /* TCCCCardScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCCCardScreen.swift; sourceTree = "<group>"; };
 		5228B58B0B7DEB4A7E25D6EB /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -598,6 +600,7 @@
 			isa = PBXGroup;
 			children = (
 				6DEE262741052B0E405D0A19 /* DeterministicFactProjectorTests.swift */,
+				507459C6ED5524BF0A96256B /* EventSourcingApplyPathTests.swift */,
 				A2BE707617C0EEFDF5A336E6 /* FieldRouterBoundaryGateTests.swift */,
 				CC2337B01F20082D87FE2495 /* FieldRouterRubricDriftTests.swift */,
 				57F59E6CBC6F3FA2FDDB02D2 /* GraniteApplyPathTests.swift */,
@@ -869,6 +872,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A864CDAF43DD094DA4A508A4 /* DeterministicFactProjectorTests.swift in Sources */,
+				E7287D82B2A32D6C58AB6B72 /* EventSourcingApplyPathTests.swift in Sources */,
 				2182CB3F9A4CAA0904FA1B9E /* FieldRouterBoundaryGateTests.swift in Sources */,
 				E88C26AA6BB613B594E8BE40 /* FieldRouterRubricDriftTests.swift in Sources */,
 				E428CE9A30111501BF2B2AC6 /* GraniteApplyPathTests.swift in Sources */,
