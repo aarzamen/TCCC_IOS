@@ -75,6 +75,17 @@ extension AppState {
     func acceptGraniteFact(_ accepted: OperatorAcceptedFact, in item: GraniteReviewItem) async {
         let fact = accepted.fact
 
+        // ① Single-casualty constraint: only apply facts that target the active patient.
+        //   `primaryPatient` is always PATIENT_1 in the current single-casualty UI; if a
+        //   fact arrives for a different patientId (e.g. from a stale queue entry), reject
+        //   it immediately so the contradiction check and the engine write both stay
+        //   scoped to the correct patient.
+        let activePatientId = primaryPatient?.patientId ?? "PATIENT_1"
+        guard fact.patientId == activePatientId else {
+            appendSystem("GRANITE REJECTED · \(fact.field) · patient \(fact.patientId) is not the active casualty")
+            return
+        }
+
         // ④ Contradiction → conflict path. Engine ground truth holds; never auto-resolve.
         if let existing = currentEngineValue(domain: fact.domain, field: fact.field),
            let proposed = fact.value, existing != proposed {

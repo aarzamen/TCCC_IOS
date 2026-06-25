@@ -35,6 +35,29 @@ final class GraniteApplyPathTests: XCTestCase {
         XCTAssertEqual(state.primaryPatient?.vitals.hr, 88)   // mutated through the engine
     }
 
+    func testAcceptRejectsForeignPatientFact() async {
+        // A fact whose patientId != active patient must NOT be applied.
+        let state = AppState()
+        let foreignFact = GraniteCandidateFact(
+            id: "fact-foreign", patientId: "PATIENT_2", domain: "vitals",
+            field: "heartRate", value: "88", evidenceIds: ["seg-1"], confidence: .medium)
+        let v = GraniteValidationResult(acceptedFacts: [foreignFact], conflicts: [], errors: [])
+        let item = GraniteReviewItem(
+            id: UUID(), createdAt: Date(),
+            patch: GraniteCandidatePatch(packetId: "p", patientId: "PATIENT_2",
+                candidateFacts: [foreignFact], conflicts: [], missingRequiredFields: [],
+                rejectedInputs: [], modelSelfCheck: "ok"),
+            validation: v)
+        state.graniteReviewQueue = [item]
+        let accepted = OperatorAcceptedFact(foreignFact, from: v)!
+
+        await state.acceptGraniteFact(accepted, in: item)
+
+        // Guard must have fired: PATIENT_1's HR is still nil (untouched).
+        XCTAssertNil(state.primaryPatient?.vitals.hr,
+            "foreign-patient fact must not mutate the active casualty's vitals")
+    }
+
     func testRejectDoesNotMutateAndClearsItem() async {
         let state = AppState()
         let fact = acceptedFact("heartRate", "88")
