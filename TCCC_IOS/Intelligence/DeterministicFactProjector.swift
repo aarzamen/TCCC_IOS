@@ -28,7 +28,7 @@ enum DeterministicFactProjector {
         add("march", "consciousness", state.march.consciousness, "TBIExtractor")
         add("march", "hypothermiaPrevention", state.march.hypothermiaPrevention, "HypothermiaExtractor")
         add("paws", "pain", state.paws.pain, "PAWSExtractor")
-        add("paws", "antibiotics", state.paws.antibiotics, "PAWSExtractor")
+        add("paws", "antibiotic", state.paws.antibiotics, "PAWSExtractor")
         return facts
     }
 }

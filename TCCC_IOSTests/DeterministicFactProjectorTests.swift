@@ -21,4 +21,16 @@ final class DeterministicFactProjectorTests: XCTestCase {
     func testEmptyStateProjectsNothing() {
         XCTAssertTrue(DeterministicFactProjector.project(PatientState(patientId: "PATIENT_1")).isEmpty)
     }
+
+    func testAntibioticsFieldNameMatchesAllowedFieldsSingular() {
+        // Regression: projector must emit "antibiotic" (singular) so GraniteSchemaValidator
+        // does not reject it as .unknownField("antibiotics").
+        var state = PatientState(patientId: "PATIENT_1")
+        state.paws.antibiotics = "ceftriaxone"
+        let facts = DeterministicFactProjector.project(state)
+        XCTAssertTrue(
+            facts.contains { $0.domain == "paws" && $0.field == "antibiotic" && $0.value == "ceftriaxone" },
+            "Expected paws/antibiotic fact but got: \(facts.map { "\($0.domain)/\($0.field)=\($0.value)" })"
+        )
+    }
 }
