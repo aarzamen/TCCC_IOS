@@ -2,8 +2,10 @@ import SwiftUI
 
 /// Footer chrome — always present at the bottom of every screen. Hosts:
 ///   - swipe affordances (← prev screen / next screen →)
-///   - lifecycle quick-tap buttons (NEW / END / WIPE) that raise a
-///     `ConfirmationBanner` at the top of the screen on tap
+///   - lifecycle quick-tap buttons (NEW / END) that raise a `ConfirmationBanner`
+///     at the top of the screen on tap
+///   - WIPE: a compact hold-3s affordance, visually isolated in a crit-colored
+///     zone so a gloved operator can never confuse it with NEW
 ///   - settings + quick-actions buttons
 struct FooterHints: View {
     let state: AppState
@@ -11,6 +13,11 @@ struct FooterHints: View {
     let trailingLabel: String?
 
     @Environment(\.palette) private var palette
+
+    // Hold-to-wipe state (mirrors the SettingsOverlay inline pattern)
+    @State private var wipeProgress: CGFloat = 0
+    @State private var wipeTask: Task<Void, Never>?
+    private let wipeDuration: Double = 3.0
 
     init(
         state: AppState,
@@ -80,6 +87,7 @@ struct FooterHints: View {
 
     private var actionButtons: some View {
         HStack(spacing: 6) {
+            // NEW — plain tap → raises non-destructive confirmation banner
             actionButton(
                 label: "New",
                 icon: "person.crop.circle.badge.plus",
@@ -96,13 +104,11 @@ struct FooterHints: View {
                 state.requestConfirmation(.endCare)
             }
 
-            actionButton(
-                label: "Wipe",
-                icon: "trash.fill",
-                tint: palette.crit
-            ) {
-                state.requestConfirmation(.wipe)
-            }
+            // Visual separator: WIPE lives in its own crit-colored zone to
+            // the right of all non-destructive actions.
+            divider
+
+            wipeButton
 
             divider
 
@@ -128,6 +134,72 @@ struct FooterHints: View {
                 reviewButton
             }
         }
+    }
+
+    // MARK: - Hold-3s Wipe affordance
+
+    /// Compact hold-3s Wipe button. The operator must press and hold for 3
+    /// seconds before `wipeSession()` fires — identical hold duration to the
+    /// SettingsOverlay WIPE and consistent with CLAUDE.md hard constraint #4.
+    /// A `crit`-colored progress bar sweeps left-to-right during the hold so
+    /// intent is unambiguous.
+    private var wipeButton: some View {
+        ZStack(alignment: .bottomLeading) {
+            VStack(spacing: 1) {
+                Image(systemName: "trash.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(palette.crit)
+                Text("Wipe")
+                    .font(.system(size: 8, weight: .heavy))
+                    .tracking(0.8)
+                    .foregroundStyle(palette.crit)
+                    .textCase(.uppercase)
+            }
+            .padding(.horizontal, 6)
+            .frame(minWidth: 44, minHeight: Layout.footerHintHeight)
+            .contentShape(Rectangle())
+            .gesture(wipeHoldGesture)
+
+            // Progress bar sweeps left-to-right during hold
+            Rectangle()
+                .fill(palette.crit)
+                .frame(width: wipeProgress * 44, height: 2)
+                .opacity(wipeProgress > 0 ? 1 : 0)
+        }
+    }
+
+    private var wipeHoldGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { _ in
+                guard wipeTask == nil else { return }
+                wipeProgress = 0
+                Haptics.tap(.light)
+                let start = Date()
+                wipeTask = Task { @MainActor in
+                    while !Task.isCancelled {
+                        let elapsed = Date().timeIntervalSince(start)
+                        let p = min(1, elapsed / wipeDuration)
+                        wipeProgress = CGFloat(p)
+                        if p >= 1 {
+                            Haptics.tap(.heavy)
+                            state.wipeSession()
+                            wipeProgress = 0
+                            wipeTask = nil
+                            return
+                        }
+                        try? await Task.sleep(nanoseconds: 30_000_000)
+                    }
+                }
+            }
+            .onEnded { _ in
+                wipeTask?.cancel()
+                wipeTask = nil
+                if wipeProgress < 1 {
+                    withAnimation(.fast) {
+                        wipeProgress = 0
+                    }
+                }
+            }
     }
 
     private var reviewButton: some View {

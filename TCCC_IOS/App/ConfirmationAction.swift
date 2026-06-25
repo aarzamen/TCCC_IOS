@@ -16,9 +16,9 @@ enum ConfirmationAction: Identifiable, Sendable {
 
     var headline: String {
         switch self {
-        case .newPatient: return "Start a NEW PATIENT?"
-        case .endCare:    return "END CARE for this casualty?"
-        case .wipe:       return "WIPE the entire session?"
+        case .newPatient: return "START NEW CASUALTY"
+        case .endCare:    return "END CARE FOR THIS CASUALTY?"
+        case .wipe:       return "WIPE ALL CASUALTY DATA"
         }
     }
 
