@@ -124,11 +124,12 @@ extension AppState {
     /// Reject the whole review item: no mutation, drop it from the queue.
     func rejectGraniteReviewItem(_ item: GraniteReviewItem) {
         let pid = primaryPatient?.patientId ?? "PATIENT_1"
-        Task { [engine] in
+        Task { [engine, weak self] in
             for fact in item.patch.candidateFacts where fact.patientId == pid {
                 await engine.recordOperatorRejectedFact(
                     factId: fact.id, domain: fact.domain, field: fact.field, rawValue: fact.value, to: pid)
             }
+            await self?.persistNewEvents()
         }
         graniteReviewQueue.removeAll { $0.id == item.id }
         appendSystem("GRANITE REVIEW REJECTED · discarded")

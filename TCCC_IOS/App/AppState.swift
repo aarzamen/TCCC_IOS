@@ -444,6 +444,14 @@ final class AppState {
     var casualtyServiceNumberMasked: String = "••• 4471"
     var casualtyAllergies: String = "NKDA"
 
+    /// Base directory for casualty persistence. Injectable for tests; defaults to Documents.
+    var documentsURL: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        ?? URL(fileURLWithPath: NSTemporaryDirectory())
+    /// On-disk encounter store (nil until `load()` configures it).
+    var encounterStore: EncounterStore?
+    /// Count of engine log events already flushed to disk. Cursor-guards persistence.
+    private(set) var persistedCursor: Int = 0
+
     // TCCC engine — full 10-pass dispatch per state.py:515–524.
     // var (not let) so newPatient() / wipeSession() can rebuild a fresh engine.
     var engine = PatientStateEngine.standard()
@@ -538,7 +546,27 @@ final class AppState {
         // 2026 sprint Phase 4 — record a §C reading per snapshot. The grid
         // shows the 4 most recent readings.
         appendVitalsSnapshot()
+        await persistNewEvents()        // continuous persistence (cursor-guarded)
     }
+
+    /// Flush any engine-log events beyond the cursor to the active casualty's file.
+    /// Cursor-guarded ⇒ idempotent and safe to call after every engine mutation.
+    func persistNewEvents() async {
+        guard let store = encounterStore else { return }
+        let log = await engine.snapshotLog()
+        guard log.events.count > persistedCursor else { return }
+        let new = Array(log.events[persistedCursor...])
+        do {
+            try await store.appendToActive(new)
+            persistedCursor = log.events.count
+        } catch {
+            appendSystem("PERSIST FAILED · \(error.localizedDescription)")
+        }
+    }
+
+#if DEBUG
+    func processWithEngineForTest(_ text: String) async { await processWithEngine(text, timestamp: Date()) }
+#endif
 
     // MARK: - DD 1380 §C grid (sprint Phase 4 Task 4.2)
 
