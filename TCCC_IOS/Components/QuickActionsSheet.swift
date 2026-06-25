@@ -101,7 +101,7 @@ struct QuickActionsSheet: View {
                 state.quickActionsOpen = false
             }
             actionButton(label: "End Care", sub: "Finalize \(state.casualtyId)", icon: "checkmark.shield.fill") {
-                state.endCurrentCare()
+                Task { @MainActor in await state.endCurrentCare() }
                 state.quickActionsOpen = false
             }
         }

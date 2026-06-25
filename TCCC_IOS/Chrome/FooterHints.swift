@@ -182,7 +182,7 @@ struct FooterHints: View {
                         wipeProgress = CGFloat(p)
                         if p >= 1 {
                             Haptics.tap(.heavy)
-                            state.wipeSession()
+                            await state.wipeSession()
                             wipeProgress = 0
                             wipeTask = nil
                             return

@@ -25,11 +25,11 @@ enum ConfirmationAction: Identifiable, Sendable {
     var detail: String {
         switch self {
         case .newPatient:
-            return "Increment casualty ID, clear current state. Operator profile preserved."
+            return "Archive this casualty's record and open a new one. Operator profile preserved."
         case .endCare:
-            return "Mark current casualty handed off, clear screen for next assignment. Casualty counter not incremented."
+            return "Archive this casualty's record and mark care complete. Casualty counter not incremented."
         case .wipe:
-            return "Erase all transcripts, vitals, exports, and SLM output. Reset to factory state. This cannot be undone."
+            return "Permanently purge ALL archived casualties, transcripts, vitals, and exports. This cannot be undone."
         }
     }
 

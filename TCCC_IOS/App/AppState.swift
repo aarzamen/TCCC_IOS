@@ -691,7 +691,20 @@ final class AppState {
     var lockOrientationEnabled: Bool = true
     var autoExportOnWiredHandoffEnabled: Bool = false
 
-    func wipeSession() {
+    func wipeSession() async {
+        if encounterStore != nil {
+            do {
+                try await encounterStore?.purgeAll()
+                let enc = documentsURL.appendingPathComponent("encounters")
+                assert(!FileManager.default.fileExists(atPath: enc.path), "WIPE must purge the archive")
+                if FileManager.default.fileExists(atPath: enc.path) {
+                    appendSystem("WIPE INCOMPLETE · archive still present")
+                }
+            } catch {
+                appendSystem("WIPE FAILED · \(error.localizedDescription)")
+            }
+        }
+        // --- existing in-memory reset (verbatim) ---
         autoCleanTask?.cancel()
         autoCleanTask = nil
         lastCleanedAt = nil
@@ -716,70 +729,65 @@ final class AppState {
         lastMedevacTransmitTime = nil
         graniteReviewQueue.removeAll()
         lastConflictMessage = nil
+        // After purge the encounters/ tree is gone. Reset cursor so future persistence
+        // starts clean. A fresh encounters dir is opened lazily on the next load() call
+        // (e.g. next app launch) rather than here — keeps on-disk state empty as
+        // verified by testWipePurgesEntireArchive.
+        persistedCursor = 0
     }
 
     /// Begin a new casualty. Increments the casualty counter, wipes
     /// casualty-specific state, but preserves operator profile, theme, and
-    /// RF discipline settings. The previously-active casualty's transcript
-    /// and engine state are discarded — by this point the medic is expected
-    /// to have already exported via the Handoff screen.
-    func newPatient() {
-        autoCleanTask?.cancel()
-        autoCleanTask = nil
-        lastCleanedAt = nil
-        voiceCommandTask?.cancel()
-        voiceCommandTask = nil
-        pendingVoiceCommand = nil
+    /// RF discipline settings. Archives the prior casualty's record to disk
+    /// before resetting so no encounter data is lost.
+    func newPatient() async {
+        let now = Date().timeIntervalSince1970
+        await engine.recordLifecycle(.archived)
+        await persistNewEvents()                                  // flush marker to OLD file
+        try? await encounterStore?.archiveActive(endedUnix: now)  // manifest: old → archived
+        // --- existing in-memory reset (verbatim), which sets a fresh engine + new casualtyId ---
+        autoCleanTask?.cancel(); autoCleanTask = nil; lastCleanedAt = nil
+        voiceCommandTask?.cancel(); voiceCommandTask = nil; pendingVoiceCommand = nil
         let oldId = casualtyId
         casualtyCounter += 1
         casualtyId = String(format: "C-%02d", casualtyCounter)
-        transcript.removeAll()
-        transcriptLedger = TranscriptSegmentLedger()
-        partialTranscript = ""
-        recognitionError = nil
-        primaryPatient = nil
-        allPatients.removeAll()
-        sessionStart = Date()
+        transcript.removeAll(); transcriptLedger = TranscriptSegmentLedger(); partialTranscript = ""
+        recognitionError = nil; primaryPatient = nil; allPatients.removeAll(); sessionStart = Date()
         engine = PatientStateEngine.standard()
-        lastRecordingURL = nil
-        encounterNarrative = nil
-        zmistNarrative = nil
-        transcriptCleaned = nil
-        vitalsLog.removeAll()
-        lastMedevacTransmitTime = nil
-        graniteReviewQueue.removeAll()
-        lastConflictMessage = nil
+        lastRecordingURL = nil; encounterNarrative = nil; zmistNarrative = nil; transcriptCleaned = nil
+        vitalsLog.removeAll(); lastMedevacTransmitTime = nil; graniteReviewQueue.removeAll(); lastConflictMessage = nil
+        // --- open the new casualty on disk + flush its seed ---
+        persistedCursor = 0
+        try? await encounterStore?.startNewCasualty(id: casualtyId, startUnix: now)
+        await persistNewEvents()                                  // flush new engine's lc-1 seed
         appendSystem("NEW CASUALTY · \(casualtyId) · \(oldId) archived")
     }
 
-    /// Mark the current casualty's care as complete. Records the event,
-    /// then clears casualty-specific state so the screen is ready for the
-    /// next casualty (without incrementing the counter — the medic taps
-    /// NEW CASUALTY in Settings when they have a new patient assigned).
-    func endCurrentCare() {
-        autoCleanTask?.cancel()
-        autoCleanTask = nil
-        lastCleanedAt = nil
-        voiceCommandTask?.cancel()
-        voiceCommandTask = nil
-        pendingVoiceCommand = nil
+    /// Mark the current casualty's care as complete. Archives the record to
+    /// disk before resetting, then clears casualty-specific state so the
+    /// screen is ready for the next casualty (without incrementing the
+    /// counter — the medic taps NEW CASUALTY in Settings when they have a
+    /// new patient assigned).
+    func endCurrentCare() async {
+        let now = Date().timeIntervalSince1970
+        await engine.recordLifecycle(.encounterEnded)
+        await persistNewEvents()
+        try? await encounterStore?.archiveActive(endedUnix: now)
+        // --- existing in-memory reset (verbatim) ---
+        autoCleanTask?.cancel(); autoCleanTask = nil; lastCleanedAt = nil
+        voiceCommandTask?.cancel(); voiceCommandTask = nil; pendingVoiceCommand = nil
         let endedId = casualtyId
         appendSystem("CARE ENDED · \(endedId) · handoff finalized")
-        // Snapshot the system line, then clear so the screen resets.
         transcript.removeAll(where: { $0.speaker != .system || !$0.text.contains("CARE ENDED") })
-        transcriptLedger = TranscriptSegmentLedger()
-        partialTranscript = ""
-        primaryPatient = nil
-        allPatients.removeAll()
-        engine = PatientStateEngine.standard()
-        lastRecordingURL = nil
-        encounterNarrative = nil
-        zmistNarrative = nil
-        transcriptCleaned = nil
-        vitalsLog.removeAll()
-        lastMedevacTransmitTime = nil
-        graniteReviewQueue.removeAll()
-        lastConflictMessage = nil
+        transcriptLedger = TranscriptSegmentLedger(); partialTranscript = ""
+        primaryPatient = nil; allPatients.removeAll(); engine = PatientStateEngine.standard()
+        lastRecordingURL = nil; encounterNarrative = nil; zmistNarrative = nil; transcriptCleaned = nil
+        vitalsLog.removeAll(); lastMedevacTransmitTime = nil; graniteReviewQueue.removeAll(); lastConflictMessage = nil
+        // End Care leaves a clean slate but keeps persistence live for the next casualty
+        // under the same id: re-open a fresh dir + flush the new engine's seed.
+        persistedCursor = 0
+        try? await encounterStore?.startNewCasualty(id: casualtyId, startUnix: now)
+        await persistNewEvents()
     }
 
     // MARK: - SLM-generated text (persists across screen switches)
@@ -898,13 +906,13 @@ final class AppState {
         pendingConfirmation = action
     }
 
-    func confirmPending() {
+    func confirmPending() async {
         guard let action = pendingConfirmation else { return }
         pendingConfirmation = nil
         switch action {
-        case .newPatient: newPatient()
-        case .endCare:    endCurrentCare()
-        case .wipe:       wipeSession()
+        case .newPatient: await newPatient()
+        case .endCare:    await endCurrentCare()
+        case .wipe:       await wipeSession()
         }
     }
 
@@ -994,8 +1002,8 @@ extension AppState {
             guard self.pendingVoiceCommand?.command == cmd else { return }
             self.pendingVoiceCommand = nil
             switch cmd {
-            case .newPatient:   self.newPatient()
-            case .endEncounter: self.endCurrentCare()
+            case .newPatient:   await self.newPatient()
+            case .endEncounter: await self.endCurrentCare()
             }
         }
     }

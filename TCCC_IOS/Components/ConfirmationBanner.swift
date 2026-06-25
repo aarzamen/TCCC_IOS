@@ -80,7 +80,7 @@ struct ConfirmationBanner: View {
                 .buttonStyle(.plain)
 
                 Button {
-                    state.confirmPending()
+                    Task { @MainActor in await state.confirmPending() }
                 } label: {
                     bigChoiceLabel(action.confirmLabel, style: action.isDestructive ? .destructive : .accent)
                 }

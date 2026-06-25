@@ -35,6 +35,26 @@ final class LifecyclePersistenceTests: XCTestCase {
         XCTAssertEqual(post.casualtyId, "C-04")
     }
 
+    func testNewCasualtyPreservesPriorEncounterFile() async throws {
+        let state = await makeState()
+        await state.processWithEngineForTest("GSW right thigh.")
+        let priorId = state.casualtyId
+        await state.newPatient()
+        // The prior casualty's events.jsonl must still exist on disk.
+        let enc = base.appendingPathComponent("encounters")
+        let dirs = try FileManager.default.contentsOfDirectory(atPath: enc.path)
+        XCTAssertTrue(dirs.contains { $0.hasPrefix("\(priorId)_") }, "prior casualty dir must be preserved")
+        XCTAssertNotEqual(state.casualtyId, priorId, "a new casualty id is assigned")
+    }
+
+    func testWipePurgesEntireArchive() async throws {
+        let state = await makeState()
+        await state.processWithEngineForTest("GSW right thigh.")
+        await state.wipeSession()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: base.appendingPathComponent("encounters").path),
+                       "WIPE must delete the entire encounters tree")
+    }
+
     // B4 configures the store MANUALLY (load() doesn't exist until B5).
     func testTranscriptEventsArePersistedContinuously() async throws {
         let state = AppState()

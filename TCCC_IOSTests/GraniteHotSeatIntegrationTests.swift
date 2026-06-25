@@ -77,7 +77,7 @@ final class GraniteHotSeatIntegrationTests: XCTestCase {
         XCTAssertTrue(state.transcript.last?.text.contains("GRANITE REVIEW READY") ?? false)
     }
 
-    func testLifecycleActionsClearGraniteReviewQueue() {
+    func testLifecycleActionsClearGraniteReviewQueue() async {
         let state = AppState()
         let patch = GraniteCandidatePatch(
             packetId: "packet-1",
@@ -97,7 +97,7 @@ final class GraniteHotSeatIntegrationTests: XCTestCase {
         )
         XCTAssertEqual(state.graniteReviewQueue.count, 1)
 
-        state.newPatient()
+        await state.newPatient()
         XCTAssertTrue(state.graniteReviewQueue.isEmpty)
 
         state.applyGraniteCandidatePatchForReview(
@@ -108,7 +108,7 @@ final class GraniteHotSeatIntegrationTests: XCTestCase {
         )
         XCTAssertEqual(state.graniteReviewQueue.count, 1)
 
-        state.wipeSession()
+        await state.wipeSession()
         XCTAssertTrue(state.graniteReviewQueue.isEmpty)
     }
 }

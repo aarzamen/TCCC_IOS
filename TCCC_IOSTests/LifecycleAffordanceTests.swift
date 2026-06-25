@@ -9,4 +9,10 @@ final class LifecycleAffordanceTests: XCTestCase {
         XCTAssertTrue(ConfirmationAction.wipe.headline.uppercased().contains("WIPE"))
         XCTAssertFalse(ConfirmationAction.newPatient.headline.uppercased().contains("WIPE"))
     }
+
+    func testNewAndEndCopyDescribeArchivalNotErasure() {
+        XCTAssertTrue(ConfirmationAction.newPatient.detail.lowercased().contains("archive"))
+        XCTAssertTrue(ConfirmationAction.endCare.detail.lowercased().contains("archive"))
+        XCTAssertTrue(ConfirmationAction.wipe.detail.lowercased().contains("purge"))
+    }
 }

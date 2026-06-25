@@ -754,7 +754,7 @@ struct SettingsOverlay: View {
                     style: .standard,
                     holdSeconds: 2.0
                 ) {
-                    state.newPatient()
+                    Task { @MainActor in await state.newPatient() }
                     state.settingsOpen = false
                 }
 
@@ -794,7 +794,7 @@ struct SettingsOverlay: View {
                             let p = min(1, elapsed / wipeDuration)
                             wipeProgress = CGFloat(p)
                             if p >= 1 {
-                                state.wipeSession()
+                                await state.wipeSession()
                                 state.appendSystem("SESSION WIPED · \(Self.timestamp())")
                                 wipeProgress = 0
                                 wipeTask = nil
