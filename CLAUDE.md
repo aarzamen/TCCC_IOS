@@ -318,6 +318,81 @@ contents are correct, log messages are misleading). The
 two `commit -am` collisions are documented for reviewer
 clarity; no work was lost.
 
+## Event-Sourcing Harness Sprint (June 2026)
+
+The deferred north star from the apply-path design spec §7 — the
+GPT-designed event-sourced harness — landed across two
+subagent-driven sub-cycles and **merged to `main` @ `54bd69d`**
+(local fast-forward, **not pushed**; `origin/main` ~37 commits
+behind). Specs/plans:
+`docs/superpowers/{specs,plans}/2026-06-25-event-sourcing-*`.
+
+**Sub-cycle A — event-sourcing core (in-memory).** The immutable
+`EncounterEvent` log (`TCCCExtractor/EncounterEvent.swift`) is the
+canonical memory; `PatientState` is a deterministic projection,
+`PatientStateEngine.project(log)`. The fold **replays recorded
+deltas** rather than re-running extractors — `Intervention` mints a
+fresh `UUID()` per creation, so re-running would churn SwiftUI
+identity and break full-`==` equivalence. Operator chose a **fat
+audit log**: every machine inference is stored as an evidence-linked
+`deterministicFact` event, produced by a before/after `PatientState`
+diff (`diff`/`applyDelta`, total inverse property
+`apply(diff(b,a))==a`) — zero extractor edits. The flip from
+imperative state to `patients = project(log)` is equivalence-gated
+against the four `EndToEndScenario` fixtures. Evidence linkage is
+real (the `evidenceIds: []` stopgap retired). LLM-never-mutates
+stayed structural.
+
+**Sub-cycle B — durable encrypted archive + replay.** Operator chose
+**continuous persistence** (a mid-care crash recovers the in-progress
+encounter). TCCCKit stays in-memory-pure; an app-layer
+`EncounterStore` actor (`TCCC_IOS/App/EncounterStore.swift`) owns all
+I/O — per-casualty `Documents/encounters/<id>_<unix>_<uuid>/events.jsonl`
+(one event per line) + a `manifest.json` index, via a new
+`ProtectedWrite.appendLine` (FileHandle append +
+`NSFileProtectionComplete` re-assert). Replay-on-launch wires
+`TCCC_IOSApp .task` → `AppState.load()` → `engine.restore()`.
+Lifecycle: New Casualty / End Care **archive** (preserve, never
+delete); **WIPE (hold-3s) purges** the whole `encounters/` tree then
+**re-arms** a fresh persisting casualty (operator decision). The dir
+name carries a UUID suffix (collision-proof — End Care reuses the
+same id + integer-second stamp).
+
+**Whole-branch review fixes:** removed an `assert()` in `wipeSession`
+that SIGTRAP'd debug/test builds on purge-incompleteness; the UUID dir
+suffix closes a same-second End-Care PHI-bleed; `.rejected` operator
+events are now flushed to disk.
+
+**Verification: TCCCKit 755/0, app 84/0**, both whole-branch opus
+reviews clean. **Device-validated on the iPhone 17 Pro** — continuous
+persistence, crash-recovery, PRESERVE (retained 4 casualties at once),
+and PURGE+re-arm all confirmed by reading the on-disk files via
+`devicectl`. Encryption is code-set on every write; the locked-device
+unreadability test was not run.
+
+**Device build + on-device validation (carry-forward):**
+
+```bash
+# build the device (arm64) slice — auto-signed (team XM6E4PUXTU, free provisioning)
+xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
+  -destination 'generic/platform=iOS' -configuration Debug \
+  -skipMacroValidation -allowProvisioningUpdates \
+  -derivedDataPath /tmp/tccc-device-dd build
+# install + launch + pull the encounter files (17 Pro coredevice id 4FC3C1DC-…)
+DEV=4FC3C1DC-B809-552A-B60F-B1723ADB45B8
+xcrun devicectl device install app --device "$DEV" \
+  /tmp/tccc-device-dd/Build/Products/Debug-iphoneos/TCCC_IOS.app
+xcrun devicectl device process launch --device "$DEV" com.aarzamen.TCCCai
+xcrun devicectl device copy from --device "$DEV" \
+  --domain-type appDataContainer --domain-identifier com.aarzamen.TCCCai \
+  --source Documents/encounters --destination /tmp/tccc-pull/encounters
+```
+
+(The `devicectl` "No provider was found" warnings are harmless —
+install + launch succeed regardless. The two "Load demo" seed buttons
+live on the Live Capture empty-state, shown only when the transcript
+is empty.)
+
 ## What's left to do
 
 The features below are scaffolded or planned but not yet shipped.
