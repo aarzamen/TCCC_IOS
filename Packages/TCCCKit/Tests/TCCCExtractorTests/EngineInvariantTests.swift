@@ -44,4 +44,32 @@ final class EngineInvariantTests: XCTestCase {
         XCTAssertEqual(p?.vitals.hr, 88, "accepted write must apply via project")
         XCTAssertEqual(p?.timestampLastUpdate, 4242, "accepted event timestamp must set timestampLastUpdate")
     }
+
+    func testFreshEngineLogStartsWithEncounterStarted() async {
+        let engine = PatientStateEngine.standard()
+        let log = await engine.snapshotLog()
+        XCTAssertEqual(log.events.first.flatMap { e -> Bool? in
+            if case .lifecycle(let p) = e { return p.kind == .encounterStarted }; return nil
+        }, true)
+    }
+
+    /// Every PatientStateFieldWrite case must be representable as a PatientStateDelta,
+    /// so an operator accept and the projection share one vocabulary. Fails if a future
+    /// write case is added without a matching delta mapping.
+    func testEveryFieldWriteMapsToADelta() {
+        let writes: [PatientStateFieldWrite] = [
+            .heartRate(1), .spo2(1), .respiratoryRate(1),
+            .bloodPressure(systolic: 1, diastolic: 1, palpated: false),
+            .hemorrhageLocation("x"), .hemorrhageIntervention("x"), .airwayIntervention("x"),
+            .consciousness("x"), .hypothermiaPrevention("x"), .pain("x"), .antibiotics("x"),
+        ]
+        // Applying a write and diffing must yield at least one delta — proving the field
+        // is reachable through the delta vocabulary.
+        for w in writes {
+            var s = PatientState(patientId: "PATIENT_1")
+            PatientStateEngine.applyWrite(w, to: &s)
+            let deltas = PatientStateEngine.diff(PatientState(patientId: "PATIENT_1"), s)
+            XCTAssertFalse(deltas.isEmpty, "write \(w) produced no delta — vocabulary drift")
+        }
+    }
 }

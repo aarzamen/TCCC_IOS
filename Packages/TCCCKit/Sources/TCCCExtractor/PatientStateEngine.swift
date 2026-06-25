@@ -69,6 +69,10 @@ public actor PatientStateEngine {
         self.switcher = switcher
         // Mirror Python __init__: ensure PATIENT_1 exists from the start.
         self.patients["PATIENT_1"] = PatientState(patientId: "PATIENT_1")
+        // Seed a lifecycle event so a fresh encounter's log is never empty.
+        // timestampUnix: 0 keeps init deterministic (no Date() in the constructor).
+        self.log.append(.lifecycle(.init(
+            id: "lc-1", patientId: "PATIENT_1", timestampUnix: 0, kind: .encounterStarted)))
     }
 
     // MARK: - Public API
