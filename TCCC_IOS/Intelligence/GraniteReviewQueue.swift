@@ -59,6 +59,34 @@ extension AppState {
         }
     }
 
+    /// The current engine value for a (domain, field), via the deterministic
+    /// projection — used for contradiction detection and conflict display.
+    func currentEngineValue(domain: String, field: String) -> String? {
+        guard let p = primaryPatient else { return nil }
+        return DeterministicFactProjector.project(p)
+            .first { $0.domain == domain && $0.field == field }?.value
+    }
+
+    /// Apply one operator-accepted fact, through the engine. (Contradiction routing
+    /// is added in the next task; here, a routed mutation is applied directly.)
+    func acceptGraniteFact(_ accepted: OperatorAcceptedFact, in item: GraniteReviewItem) async {
+        let fact = accepted.fact
+        switch FieldRouter.route(domain: fact.domain, field: fact.field, value: fact.value) {
+        case .mutation(let write):
+            await engine.apply([write], to: fact.patientId)
+            await refreshPatientSnapshot()
+            appendSystem("GRANITE ACCEPTED · \(fact.field) = \(fact.value ?? "")")
+        case .rejected(let reason):
+            appendSystem("GRANITE REJECTED · \(fact.field) · \(reason)")
+        }
+    }
+
+    /// Reject the whole review item: no mutation, drop it from the queue.
+    func rejectGraniteReviewItem(_ item: GraniteReviewItem) {
+        graniteReviewQueue.removeAll { $0.id == item.id }
+        appendSystem("GRANITE REVIEW REJECTED · discarded")
+    }
+
     func applyGraniteCandidatePatchForReview(
         _ patch: GraniteCandidatePatch,
         knownEvidenceIds: Set<String>,
