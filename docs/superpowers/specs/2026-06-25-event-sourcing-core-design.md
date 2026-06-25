@@ -29,7 +29,7 @@ show *what the device inferred, from which spoken words, at care-time*.
 | F0 | **Two sub-cycles, A then B.** This spec = A. | The A5 canonical flip is the single highest-risk change; isolate it from disk I/O. |
 | F1 | **Fat event log** (operator's choice). Cases: `asrSegment`, `deterministicFact`, `operatorAcceptedFact`, `operatorRejectedFact`, `lifecycle`. | Maximal medico-legal audit trail; every inference stored with evidence. |
 | F2 | **`EncounterEvent` lives in TCCCKit / `TCCCDomain`**, payloads are TCCCKit-native value types; evidence is `[String]` segment-IDs, not embedded app structs. | Preserves the unidirectional app→TCCCKit dependency; keeps the log lean and `Codable`. |
-| F3 | **Fold derives state by re-running the proven extractors over `asrSegment` events** + applying operator-accepted events (Fat-A). `deterministicFact` events are written as the **audit trail** but do not drive A's live derivation. | Lowest-risk flip: fold ≈ today's imperative path, so equivalence is near-identity. The frozen-replay semantics (facts drive state) are a **B** concern, where replay actually needs them. |
+| F3 | **Fold replays the recorded deltas** (`deterministicFact` + `operatorAccepted` events) from a fresh base; it does **not** re-run extractors. Extraction runs once, at command time. | Re-running extractors in the fold is **non-deterministic** — `Intervention` mints a fresh `UUID()` per creation — so it would break full-`==` equivalence and churn SwiftUI list identity every transcript line. Replaying captured deltas (which carry each `Intervention`'s original UUID/timestamp) is deterministic: `project(log) == capturedState` exactly. The log is canonical from sub-cycle A; B adds only persistence + replay-on-launch. |
 | F4 | **Dual-write → equivalence-gated flip** (not big-bang). | A4 builds the log as a zero-risk shadow; A5 flips canonical with the A3 equivalence test as the gate. |
 | F9 | **Evidence linkage via per-`asrSegment` state diff**, computed in the command path. | Real `evidenceIds` with **zero extractor edits** and **no `ExtractionContext` change** — replaces the `evidenceIds: []` stopgap. |
 | F10 | **LLM-never-mutates-state stays structural.** | Operator-origin facts still flow `OperatorAcceptedFact` → `FieldRouter` → `PatientStateFieldWrite` → engine; the event only wraps that path. No new mutation entry point. |
@@ -73,34 +73,41 @@ func diff(_ before: PatientState, _ after: PatientState) -> [PatientStateDelta]
 
 - **Command side** runs business logic (extractors, validation, routing) and emits
   events. This is the *only* place extraction happens.
-- **Projection side** (`project`) folds the log into `PatientState`. In A it
-  re-runs extractors over `asrSegment` events and applies operator-accepted events;
-  `deterministicFact` events are audit (not re-applied) — see F3.
+- **Projection side** (`project`) folds the log into `PatientState` by **replaying the
+  recorded deltas** in order — `deterministicFact` events apply their `PatientStateDelta`,
+  `operatorAcceptedFact` events apply their `PatientStateFieldWrite`. It does **not**
+  re-run extractors (see F3). `asrSegment` events are raw evidence; `operatorRejectedFact`
+  and `lifecycle` events do not affect projected state.
 - `PatientState` is **never independently mutated** after the flip; it is always
-  `project(log)`. The engine remains the sole writer.
+  `project(log)`. `project` is a pure function; the engine remains the sole writer of
+  its stored `patients` (it assigns `patients = project(log)`).
 
 ### 4.1 Reducer fold model (F3)
 
 `snapshot()` returns `project(log)`. After the A5 flip, `processTranscript` does:
 
 ```
-let before = currentProjection
-runExtractorsImperatively(text)          // existing code path, UNCHANGED
+let before = projectedState               // = project(log) so far
+runExtractorsImperatively(text)           // existing extractor code path, UNCHANGED — runs ONCE
 let after = resultingState
-let deltas = diff(before, after)
+let deltas = diff(before, after)          // captures EXACT outputs, incl. each Intervention's UUID
 log.append(.asrSegment(text, id: segId, …))
 for d in deltas { log.append(.deterministicFact(delta: d, evidenceIds: [segId], …)) }
-patients = project(log)                   // ← THE FLIP: state now flows FROM the log
+patients = project(log)                    // ← THE FLIP: replay ALL deltas from a fresh base
 ```
 
-`project` re-running extractors makes `project(log) == after` by construction (same
-extractor code), so the flip is near-identity. The **A3 equivalence test** proves it
-field-by-field over the four real `EndToEndScenario` fixtures before A5 lands.
+`project(log)` starts from a fresh default state and **applies every recorded delta in
+order** (plus operator-accepted writes) — it never re-runs extractors. Because each
+call's deltas are `diff(before, after)` and `apply(diff(b,a)) == a` (the inverse
+property, A2), the chained replay reconstructs `after` exactly — *including* the
+non-deterministic identities (UUIDs/timestamps) that re-running extractors would
+regenerate differently. The **A3 equivalence test** proves `project(log) == imperative
+result` via full `==` on the `[String: PatientState]` dict, over the four real
+`EndToEndScenario` fixtures, before A5 lands.
 
-Full re-fold on each `processTranscript` call is O(events) per call; for a single
-casualty's few-hundred–event log the fold is sub-millisecond (extractors are pure and
-fast). No separate mutable cache exists to diverge. If a perf gate ever fails,
-incremental application is a later optimization — not in A.
+Replay cost is O(total deltas) per snapshot; sub-millisecond for a casualty's
+few-hundred deltas. No mutable cache exists to diverge. Incremental replay is a
+deferred optimization — not in A.
 
 ### 4.2 Evidence boundary (F9)
 
@@ -177,11 +184,15 @@ inventory below; the diff function maps `(before, after)` to a list of these.
   `pulseStatus/skinSigns/circulationIntervention`, `consciousness/pupilResponse/hypothermiaPrevention`.
 - **`Vitals`**, **`PAWSAssessment`**: every `var` (plan enumerates from source).
 
-> **Faithfulness requirement:** `diff` must capture *every* mutation the extractors
-> can make (sets, optional-nils, collection appends). For the audit trail to be
-> complete, `apply(allDeltas(before→after)) == after`. This is the central
-> correctness obligation of the diff function and is tested directly (§7, A2-unit)
-> in addition to the end-to-end equivalence test (A3).
+> **Faithfulness requirement:** `diff` must be **total** — `apply(diff(before, after)) ==
+> after` for *any* before/after pair the extractors can produce (scalar sets,
+> optional-nils, collection mutations). Scalars and optionals emit a set-delta on change.
+> Collections (`injuries`, `interventions`) emit per-element **append** deltas when
+> `after` extends `before` as a prefix (the normal case — preserves per-inference audit
+> grain and each `Intervention`'s UUID); otherwise they emit a whole-array **set**
+> delta as a totality fallback. This is the central correctness obligation of the diff
+> function, tested directly (§7, A2-unit, every delta case) in addition to the
+> end-to-end equivalence test (A3).
 
 ### 5.2 `EncounterLog`
 
@@ -217,11 +228,14 @@ Sub-cycle A only. A3's equivalence test **gates** the A5 flip.
 - **A2.** `PatientStateDelta` enum + `diff(before, after) -> [PatientStateDelta]`.
   Tests: per-field diff correctness **and the inverse property** `apply(diff(b,a)) == a`
   over hand-built states covering each field family.
-- **A3.** `project(log) -> [String: PatientState]` (fold: re-run extractors over
-  `asrSegment` events + apply operator-accepted events). **Equivalence test** —
-  build a log from each of the four `tests/scenarios/*.txt` fixtures fed exactly as
-  `EndToEndScenarioTests` feeds them, assert `project(log)` equals the imperative
-  `processTranscript` result **field-by-field** (the de-risker). Idempotence asserted:
+- **A3.** `project(log) -> [String: PatientState]` (pure fold: start from a fresh
+  default state, **apply every `deterministicFact` delta + `operatorAccepted` write in
+  order**, ensuring patient rows exist by `patientId`; never re-run extractors).
+  **Equivalence test** — build a log by processing each of the four
+  `tests/scenarios/*.txt` fixtures exactly as `EndToEndScenarioTests` feeds them (one
+  `processTranscript(wholeText)` call, fixed timestamp), capturing deltas, then assert
+  `project(log)` equals the imperative `processTranscript` snapshot via **full `==`** on
+  the `[String: PatientState]` dict (the de-risker). Idempotence asserted:
   `project(log) == project(log)`.
 - **A4.** Dual-write (additive, zero-risk): `processTranscript` and the accept/reject
   handlers (`acceptGraniteFact` → `operatorAcceptedFact`, `rejectGraniteReviewItem` →
@@ -260,11 +274,11 @@ Named here so A's seams fit B; B gets its own brainstorming + spec.
   API today** (grounding) — B adds `appendLine(_:to:)` (FileHandle append +
   `markProtected` re-assert), tested for `NSFileProtectionComplete` persistence and
   **corrupt-tail recovery** (truncate mid-JSON → replay tolerates, recovers last-good).
-- **Frozen replay (Fat-B):** archived-casualty replay applies stored `deterministicFact`
-  events (not re-run extractors) so the record is immune to later extractor-logic
-  change. B's equivalence test proves `apply(storedFacts) == reRunExtractors` for
-  fresh logs, then switches replay to stored-facts. **This is where the diff-inverse
-  obligation becomes load-bearing for state**, deferred here intentionally.
+- **Replay-on-launch:** the projection is **already canonical** (A replays deltas), so
+  launch replay is the *same* `project(log)` over events read from disk — no new
+  derivation path. The record is inherently frozen (immune to later extractor-logic
+  change) because state flows from the stored deltas, not from re-run extractors. B adds
+  the disk read + corrupt-tail tolerance only.
 - **Archive + manifest:** `Documents/encounters/manifest.json` indexes casualties;
   scan-on-launch, cache in `AppState`, invalidate on `newPatient`/`wipeSession`.
   `schemaVersion` field for forward-compat (skip/no-op unknown event cases).
@@ -279,8 +293,9 @@ Named here so A's seams fit B; B gets its own brainstorming + spec.
 | Risk | Mitigation |
 |---|---|
 | **A5 flip silently regresses behavior** | A3 equivalence test on the 4 *real* fixtures, field-by-field, written and green **before** A5. |
-| **`diff` misses a field family → incomplete audit** | A2 inverse-property test per field family; A3 catches state-affecting misses. |
-| **Fold perf on long logs** | Sub-ms for hundreds of events; perf is not a constraint (iPhone 17 Pro). Incremental apply is a deferred optimization, not A. |
+| **`diff` misses a field family → wrong projected state** | A2 inverse-property test over **every** delta case (hand-built before/after); A3 full-`==` over fixtures. A missed field fails both. |
+| **Re-running extractors in fold is non-deterministic (UUIDs/timestamps)** | Fold replays captured deltas (carrying original identities) instead; extraction runs once at command time. The flip never regenerates identities. |
+| **Fold perf on long logs** | Sub-ms for hundreds of deltas; perf is not a constraint (iPhone 17 Pro). Incremental replay is a deferred optimization, not A. |
 | **Scope creep — persistence/lifecycle bleeding into A** | Hard fence: A is in-memory only; all disk/lifecycle is B (§9). |
 | **Schema evolution breaks old logs** | `schemaVersion` + unknown-case tolerance — a **B** concern (no persisted logs exist in A). |
 | **Invariant erosion during retrofit** | A7 invariant test + whole-branch opus review (gate item 4/6). |
