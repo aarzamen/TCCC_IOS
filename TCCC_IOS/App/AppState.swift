@@ -564,6 +564,28 @@ final class AppState {
         }
     }
 
+    /// Replay-on-launch: recover an in-progress encounter from disk, or open a fresh
+    /// casualty dir for this session. Call once at app launch.
+    func load() async {
+        let store = EncounterStore(baseURL: documentsURL)
+        encounterStore = store
+        do {
+            if let (id, log) = try await store.loadActiveEncounter() {
+                casualtyId = id
+                await engine.restore(log)
+                persistedCursor = log.events.count
+                await refreshPatientSnapshot()        // cursor up-to-date ⇒ persists nothing
+                appendSystem("RECOVERED · \(id) · \(log.events.count) events replayed")
+            } else {
+                try await store.startNewCasualty(id: casualtyId, startUnix: Date().timeIntervalSince1970)
+                persistedCursor = 0
+                await persistNewEvents()              // flush the fresh engine's lc-1 seed
+            }
+        } catch {
+            appendSystem("PERSIST INIT FAILED · \(error.localizedDescription)")
+        }
+    }
+
 #if DEBUG
     func processWithEngineForTest(_ text: String) async { await processWithEngine(text, timestamp: Date()) }
 #endif

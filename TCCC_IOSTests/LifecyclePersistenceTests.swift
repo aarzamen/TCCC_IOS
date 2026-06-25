@@ -12,6 +12,29 @@ final class LifecyclePersistenceTests: XCTestCase {
     }
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: base) }
 
+    // B5 adds the load()-based helper (load() now exists); B6 reuses it.
+    private func makeState() async -> AppState {
+        let state = AppState()
+        state.documentsURL = base
+        await state.load()        // no prior active → opens a fresh casualty + flushes the seed
+        return state
+    }
+
+    func testCrashRecoveryReplaysInProgressEncounter() async throws {
+        // Simulate active care + crash: write events via one AppState, then load a fresh one.
+        let pre = await makeState()
+        await pre.processWithEngineForTest("GSW right thigh. Heart rate one ten.")
+        let expected = pre.primaryPatient
+
+        // Fresh AppState (new app launch) pointed at the same dir.
+        let post = AppState()
+        post.documentsURL = base
+        await post.load()
+        XCTAssertEqual(post.primaryPatient?.vitals.hr, 110, "in-progress HR must survive relaunch")
+        XCTAssertEqual(post.primaryPatient?.mechanismOfInjury, expected?.mechanismOfInjury)
+        XCTAssertEqual(post.casualtyId, "C-04")
+    }
+
     // B4 configures the store MANUALLY (load() doesn't exist until B5).
     func testTranscriptEventsArePersistedContinuously() async throws {
         let state = AppState()

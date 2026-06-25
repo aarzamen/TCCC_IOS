@@ -7,6 +7,7 @@ struct TCCC_IOSApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(state: state)
+                .task { await state.load() }
         }
     }
 }
