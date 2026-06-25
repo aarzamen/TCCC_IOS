@@ -72,6 +72,24 @@ final class LogEquivalenceTests: XCTestCase {
         XCTAssertEqual(projected, imperative)
     }
 
+    func testFactlessPatientSwitchReconstructsRowInProjection() async throws {
+        // A patient created with NO clinical facts (only a switch) must still appear
+        // in project(log) — the key-set invariant replay depends on, made structural.
+        let engine = PatientStateEngine.standard()
+        // PatientSwitcher recognizes "patient two"; this switch sets timestamps too,
+        // but the GUARANTEE must come from the lifecycle event, not the timestamp coupling.
+        await engine.processTranscript("Switching to patient two.")
+        let snap = await engine.snapshot()
+        let projected = PatientStateEngine.project(await engine.snapshotLog())
+        XCTAssertEqual(Set(projected.keys), Set(snap.keys))
+        // The lifecycle event for the new patient must be present in the log.
+        let log = await engine.snapshotLog()
+        XCTAssertTrue(log.events.contains {
+            if case .lifecycle(let p) = $0, p.kind == .encounterStarted, p.patientId != "PATIENT_1" { return true }
+            return false
+        }, "a new patient must emit an encounterStarted lifecycle event")
+    }
+
     func testAfterFlipSnapshotIsTheProjection() async throws {
         let engine = PatientStateEngine.standard()
         await engine.processTranscript(try loadScenario("scenario_1_gsw_thigh"))

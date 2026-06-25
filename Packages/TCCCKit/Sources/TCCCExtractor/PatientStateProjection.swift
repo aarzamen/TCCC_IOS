@@ -185,7 +185,10 @@ extension PatientStateEngine {
         }
         for event in log.events {
             switch event {
-            case .asrSegment, .operatorRejectedFact, .lifecycle:
+            case .asrSegment, .operatorRejectedFact:
+                continue
+            case .lifecycle(let p):
+                if p.kind == .encounterStarted { ensure(p.patientId) }
                 continue
             case .deterministicFact(let p):
                 ensure(p.patientId)

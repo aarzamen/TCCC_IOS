@@ -44,6 +44,7 @@ public actor PatientStateEngine {
     public private(set) var log = EncounterLog()
     private var asrCount = 0
     private var factCount = 0
+    private var lifecycleCount = 1   // init seeds "lc-1"
 
     // MARK: - Dependencies
 
@@ -95,11 +96,11 @@ public actor PatientStateEngine {
             // 1. Patient-switch detection FIRST (P1 #3 in state.py).
             if let newID = switcher.detectSwitch(in: sentence) {
                 currentPatientID = newID
-                ensurePatientExists(currentPatientID)
+                ensurePatientExists(currentPatientID, timestamp: unixTimestamp)
             }
 
             // 2. Get-or-create current patient and refresh timestamps.
-            ensurePatientExists(currentPatientID)
+            ensurePatientExists(currentPatientID, timestamp: unixTimestamp)
             var patient = patients[currentPatientID]!
             if patient.timestampFirstMention == nil {
                 patient.timestampFirstMention = unixTimestamp
@@ -162,8 +163,8 @@ public actor PatientStateEngine {
     public func recordOperatorAcceptedFact(write: PatientStateFieldWrite, factId: String?,
         domain: String, field: String, rawValue: String?, to patientId: String,
         timestamp: Date = Date()) {
-        ensurePatientExists(patientId)
         let unix = timestamp.timeIntervalSince1970
+        ensurePatientExists(patientId, timestamp: unix)
         opCount += 1
         log.append(.operatorAcceptedFact(.init(
             id: "op-\(opCount)", patientId: patientId, timestampUnix: unix,
@@ -201,9 +202,16 @@ public actor PatientStateEngine {
     }
 
     /// Ensure a row exists for `patientId`. Mirrors `_ensure_patient_exists`.
-    private func ensurePatientExists(_ patientId: String) {
+    /// On creation, appends a `.lifecycle(.encounterStarted)` event so `project`
+    /// can guarantee the key-set even for patients with no clinical facts.
+    /// `timestamp` is threaded from the processing call site — do NOT call Date() here.
+    private func ensurePatientExists(_ patientId: String, timestamp: Double = 0) {
         if patients[patientId] == nil {
             patients[patientId] = PatientState(patientId: patientId)
+            lifecycleCount += 1
+            log.append(.lifecycle(.init(
+                id: "lc-\(lifecycleCount)", patientId: patientId,
+                timestampUnix: timestamp, kind: .encounterStarted)))
         }
     }
 }
