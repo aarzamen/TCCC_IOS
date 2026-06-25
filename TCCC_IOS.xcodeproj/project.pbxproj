@@ -72,6 +72,7 @@
 		5641D9E0E3BAD7EAB1B47C3E /* GraniteSpeechTranscriptStreamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0C00F5F9B9A4182B60FAA2A /* GraniteSpeechTranscriptStreamTests.swift */; };
 		5809364FD014D5CE360C5B25 /* DemoScenarios.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1611CD2F2C6FBCA090FA9463 /* DemoScenarios.swift */; };
 		588D0FF07310F89B70C93707 /* SumLineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAAF88DF513C78083F43399 /* SumLineView.swift */; };
+		592B9C80BCD8569CCC1847C7 /* EncounterStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFEDD87A507325FF4D651B83 /* EncounterStore.swift */; };
 		59B76D40E7C2FC6C97543EFD /* SpeechRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 760440A05970E300FA8EE623 /* SpeechRecognizer.swift */; };
 		5C24B22FEBD9FDA02BE9D7C2 /* SenderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19EE0990E75CF910CFC96044 /* SenderViewModel.swift */; };
 		5D18A9F14A3C03D8184C9A49 /* AudioLevels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814714063444A46EFF4A5946 /* AudioLevels.swift */; };
@@ -84,6 +85,7 @@
 		65723436424B03087D2796A3 /* VoiceCommandChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44D1BCE15092A382D0C8A83E /* VoiceCommandChip.swift */; };
 		65EAB97DFC4A75174E6319C4 /* GraniteHotSeatPacketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF67D464862430720D81313 /* GraniteHotSeatPacketTests.swift */; };
 		661E637969A0C35221CB378C /* DeterministicFactProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FE705B82DF14560228BED9B /* DeterministicFactProjector.swift */; };
+		671ECD80AB4AFC7C4287DA1F /* EncounterStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58FA5C688962CB88681ABB4E /* EncounterStoreTests.swift */; };
 		689138F6639A56D78549AA6C /* FMStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B0398ABF53C55C63CA91DE /* FMStatusBadge.swift */; };
 		6CE528D3418D0AD8149078FE /* TCCCReports in Frameworks */ = {isa = PBXBuildFile; productRef = 1EBADE04B1405565EC85AC04 /* TCCCReports */; };
 		6D0F5AAC7D35E548210DBB6E /* SenderReadoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 086D4943CFA26B905A152423 /* SenderReadoutView.swift */; };
@@ -222,6 +224,7 @@
 		56776AA19BDE9BE265F682AD /* VitalsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsScreen.swift; sourceTree = "<group>"; };
 		57F59E6CBC6F3FA2FDDB02D2 /* GraniteApplyPathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteApplyPathTests.swift; sourceTree = "<group>"; };
 		587404AC0A87B848DF7E9B6E /* Field.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Field.swift; sourceTree = "<group>"; };
+		58FA5C688962CB88681ABB4E /* EncounterStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncounterStoreTests.swift; sourceTree = "<group>"; };
 		5959AC638D222EE02AB9E658 /* GraniteReportCritique.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteReportCritique.swift; sourceTree = "<group>"; };
 		5C2CCE67936451614B668080 /* FooterHints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FooterHints.swift; sourceTree = "<group>"; };
 		5F65E49B6C7026C97C109E10 /* GranitePromptBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GranitePromptBuilderTests.swift; sourceTree = "<group>"; };
@@ -311,6 +314,7 @@
 		F7CC523213C16C2AFD23DDFF /* DevToolsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevToolsRootView.swift; sourceTree = "<group>"; };
 		FA68EA014729F86EDAF38A92 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		FCD2E4CE27D7E01F8784D6FB /* GraniteSpeechTranscriptStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteSpeechTranscriptStream.swift; sourceTree = "<group>"; };
+		FFEDD87A507325FF4D651B83 /* EncounterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncounterStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -485,6 +489,7 @@
 				5228B58B0B7DEB4A7E25D6EB /* AppState.swift */,
 				F5C6B5DD035E601B88468377 /* ConfirmationAction.swift */,
 				1611CD2F2C6FBCA090FA9463 /* DemoScenarios.swift */,
+				FFEDD87A507325FF4D651B83 /* EncounterStore.swift */,
 				6328749551E5CBB4EB8FC99F /* ExtractedFact.swift */,
 				0EE8A25877D44D109385309C /* HandoffData.swift */,
 				1ECA9A5D8E6ECA17682B5CF0 /* HandoffDestination.swift */,
@@ -606,6 +611,7 @@
 			isa = PBXGroup;
 			children = (
 				6DEE262741052B0E405D0A19 /* DeterministicFactProjectorTests.swift */,
+				58FA5C688962CB88681ABB4E /* EncounterStoreTests.swift */,
 				507459C6ED5524BF0A96256B /* EventSourcingApplyPathTests.swift */,
 				1F46C00BD2F2DD93A7F5807C /* EvidenceLinkageTests.swift */,
 				A2BE707617C0EEFDF5A336E6 /* FieldRouterBoundaryGateTests.swift */,
@@ -784,6 +790,7 @@
 				80A9706B7C846C944D32A832 /* DevToolsRootView.swift in Sources */,
 				F15E74547D96207090CC9AE2 /* DiagnosticsLogger.swift in Sources */,
 				6EB4E49A727792419BEDC620 /* EncounterNarrativeGenerator.swift in Sources */,
+				592B9C80BCD8569CCC1847C7 /* EncounterStore.swift in Sources */,
 				D672BC6DF18D9F64F6834439 /* ExportCard.swift in Sources */,
 				B3A9BDA0AF96DA35F6C13E61 /* ExtractedFact.swift in Sources */,
 				689138F6639A56D78549AA6C /* FMStatusBadge.swift in Sources */,
@@ -881,6 +888,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A864CDAF43DD094DA4A508A4 /* DeterministicFactProjectorTests.swift in Sources */,
+				671ECD80AB4AFC7C4287DA1F /* EncounterStoreTests.swift in Sources */,
 				E7287D82B2A32D6C58AB6B72 /* EventSourcingApplyPathTests.swift in Sources */,
 				5F831CD02E231B867E55884F /* EvidenceLinkageTests.swift in Sources */,
 				2182CB3F9A4CAA0904FA1B9E /* FieldRouterBoundaryGateTests.swift in Sources */,
