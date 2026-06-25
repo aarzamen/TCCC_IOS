@@ -127,4 +127,32 @@ extension PatientStateEngine {
             d.append(set(after))
         }
     }
+
+    /// Fold the log into per-patient state by replaying recorded deltas + operator
+    /// writes in order. Pure: never re-runs extractors, never reads actor state.
+    nonisolated static func project(_ log: EncounterLog) -> [String: PatientState] {
+        var patients: [String: PatientState] = ["PATIENT_1": PatientState(patientId: "PATIENT_1")]
+        func ensure(_ pid: String) {
+            if patients[pid] == nil { patients[pid] = PatientState(patientId: pid) }
+        }
+        for event in log.events {
+            switch event {
+            case .asrSegment, .operatorRejectedFact, .lifecycle:
+                continue
+            case .deterministicFact(let p):
+                ensure(p.patientId)
+                var s = patients[p.patientId]!
+                applyDelta(p.delta, to: &s)
+                patients[p.patientId] = s
+            case .operatorAcceptedFact(let p):
+                ensure(p.patientId)
+                guard let write = p.write else { continue }
+                var s = patients[p.patientId]!
+                applyWrite(write, to: &s)
+                s.timestampLastUpdate = p.timestampUnix
+                patients[p.patientId] = s
+            }
+        }
+        return patients
+    }
 }

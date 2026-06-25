@@ -40,6 +40,11 @@ public actor PatientStateEngine {
     /// Patient currently in focus. Patient-switch detection mutates this.
     public private(set) var currentPatientID: String = "PATIENT_1"
 
+    /// Append-only event log for this encounter. A3 dual-write.
+    public private(set) var log = EncounterLog()
+    private var asrCount = 0
+    private var factCount = 0
+
     // MARK: - Dependencies
 
     private let passes: [any ExtractorPass]
@@ -77,6 +82,7 @@ public actor PatientStateEngine {
     ///      patient row exists, refresh timestamps, build the
     ///      `ExtractionContext`, and pass it through every extractor.
     public func processTranscript(_ text: String, timestamp: Date = Date()) {
+        let before = patients                               // A3: capture for the diff
         let normalized = normalizer.normalize(text)
         let sentences = tokenizer.tokenize(normalized)
         let unixTimestamp = timestamp.timeIntervalSince1970
@@ -112,6 +118,9 @@ public actor PatientStateEngine {
             }
             patients[currentPatientID] = current
         }
+
+        emitEvents(text: text, before: before, timestamp: unixTimestamp)   // A3 dual-write
+        // A5 will append: patients = Self.project(log)
     }
 
     /// Snapshot copy of the entire patient dict.
@@ -123,6 +132,9 @@ public actor PatientStateEngine {
     public func snapshot(of patientId: String) -> PatientState? {
         return patients[patientId]
     }
+
+    /// Snapshot copy of the encounter log. A3 dual-write accessor.
+    public func snapshotLog() -> EncounterLog { log }
 
     /// Apply typed field writes to one patient. This is the ONLY non-extraction
     /// mutation entry; it accepts only the typed `PatientStateFieldWrite` vocabulary,
@@ -137,6 +149,24 @@ public actor PatientStateEngine {
     }
 
     // MARK: - Internal helpers
+
+    /// Emit the asrSegment + per-patient deterministicFact events for one transcript call.
+    private func emitEvents(text: String, before: [String: PatientState], timestamp: Double) {
+        asrCount += 1
+        let segId = "seg-\(asrCount)"
+        log.append(.asrSegment(.init(
+            id: segId, patientId: currentPatientID, timestampUnix: timestamp,
+            text: text, backend: "engine", isFinal: true)))
+        for (pid, after) in patients.sorted(by: { $0.key < $1.key }) {
+            let beforeP = before[pid] ?? PatientState(patientId: pid)
+            for delta in Self.diff(beforeP, after) {
+                factCount += 1
+                log.append(.deterministicFact(.init(
+                    id: "fact-\(factCount)", patientId: pid, timestampUnix: timestamp,
+                    delta: delta, evidenceIds: [segId], extractor: "deterministic")))
+            }
+        }
+    }
 
     /// Ensure a row exists for `patientId`. Mirrors `_ensure_patient_exists`.
     private func ensurePatientExists(_ patientId: String) {
