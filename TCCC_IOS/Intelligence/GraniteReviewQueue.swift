@@ -1,4 +1,5 @@
 import Foundation
+import TCCCDomain
 
 enum GraniteReviewStatus: String, Sendable, Equatable {
     case readyForOperatorReview
@@ -32,7 +33,8 @@ extension AppState {
         let packet = HotSeatPacketBuilder.build(
             activePatientId: activePatientId,
             segments: segments,
-            deterministicFacts: [],
+            deterministicFacts: DeterministicFactProjector.project(
+                primaryPatient ?? PatientState(patientId: activePatientId)),
             date: Date()
         )
 
