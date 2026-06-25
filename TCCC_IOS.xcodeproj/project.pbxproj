@@ -74,6 +74,7 @@
 		5C24B22FEBD9FDA02BE9D7C2 /* SenderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19EE0990E75CF910CFC96044 /* SenderViewModel.swift */; };
 		5D18A9F14A3C03D8184C9A49 /* AudioLevels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814714063444A46EFF4A5946 /* AudioLevels.swift */; };
 		5E335E98466F27FE4BB04476 /* TCCCExtractor in Frameworks */ = {isa = PBXBuildFile; productRef = A15CAC0CB421F5287463F2D1 /* TCCCExtractor */; };
+		5F831CD02E231B867E55884F /* EvidenceLinkageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F46C00BD2F2DD93A7F5807C /* EvidenceLinkageTests.swift */; };
 		600E655D057BE15E389CC357 /* MLXBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129984C4E0F1CB5E8FF56A58 /* MLXBackend.swift */; };
 		61490C4F3F48390EE2EA2AC0 /* TranscriptLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5279A4A90D8BE4BEC038F0A8 /* TranscriptLine.swift */; };
 		61CF016631D41CBACEE66692 /* TranscriptCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 771B01601872B488CF2B1B0C /* TranscriptCleaner.swift */; };
@@ -186,6 +187,7 @@
 		1DA3636AE0ECFB9FA1857EFB /* MemoryStat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryStat.swift; sourceTree = "<group>"; };
 		1ECA9A5D8E6ECA17682B5CF0 /* HandoffDestination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandoffDestination.swift; sourceTree = "<group>"; };
 		1EED0969895F125C962A9134 /* PAWSRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PAWSRowView.swift; sourceTree = "<group>"; };
+		1F46C00BD2F2DD93A7F5807C /* EvidenceLinkageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceLinkageTests.swift; sourceTree = "<group>"; };
 		232370BA9225A54377B43108 /* AudioSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionCoordinator.swift; sourceTree = "<group>"; };
 		24940FE5AC2F0EE0AFE266AA /* LifecycleAffordanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifecycleAffordanceTests.swift; sourceTree = "<group>"; };
 		274E6A86610FEAD04C57413F /* SmallVital.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmallVital.swift; sourceTree = "<group>"; };
@@ -601,6 +603,7 @@
 			children = (
 				6DEE262741052B0E405D0A19 /* DeterministicFactProjectorTests.swift */,
 				507459C6ED5524BF0A96256B /* EventSourcingApplyPathTests.swift */,
+				1F46C00BD2F2DD93A7F5807C /* EvidenceLinkageTests.swift */,
 				A2BE707617C0EEFDF5A336E6 /* FieldRouterBoundaryGateTests.swift */,
 				CC2337B01F20082D87FE2495 /* FieldRouterRubricDriftTests.swift */,
 				57F59E6CBC6F3FA2FDDB02D2 /* GraniteApplyPathTests.swift */,
@@ -873,6 +876,7 @@
 			files = (
 				A864CDAF43DD094DA4A508A4 /* DeterministicFactProjectorTests.swift in Sources */,
 				E7287D82B2A32D6C58AB6B72 /* EventSourcingApplyPathTests.swift in Sources */,
+				5F831CD02E231B867E55884F /* EvidenceLinkageTests.swift in Sources */,
 				2182CB3F9A4CAA0904FA1B9E /* FieldRouterBoundaryGateTests.swift in Sources */,
 				E88C26AA6BB613B594E8BE40 /* FieldRouterRubricDriftTests.swift in Sources */,
 				E428CE9A30111501BF2B2AC6 /* GraniteApplyPathTests.swift in Sources */,

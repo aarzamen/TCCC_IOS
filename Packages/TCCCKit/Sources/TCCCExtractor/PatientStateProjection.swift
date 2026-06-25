@@ -4,6 +4,54 @@ import TCCCDomain
 
 extension PatientStateEngine {
 
+    // MARK: - Log-derived deterministic facts (A6)
+
+    /// A DD-1380-bindable fact derived from the encounter log, carrying the evidenceIds
+    /// of the deterministicFact event that last set the (patientId, domain, field) tuple.
+    public struct DerivedFact: Sendable, Equatable {
+        public let patientId: String
+        public let domain: String
+        public let field: String
+        public let value: String
+        public let evidenceIds: [String]
+    }
+
+    /// Latest (domain, field) value per patient from deterministicFact events, with the
+    /// evidenceIds of the event that set it. Only the DD-1380-bindable subset that maps
+    /// to the GraniteSchemaValidator vocabulary is surfaced; deltas outside that subset
+    /// are ignored for the packet (they still live in the log as audit).
+    public nonisolated static func deterministicFacts(from log: EncounterLog) -> [DerivedFact] {
+        var latest: [String: DerivedFact] = [:]   // key: "pid|domain|field"
+        for case .deterministicFact(let p) in log.events {
+            guard let mapped = vocabulary(for: p.delta) else { continue }
+            let key = "\(p.patientId)|\(mapped.domain)|\(mapped.field)"
+            latest[key] = DerivedFact(patientId: p.patientId, domain: mapped.domain,
+                field: mapped.field, value: mapped.value, evidenceIds: p.evidenceIds)
+        }
+        return Array(latest.values).sorted { $0.field < $1.field }
+    }
+
+    /// Map a delta to the (domain, field, value) packet vocabulary, or nil if the
+    /// delta is not a DD-1380-bindable fact.
+    private nonisolated static func vocabulary(for delta: PatientStateDelta) -> (domain: String, field: String, value: String)? {
+        switch delta {
+        case .vitalsHR(let v?):                 return ("vitals", "heartRate", String(v))
+        case .vitalsSpO2(let v?):               return ("vitals", "spo2", String(v))
+        case .vitalsRR(let v?):                 return ("vitals", "respiratoryRate", String(v))
+        case .vitalsBP(let v?):                 return ("vitals", "bloodPressure", "\(v.systolic)/\(v.diastolic)")
+        case .hemorrhageLocation(let v?):       return ("march", "hemorrhageLocation", v)
+        case .hemorrhageIntervention(let v?):   return ("march", "hemorrhageIntervention", v)
+        case .airwayIntervention(let v?):       return ("march", "airwayIntervention", v)
+        case .consciousness(let v?):            return ("march", "consciousness", v)
+        case .hypothermiaPrevention(let v?):    return ("march", "hypothermiaPrevention", v)
+        case .pawsPain(let v?):                 return ("paws", "pain", v)
+        case .pawsAntibiotics(let v?):          return ("paws", "antibiotic", v)
+        default:                                return nil
+        }
+    }
+
+    // MARK: - Operator write application
+
     /// Apply one operator-vocabulary write. Pure field-set (no timestamp side effect);
     /// the engine and the projection own timestamp semantics around it.
     nonisolated static func applyWrite(_ write: PatientStateFieldWrite, to p: inout PatientState) {

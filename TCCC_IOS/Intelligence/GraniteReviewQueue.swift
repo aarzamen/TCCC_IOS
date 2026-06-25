@@ -1,5 +1,6 @@
 import Foundation
 import TCCCDomain
+import TCCCExtractor
 
 enum GraniteReviewStatus: String, Sendable, Equatable {
     case readyForOperatorReview
@@ -18,6 +19,17 @@ struct GraniteReviewItem: Identifiable, Sendable, Equatable {
 }
 
 extension AppState {
+    /// Deterministic facts for the hot-seat packet, sourced from the engine log so
+    /// each fact carries real asrSegment evidence (replaces the evidenceIds:[] stopgap).
+    func deterministicFactsForPacket() async -> [DeterministicFact] {
+        let derived = PatientStateEngine.deterministicFacts(from: await engine.snapshotLog())
+        return derived.enumerated().map { idx, f in
+            DeterministicFact(id: "det-\(idx + 1)", patientId: f.patientId, domain: f.domain,
+                field: f.field, value: f.value, evidenceIds: f.evidenceIds,
+                extractor: "deterministic", confidence: .high)
+        }
+    }
+
     func runGraniteHotSeatReview() async {
         await runGraniteHotSeatReview(using: currentBackend)
     }
@@ -33,8 +45,7 @@ extension AppState {
         let packet = HotSeatPacketBuilder.build(
             activePatientId: activePatientId,
             segments: segments,
-            deterministicFacts: DeterministicFactProjector.project(
-                primaryPatient ?? PatientState(patientId: activePatientId)),
+            deterministicFacts: await deterministicFactsForPacket(),
             date: Date()
         )
 

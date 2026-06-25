@@ -5,8 +5,13 @@ import TCCCDomain
 /// Projects the engine's current `PatientState` into `[DeterministicFact]` so the
 /// hot-seat packet carries the deterministic ground truth as context. Field names
 /// match the `GraniteSchemaValidator.allowedFields` vocabulary so they round-trip
-/// through the `FieldRouter`. Evidence linkage is best-effort this cycle (empty
-/// `evidenceIds`) — a debt explicitly gated on the future EncounterEvent log.
+/// through the `FieldRouter`.
+///
+/// Note: the hot-seat packet now sources deterministic facts via
+/// `AppState.deterministicFactsForPacket()` which derives them from the EncounterLog
+/// so each fact carries real asrSegment evidence. This synchronous projector remains
+/// in use for `currentEngineValue` (contradiction detection), which reads the current
+/// snapshot without awaiting the engine actor.
 enum DeterministicFactProjector {
     static func project(_ state: PatientState) -> [DeterministicFact] {
         var facts: [DeterministicFact] = []
