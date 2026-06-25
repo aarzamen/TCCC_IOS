@@ -181,6 +181,38 @@ public actor PatientStateEngine {
             write: nil, sourceFactId: factId, domain: domain, field: field, rawValue: rawValue)))
     }
 
+    // MARK: - Restore + lifecycle (sub-cycle B)
+
+    /// Re-seat the engine from a persisted log (replay-on-launch). Resumes id counters
+    /// from per-type event counts (ids are sequential, so count == max) so subsequent
+    /// events don't collide with replayed ones.
+    public func restore(_ restoredLog: EncounterLog) {
+        log = restoredLog
+        patients = Self.project(restoredLog)
+        var asr = 0, fact = 0, op = 0, life = 0
+        var lastAsrPatient: String?
+        for event in restoredLog.events {
+            switch event {
+            case .asrSegment(let p):            asr += 1; lastAsrPatient = p.patientId
+            case .deterministicFact:            fact += 1
+            case .operatorAcceptedFact,
+                 .operatorRejectedFact:         op += 1
+            case .lifecycle:                    life += 1
+            }
+        }
+        asrCount = asr; factCount = fact; opCount = op; lifecycleCount = life
+        currentPatientID = lastAsrPatient ?? "PATIENT_1"
+    }
+
+    /// Append an audit-only lifecycle marker (End Care / archival). `.encounterEnded`
+    /// and `.archived` are inert in `project`, so no re-projection is needed.
+    public func recordLifecycle(_ kind: LifecyclePayload.Kind, timestamp: Date = Date()) {
+        lifecycleCount += 1
+        log.append(.lifecycle(.init(
+            id: "lc-\(lifecycleCount)", patientId: currentPatientID,
+            timestampUnix: timestamp.timeIntervalSince1970, kind: kind)))
+    }
+
     // MARK: - Internal helpers
 
     /// Emit the asrSegment + per-patient deterministicFact events for one transcript call.
