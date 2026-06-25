@@ -33,4 +33,29 @@ enum ProtectedWrite {
     static func markProtected(at url: URL) throws {
         try (url as NSURL).setResourceValue(URLFileProtection.complete, forKey: .fileProtectionKey)
     }
+
+    /// Append one line (+ newline) to a file, creating the parent dir and file with
+    /// complete protection if needed, and re-asserting NSFileProtectionComplete after
+    /// the write. Used for the encrypted per-casualty event JSONL.
+    static func appendLine(_ line: String, to url: URL) throws {
+        let fm = FileManager.default
+        let dir = url.deletingLastPathComponent()
+        if !fm.fileExists(atPath: dir.path) {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true,
+                attributes: [.protectionKey: FileProtectionType.complete])
+        }
+        if !fm.fileExists(atPath: url.path) {
+            try createEmpty(at: url)
+        }
+        let handle = try FileHandle(forWritingTo: url)
+        do {
+            try handle.seekToEnd()
+            try handle.write(contentsOf: Data((line + "\n").utf8))
+            try handle.close()
+        } catch {
+            try? handle.close()
+            throw error
+        }
+        try markProtected(at: url)
+    }
 }
