@@ -11,13 +11,17 @@ Context for the reviewer: a device session on the iPhone 17 Pro proved that a
 committed** — `EXTRACTED` stayed 0 and the on-disk `events.jsonl` held only the
 seed event — because on-device Apple Speech never emits its own `isFinal` and the
 sole commit trigger was a 2.5 s silence debounce that continuous speech never
-satisfies. The fix adds a watchdog that force-commits the in-flight partial every
-~8 s, a flush-on-stop, a shared `commitPartial` path, and a superset-aware dedup
-in `AppState.appendFinal`. An internal 4-lens adversarial review confirmed the
-loss bug is fixed and surfaced the superset-echo duplication, which the dedup
-hardening addresses; the known residual is a *reformatted-prefix* echo (e.g. the
-final pass renders "ninety over sixty" as "90/60") that exact/prefix matching
-will not collapse — please scrutinise that.
+satisfies. The fix adds a watchdog that finalizes the in-flight pass every ~8 s, a
+flush-on-stop, and a shared `commitPartial` path. A device re-test confirmed the
+loss bug is fixed (full MARCH-PAWS extraction from a continuous read) but exposed a
+duplication: committing the on-screen snapshot AND the `forceFinalize` echo produced
+two near-duplicate lines per chunk, because on-device Apple Speech *revises* earlier
+words when it finalizes ("high-end" → "high and tight"), defeating exact/prefix
+dedup. That is now fixed at the source: **`commitPartial` is finalize-only** — it no
+longer commits the rough snapshot; the authoritative `isFinal` echo is the sole
+commit per chunk. `AppState.appendFinal` retains an exact/superset dedup as a
+defensive backstop. Please verify the finalize-only path is lossless and exactly-once
+and that the backstop dedup can't wrongly drop a legitimate line.
 
 ---
 
@@ -42,17 +46,20 @@ holds structurally:
 2. TENTATIVE → PERMANENT TRANSCRIPTION.
 The point where streaming ASR partials become committed, engine-extracted,
 persisted documentation. A continuous-speech finalization bug was just fixed
-in LiveCaptureScreen (a watchdog force-commits the in-flight partial every
-~8s + a flush-on-stop + a shared commitPartial path), because on-device
-Apple Speech never fires isFinal and the 2.5s silence debounce alone lost
-unbroken narration. Verify:
+in LiveCaptureScreen (a watchdog finalizes the in-flight pass every ~8s + a
+flush-on-stop + a shared commitPartial path), because on-device Apple Speech
+never fires isFinal and the 2.5s silence debounce alone lost unbroken
+narration. commitPartial is now FINALIZE-ONLY: it does not commit the rough
+on-screen snapshot; it calls forceFinalize() and the authoritative isFinal
+echo is the sole commit per chunk (the snapshot+echo pair was producing
+near-duplicate lines because the final pass revises earlier words). Verify:
 - The tentative→final transition is lossless and exactly-once under BOTH
-  continuous speech and natural pauses.
-- No double-commit: commitPartial → appendFinal + forceFinalize emits an
-  isFinal echo; confirm appendFinal's dedup reliably swallows it, including
-  when the echo text differs slightly from the committed line (a SUPERSET
-  with trailing words, or a REFORMATTED prefix like "ninety over sixty" →
-  "90/60" which prefix matching will NOT collapse — assess the impact).
+  continuous speech and natural pauses, with NO duplicate/overlapping lines.
+- Finalize-only soundness: if a forceFinalize pass yields no isFinal (error /
+  empty), is that chunk silently lost? How likely, how bad, and is the watchdog
+  redundancy enough? (The prior snapshot-commit was the fallback that's now gone.)
+- The retained exact/superset dedup in AppState.appendFinal is now a backstop —
+  confirm it can't wrongly drop a legitimate line (e.g. a real repeated prefix).
 - Task lifecycle: the watchdog (periodicCommitTask) is cancelled on every
   teardown path — no leak, no commit into a torn-down recognizer.
 - The tail/stop interaction (forceFinalize is a no-op during the tail)
