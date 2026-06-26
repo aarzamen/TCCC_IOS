@@ -155,6 +155,14 @@ public actor PatientStateEngine {
     /// Apply typed field writes to one patient. This is the ONLY non-extraction
     /// mutation entry; it accepts only the typed `PatientStateFieldWrite` vocabulary,
     /// so the engine remains the sole writer of `PatientState`.
+    ///
+    /// - Warning: TEST-ONLY. Unlike `recordOperatorAcceptedFact`, this does **not**
+    ///   append an event to `log`, so after calling it `snapshot() != project(log)` for
+    ///   the written field, and a crash/restore (which re-folds the persisted log) would
+    ///   lose the write. It is currently reachable only from `PatientStateApplyTests`.
+    ///   Do not use it on the persisted runtime path — route operator writes through
+    ///   `recordOperatorAcceptedFact`, which logs. If a non-test caller ever needs this,
+    ///   make it emit a `.deterministicFact` / `.operatorAcceptedFact` event first.
     public func apply(_ writes: [PatientStateFieldWrite], to patientId: String) {
         guard !writes.isEmpty else { return }
         ensurePatientExists(patientId)
