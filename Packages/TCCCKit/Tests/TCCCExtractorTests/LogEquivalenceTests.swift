@@ -124,16 +124,91 @@ final class LogEquivalenceTests: XCTestCase {
 
     func testNewEventsSinceReturnsSuffixOrEmpty() async throws {
         let engine = PatientStateEngine.standard()
-        await engine.processTranscript("Heart rate one ten.")
-        let total = await engine.snapshotLog().events.count
-        XCTAssertGreaterThan(total, 1)                      // seed + asr + facts
+        // A multi-sentence chunk so the log has comfortably more than 4 events,
+        // giving a genuine interior cursor to exercise.
+        await engine.processTranscript("GSW right thigh. Heart rate one ten. Blood pressure ninety over sixty.")
+        let allEvents = await engine.snapshotLog().events
+        let total = allEvents.count
+        XCTAssertGreaterThan(total, 4)                                       // seed + asr + several facts
+
+        // By value, not just count: a same-length-but-wrong slice (prefix, reversed)
+        // must fail. persistNewEvents writes exactly this slice to the encrypted JSONL.
         let wholeLog = await engine.newEvents(since: 0)
-        XCTAssertEqual(wholeLog.count, total)                                // whole log
+        XCTAssertEqual(wholeLog.map(\.id), allEvents.map(\.id))              // whole log, in order
         let tail = await engine.newEvents(since: total - 1)
-        XCTAssertEqual(tail.count, 1)                                        // just the last event
+        XCTAssertEqual(tail.map(\.id), [allEvents.last!.id])                 // exactly the last event
+        let interior = await engine.newEvents(since: 2)
+        XCTAssertEqual(interior.map(\.id), Array(allEvents[2...]).map(\.id)) // interior cursor == events[2...]
         let caughtUp = await engine.newEvents(since: total)
         XCTAssertTrue(caughtUp.isEmpty)                                      // caught up
         let outOfRange = await engine.newEvents(since: total + 5)
         XCTAssertTrue(outOfRange.isEmpty)                                    // out-of-range guarded
+    }
+
+    func testRestoreThenMutateNeverDivergesFromProjection() async throws {
+        // Production crash-recovery hot path (continuous persistence): restore a
+        // persisted log via the full fold, then keep capturing along the incremental
+        // path. The materialized view must stay == project(log) after restore+mutate —
+        // the equivalence the incremental change relies on, on the path that doesn't
+        // build `patients` from scratch.
+        let source = PatientStateEngine.standard()
+        await source.processTranscript("GSW right thigh. Heart rate one ten.")
+        await source.recordOperatorAcceptedFact(
+            write: .spo2(94), factId: "g1", domain: "vitals", field: "spo2",
+            rawValue: "94", to: "PATIENT_1")
+        let savedLog = await source.snapshotLog()
+
+        let restored = PatientStateEngine.standard()
+        await restored.restore(savedLog)
+        await restored.processTranscript("Blood pressure ninety over sixty. Tourniquet applied.")
+        await restored.recordOperatorAcceptedFact(
+            write: .pain("ketamine"), factId: "g2", domain: "paws", field: "pain",
+            rawValue: "ketamine", to: "PATIENT_1")
+
+        let snap = await restored.snapshot()
+        let projected = PatientStateEngine.project(await restored.snapshotLog())
+        XCTAssertEqual(snap, projected,
+                      "restore-then-mutate: materialized view must equal a fresh re-fold")
+        XCTAssertEqual(snap["PATIENT_1"]?.vitals.spo2, 94)        // survived restore
+        XCTAssertEqual(snap["PATIENT_1"]?.paws.pain, "ketamine")  // applied post-restore
+    }
+
+    func testAcceptToBrandNewPatientNeverDivergesFromProjection() async throws {
+        // recordOperatorAcceptedFact to a not-yet-created id: the engine emits a
+        // lifecycle(.encounterStarted) + the accept event; project() must ensure() the
+        // row and applyWrite to the same result. Both accept-path tests previously
+        // targeted only the pre-existing current patient (PATIENT_1).
+        let engine = PatientStateEngine.standard()
+        await engine.processTranscript("GSW right thigh.")        // currentPatientID == PATIENT_1
+        await engine.recordOperatorAcceptedFact(
+            write: .heartRate(120), factId: "g1", domain: "vitals", field: "heartRate",
+            rawValue: "120", to: "PATIENT_2")                     // creates PATIENT_2 via accept
+        let snap = await engine.snapshot()
+        let projected = PatientStateEngine.project(await engine.snapshotLog())
+        XCTAssertTrue(snap.keys.contains("PATIENT_2"), "accept must create the new patient row")
+        XCTAssertEqual(Set(snap.keys), Set(projected.keys))
+        XCTAssertEqual(snap, projected, "accept-to-new-patient must equal project(log)")
+        XCTAssertEqual(snap["PATIENT_2"]?.vitals.hr, 120)
+    }
+
+    func testSwitchThenAcceptToNonCurrentPatientNeverDivergesFromProjection() async throws {
+        // Multi-casualty: a transcript switch moves currentPatientID to PATIENT_2, then
+        // an accept targets PATIENT_1 (non-current — accepts key off the explicit
+        // patientId argument, not currentPatientID). Equivalence must still hold.
+        let engine = PatientStateEngine.standard()
+        await engine.processTranscript("GSW right thigh.")
+        await engine.processTranscript("Switching to patient two. Heart rate one twenty.")
+        let snap0 = await engine.snapshot()
+        XCTAssertTrue(snap0.keys.contains("PATIENT_2"),
+                      "precondition: the switch must create PATIENT_2 (else the test is vacuous)")
+        await engine.recordOperatorAcceptedFact(
+            write: .spo2(91), factId: "g1", domain: "vitals", field: "spo2",
+            rawValue: "91", to: "PATIENT_1")                     // accept to the non-current patient
+        let snap = await engine.snapshot()
+        let projected = PatientStateEngine.project(await engine.snapshotLog())
+        XCTAssertEqual(Set(snap.keys), Set(projected.keys))
+        XCTAssertEqual(snap, projected,
+                      "switch-then-accept-to-non-current must equal project(log)")
+        XCTAssertEqual(snap["PATIENT_1"]?.vitals.spo2, 91)
     }
 }
