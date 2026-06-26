@@ -451,6 +451,10 @@ final class AppState {
     var encounterStore: EncounterStore?
     /// Count of engine log events already flushed to disk. Cursor-guards persistence.
     private(set) var persistedCursor: Int = 0
+    /// Serializes `persistNewEvents()` against itself so two fire-and-forget callers
+    /// cannot read the same cursor and slice overlapping event ranges. See persistNewEvents.
+    private var isPersisting = false
+    private var persistAgain = false
 
     // TCCC engine — full 10-pass dispatch per state.py:515–524.
     // var (not let) so newPatient() / wipeSession() can rebuild a fresh engine.
@@ -551,16 +555,35 @@ final class AppState {
 
     /// Flush any engine-log events beyond the cursor to the active casualty's file.
     /// Cursor-guarded ⇒ idempotent and safe to call after every engine mutation.
+    ///
+    /// Serialized against itself. `persistNewEvents` is invoked from multiple
+    /// fire-and-forget `Task`s — per committed ASR line via `appendFinal`, and from
+    /// `GraniteReviewQueue`. The body crosses two awaits between reading `persistedCursor`
+    /// and advancing it, so two concurrent invocations would otherwise read the SAME
+    /// cursor, slice overlapping `[cursor...]` ranges, and both append — duplicating
+    /// events on disk AND (because the cursor advances relatively) over-advancing it so
+    /// later events are skipped. The guard lets only one drain run at a time; a call that
+    /// arrives mid-drain just sets `persistAgain`, and the active drain loops to pick up
+    /// whatever it newly missed. Only the active invocation ever reads or advances
+    /// `persistedCursor`, so each slice is exact — no overlap, no skip. The flag reads and
+    /// writes never straddle an await, so on `@MainActor` (a serial executor) they are
+    /// atomic with respect to reentrancy.
     func persistNewEvents() async {
         guard let store = encounterStore else { return }
-        let new = await engine.newEvents(since: persistedCursor)
-        guard !new.isEmpty else { return }
-        do {
-            try await store.appendToActive(new)
-            persistedCursor += new.count
-        } catch {
-            appendSystem("PERSIST FAILED · \(error.localizedDescription)")
-        }
+        if isPersisting { persistAgain = true; return }
+        isPersisting = true
+        defer { isPersisting = false }
+        repeat {
+            persistAgain = false
+            let new = await engine.newEvents(since: persistedCursor)
+            guard !new.isEmpty else { continue }
+            do {
+                try await store.appendToActive(new)
+                persistedCursor += new.count
+            } catch {
+                appendSystem("PERSIST FAILED · \(error.localizedDescription)")
+            }
+        } while persistAgain
     }
 
     /// Replay-on-launch: recover an in-progress encounter from disk, or open a fresh
