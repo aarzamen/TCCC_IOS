@@ -393,6 +393,65 @@ install + launch succeed regardless. The two "Load demo" seed buttons
 live on the Live Capture empty-state, shown only when the transcript
 is empty.)
 
+## Engine Incremental Projection (BLOCK A) — June 2026
+
+The first of the deferred event-sourcing optimizations. Landed on
+`main` @ `4532b25` (local fast-forward off `54bd69d`/`4e9d570`, **not
+pushed** — `origin/main` ~38 behind). Spec/plan:
+`docs/superpowers/{specs,plans}/2026-06-25-engine-incremental-projection*`.
+
+**What it does.** The A-cycle flip (`patients = project(log)` on every
+transcript line + every operator accept) was an O(N) full re-fold per
+call → O(N²) per encounter, plus `persistNewEvents` deep-copied the whole
+`EncounterLog` on every flush. BLOCK A makes both incremental with **zero
+behavior change**: `processTranscript`'s trailing re-fold is deleted (the
+imperative extractor loop already maintains `patients` as the materialized
+view); `recordOperatorAcceptedFact` applies the accepted write in place
+(byte-identical to `project`'s `.operatorAcceptedFact` arm — same
+`applyWrite`, same `timestampUnix`); persistence flushes via a new additive
+`PatientStateEngine.newEvents(since:) -> [EncounterEvent]` slice accessor
+instead of copying the log. `project(log)` is **unchanged** and stays the
+restore authority + equivalence oracle. The existing `LogEquivalenceTests`
+(`snapshot() == project(log)`) now gate incremental == full-re-fold for
+free.
+
+**Whole-branch review (4-lens adversarial, opus).** Verdict
+SHIP_AFTER_FIXES — the change itself APPROVED on all four lenses
+(correctness-invariant / test-coverage / persistence-cursor / spec-scope);
+7 findings confirmed, 0 dismissed. All closed before merge:
+  - **Cursor TOCTOU (the one real bug).** `persistNewEvents` reads
+    `persistedCursor`, crosses two awaits, then advances it — invoked from
+    fire-and-forget Tasks. BLOCK A's switch from absolute
+    (`= log.events.count`) to relative (`+= new.count`) cursor advance had
+    **worsened** a pre-existing race from duplicate-only to duplicate **+
+    skip** (event loss on the encrypted JSONL). Fixed with a `@MainActor`
+    coalescing serialize guard (`isPersisting`/`persistAgain`): only one
+    drain runs at a time, late arrivals request a re-drain; flag reads/
+    writes never straddle an await, so they're atomic w.r.t. reentrancy.
+    Fix-delta re-review = CORRECT_WITH_NITS (refutation attempt failed).
+  - **Test hardening.** Three new equivalence tests close the paths BLOCK A
+    now relies on — restore-then-mutate (crash-recovery hot path),
+    accept-to-brand-new-patient, switch-then-accept-to-non-current — all
+    PASS (no divergence). Slice test upgraded from count-only to by-value +
+    interior cursor.
+  - **`engine.apply(_:to:)` doc.** Marked TEST-ONLY (it mutates `patients`
+    without logging, so it violates the invariant on the persisted path;
+    verified no app-runtime caller).
+
+**Deferred (non-blocking):** a deterministic concurrency interleaving test
+for `persistNewEvents` (needs a controllable-suspension `EncounterStore`
+seam); the lifecycle-vs-persist race (`persistedCursor=0` + engine swap
+interleaving an in-flight drain — pre-exists, out of scope). Also still
+open from the recon: BLOCK B (hot-seat-LLM micro-opts, ranks 3-6) and
+rank 7 (`emitEvents` per-patient diff short-circuit). The audio lane
+(Granite Speech ASR / `AudioFrameLedger` / chunked-encode) stays Codex's —
+untouched.
+
+**Verification: TCCCKit 760/0, app 84/0** on `main`. (The Code=513
+sim file-protection failures seen mid-session were a wedged
+CoreSimulator state, not a code defect — cleared by booting + running
+the app once in the sim.)
+
 ## What's left to do
 
 The features below are scaffolded or planned but not yet shipped.
