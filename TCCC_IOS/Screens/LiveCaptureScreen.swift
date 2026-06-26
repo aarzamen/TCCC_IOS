@@ -590,15 +590,20 @@ struct LiveCaptureScreen: View {
             // but DON'T cancel the streaming task — final transcript lines
             // arrive during the tail and we want them appended.
             //
-            // Finalize-only: commit the in-flight partial by FINALIZING the pass (its
-            // isFinal echo lands the line) AND resetting context BEFORE scheduling the
-            // tail — so the tail's partials start from a clean slate and don't re-include
-            // the just-committed prefix. forceFinalize is a no-op once the tail deadline
-            // is set, so it MUST run before stop().
+            // Flush the in-flight partial FIRST (defensive commit), then forceFinalize
+            // to RESET the recogniser context BEFORE scheduling the tail — so the tail's
+            // partials start from a clean slate and don't re-include the just-committed
+            // prefix. The forceFinalize echo of `pending` is absorbed by appendFinal's
+            // superset dedup. forceFinalize is a no-op once the tail deadline is set, so
+            // it MUST run before stop().
+            let pending = state.partialTranscript
+            if !pending.isEmpty {
+                state.appendFinal(pending)
+                lastCommitAt = Date()
+            }
             periodicCommitTask?.cancel()
             partialCommitTask?.cancel()
             await recognizer?.forceFinalize()
-            lastCommitAt = Date()
             await recognizer?.stop()
             state.isRecording = false
             elapsedTickerTask?.cancel()
@@ -705,7 +710,7 @@ struct LiveCaptureScreen: View {
             // scheduled — otherwise speech is still flowing (the watchdog
             // catches that case so a long unbroken run still commits).
             guard state.partialTranscript == pendingAtSchedule, !pendingAtSchedule.isEmpty else { return }
-            await commitPartial()
+            await commitPartial(pendingAtSchedule)
         }
     }
 
@@ -725,23 +730,20 @@ struct LiveCaptureScreen: View {
                 // ceiling; a recent silence-debounce / isFinal commit resets the clock.
                 guard !pending.isEmpty,
                       Date() >= lastCommitAt.addingTimeInterval(maxCommitInterval) else { continue }
-                await commitPartial()
+                await commitPartial(pending)
             }
         }
     }
 
-    /// The single commit path shared by the silence debounce and the watchdog.
-    /// FINALIZE-ONLY: we do NOT commit the rough on-screen snapshot ourselves — we just
-    /// finalize the recogniser pass and let its authoritative `isFinal` echo land the
-    /// line (via the streaming loop's isFinal branch, which calls appendFinal → engine
-    /// + persistence). On-device Apple Speech REVISES earlier words when it finalizes
-    /// (e.g. "high-end" → "high and tight"), so committing the snapshot AND the refined
-    /// echo produced two near-duplicate lines per chunk. Finalizing only commits each
-    /// chunk exactly once, as the better-quality final text. `lastCommitAt` is stamped
-    /// here to defer the watchdog until the echo lands.
+    /// The single commit path shared by the silence debounce and the watchdog:
+    /// append the line (which runs the engine + persistence via AppState), stamp the
+    /// commit clock, then reset the recogniser context so the next partials don't
+    /// re-include this text. `AppState.appendFinal` dedupes the `isFinal` echo that
+    /// `forceFinalize` produces.
     @MainActor
-    private func commitPartial() async {
+    private func commitPartial(_ text: String) async {
         partialCommitTask?.cancel()
+        state.appendFinal(text)
         lastCommitAt = Date()
         await recognizer?.forceFinalize()
     }
