@@ -12,6 +12,13 @@ struct LiveCaptureScreen: View {
     @State private var recognizer: (any TranscriptStream)?
     @State private var streamingTask: Task<Void, Never>?
     @State private var partialCommitTask: Task<Void, Never>?
+    /// Watchdog that force-commits the in-flight partial during CONTINUOUS speech,
+    /// when the silence debounce never fires (no `silenceDebounce` gap) and on-device
+    /// Apple Speech never emits its own `isFinal`. Without it an unbroken narration
+    /// accretes into one partial that is discarded when the recogniser tears down.
+    @State private var periodicCommitTask: Task<Void, Never>?
+    /// Wall-clock of the last committed line; drives the max-interval forced commit.
+    @State private var lastCommitAt: Date = Date()
     @State private var elapsedDisplay: String = "00:00:00"
     @State private var elapsedTickerTask: Task<Void, Never>?
 
@@ -36,6 +43,14 @@ struct LiveCaptureScreen: View {
     /// was committing lines mid-thought. 2.5s matches a comfortable
     /// breath-pause boundary. Tunable later.
     private let silenceDebounce: Double = 2.5
+
+    /// Hard ceiling between commits during CONTINUOUS speech. The silence debounce
+    /// only fires on a >= `silenceDebounce` gap; an unbroken narration never produces
+    /// one, so the watchdog force-commits whatever has accumulated every
+    /// `maxCommitInterval` seconds. ~8s ≈ 1-2 spoken sentences — long enough to keep
+    /// most facts within a single committed line, short enough that nothing is lost
+    /// and the partial cell stays small. Tunable.
+    private let maxCommitInterval: Double = 8.0
 
     /// Factory: returns the configured ASR backend per `state.asrBackend`.
     /// Both backends receive a `gainProvider` closure that reads the
@@ -137,6 +152,7 @@ struct LiveCaptureScreen: View {
             if !isRecording {
                 streamingTask?.cancel()
                 partialCommitTask?.cancel()
+                periodicCommitTask?.cancel()
                 elapsedTickerTask?.cancel()
                 Task {
                     await recognizer?.stopImmediate()
@@ -151,6 +167,12 @@ struct LiveCaptureScreen: View {
         .onChange(of: state.pendingInterruptionPause) { _, newValue in
             guard newValue else { return }
             state.pendingInterruptionPause = false
+            // Make teardown self-contained: cancel the commit timers directly rather
+            // than relying on the stream's continuation finishing — a future
+            // TranscriptStream that tore down without finishing would otherwise leak
+            // and spin the watchdog.
+            periodicCommitTask?.cancel()
+            partialCommitTask?.cancel()
             Task { await recognizer?.stopImmediate() }
         }
         .onChange(of: state.pendingInterruptionResume) { _, newValue in
@@ -227,16 +249,25 @@ struct LiveCaptureScreen: View {
                     }
             )
             .onChange(of: displayedTranscript.count) {
-                guard transcriptAutoPinned else { return }
-                if let last = displayedTranscript.last {
+                guard transcriptAutoPinned, let last = displayedTranscript.last else { return }
+                // Defer the scroll one runloop tick so SwiftUI finishes laying out the
+                // freshly-inserted cell before we compute the target. Scrolling
+                // synchronously inside onChange races the layout pass — it resolves the
+                // target against the PRE-insert content height and lands on the old
+                // bottom, stranding the new line below the fold (the "text falls off /
+                // blank panel" symptom). main.async runs after the current layout pass.
+                DispatchQueue.main.async {
                     withAnimation(.standard) {
                         proxy.scrollTo(last.id, anchor: .bottom)
                     }
                 }
             }
             .onChange(of: state.partialTranscript) {
-                guard transcriptAutoPinned else { return }
-                if !state.partialTranscript.isEmpty {
+                guard transcriptAutoPinned, !state.partialTranscript.isEmpty else { return }
+                // Same deferral: the partial cell resizes continuously as text accretes,
+                // so scroll only after its new height has been laid out — otherwise the
+                // growing tail keeps slipping under the viewport bottom.
+                DispatchQueue.main.async {
                     withAnimation(.fast) {
                         proxy.scrollTo("partial", anchor: .bottom)
                     }
@@ -558,7 +589,21 @@ struct LiveCaptureScreen: View {
             // down. Flip the UI flag immediately so the user gets feedback,
             // but DON'T cancel the streaming task — final transcript lines
             // arrive during the tail and we want them appended.
+            //
+            // Flush the in-flight partial FIRST (defensive commit), then forceFinalize
+            // to RESET the recogniser context BEFORE scheduling the tail — so the tail's
+            // partials start from a clean slate and don't re-include the just-committed
+            // prefix. The forceFinalize echo of `pending` is absorbed by appendFinal's
+            // superset dedup. forceFinalize is a no-op once the tail deadline is set, so
+            // it MUST run before stop().
+            let pending = state.partialTranscript
+            if !pending.isEmpty {
+                state.appendFinal(pending)
+                lastCommitAt = Date()
+            }
+            periodicCommitTask?.cancel()
             partialCommitTask?.cancel()
+            await recognizer?.forceFinalize()
             await recognizer?.stop()
             state.isRecording = false
             elapsedTickerTask?.cancel()
@@ -585,18 +630,21 @@ struct LiveCaptureScreen: View {
             startElapsedTicker()
             streamingTask?.cancel()
             partialCommitTask?.cancel()
+            startPeriodicCommit()
             streamingTask = Task { @MainActor in
                 for await update in stream {
                     if Task.isCancelled { break }
                     if update.isFinal {
                         partialCommitTask?.cancel()
                         state.appendFinal(update.text, timestamp: update.timestamp)
+                        lastCommitAt = Date()
                     } else {
                         state.partialTranscript = update.text
                         scheduleSilenceCommit()
                     }
                 }
                 partialCommitTask?.cancel()
+                periodicCommitTask?.cancel()
                 state.isRecording = false
                 state.partialTranscript = ""
             }
@@ -624,18 +672,21 @@ struct LiveCaptureScreen: View {
             startElapsedTicker()
             streamingTask?.cancel()
             partialCommitTask?.cancel()
+            startPeriodicCommit()
             streamingTask = Task { @MainActor in
                 for await update in stream {
                     if Task.isCancelled { break }
                     if update.isFinal {
                         partialCommitTask?.cancel()
                         state.appendFinal(update.text, timestamp: update.timestamp)
+                        lastCommitAt = Date()
                     } else {
                         state.partialTranscript = update.text
                         scheduleSilenceCommit()
                     }
                 }
                 partialCommitTask?.cancel()
+                periodicCommitTask?.cancel()
                 state.isRecording = false
                 state.partialTranscript = ""
             }
@@ -646,10 +697,8 @@ struct LiveCaptureScreen: View {
     }
 
     /// Restart the silence-debounce timer. If partial text stays stable for
-    /// `silenceDebounce` seconds, treat it as a finalised line — append to
-    /// the transcript, run the engine, then ask the recogniser to start a
-    /// fresh context so the next partials don't redundantly include this
-    /// text.
+    /// `silenceDebounce` seconds, treat it as a finalised line. This handles
+    /// natural pauses; `startPeriodicCommit` handles unbroken narration.
     private func scheduleSilenceCommit() {
         partialCommitTask?.cancel()
         let pendingAtSchedule = state.partialTranscript
@@ -658,12 +707,45 @@ struct LiveCaptureScreen: View {
             try? await Task.sleep(nanoseconds: UInt64(silenceDebounce * 1_000_000_000))
             if Task.isCancelled { return }
             // Only commit if the partial hasn't changed since the timer was
-            // scheduled — otherwise speech is still flowing.
-            guard state.partialTranscript == pendingAtSchedule else { return }
-            guard !pendingAtSchedule.isEmpty else { return }
-            state.appendFinal(pendingAtSchedule)
-            await recognizer?.forceFinalize()
+            // scheduled — otherwise speech is still flowing (the watchdog
+            // catches that case so a long unbroken run still commits).
+            guard state.partialTranscript == pendingAtSchedule, !pendingAtSchedule.isEmpty else { return }
+            await commitPartial(pendingAtSchedule)
         }
+    }
+
+    /// Force-commit the in-flight partial on a fixed interval so CONTINUOUS speech —
+    /// which never produces a `silenceDebounce` gap and never triggers on-device
+    /// Apple Speech's own `isFinal` — still reaches the engine. Runs for the life of
+    /// the recording; cancelled on stop / teardown.
+    private func startPeriodicCommit() {
+        periodicCommitTask?.cancel()
+        lastCommitAt = Date()
+        periodicCommitTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(maxCommitInterval * 1_000_000_000))
+                if Task.isCancelled { break }
+                let pending = state.partialTranscript
+                // Commit only when speech has accumulated uncommitted past the
+                // ceiling; a recent silence-debounce / isFinal commit resets the clock.
+                guard !pending.isEmpty,
+                      Date() >= lastCommitAt.addingTimeInterval(maxCommitInterval) else { continue }
+                await commitPartial(pending)
+            }
+        }
+    }
+
+    /// The single commit path shared by the silence debounce and the watchdog:
+    /// append the line (which runs the engine + persistence via AppState), stamp the
+    /// commit clock, then reset the recogniser context so the next partials don't
+    /// re-include this text. `AppState.appendFinal` dedupes the `isFinal` echo that
+    /// `forceFinalize` produces.
+    @MainActor
+    private func commitPartial(_ text: String) async {
+        partialCommitTask?.cancel()
+        state.appendFinal(text)
+        lastCommitAt = Date()
+        await recognizer?.forceFinalize()
     }
 
     private func startElapsedTicker() {

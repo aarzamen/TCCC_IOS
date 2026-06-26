@@ -474,16 +474,27 @@ final class AppState {
         speaker: TranscriptLine.Speaker = .medic,
         timestamp: Date = Date()
     ) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        // Dedupe: if the most recent line is the same speaker + text, swallow
-        // the duplicate. This happens when a UI debounce commits partial text,
-        // then SFSpeechRecognizer fires its own isFinal with the same string.
-        if let last = transcript.last,
-           last.speaker == speaker,
-           last.text == trimmed {
-            partialTranscript = ""
-            return
+        // Dedupe the echo `forceFinalize()` produces after a debounce/watchdog commit,
+        // in two shapes (both only vs the most recent same-speaker line):
+        //  • EXACT — the isFinal echo equals the just-committed line: swallow it.
+        //  • SUPERSET — forceFinalize ingested a few more words before endAudio cut the
+        //    pass, so the echo is "<committed prefix> <new tail>". Commit ONLY the new
+        //    tail, so the overlap isn't re-shown or re-run through the extractors
+        //    (re-running could double-apply an intervention). Continuous-speech commits
+        //    make this the common case, not an edge case.
+        if let last = transcript.last, last.speaker == speaker {
+            if last.text == trimmed {
+                partialTranscript = ""
+                return
+            }
+            if trimmed.hasPrefix(last.text) {
+                let tail = String(trimmed.dropFirst(last.text.count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !tail.isEmpty else { partialTranscript = ""; return }
+                trimmed = tail
+            }
         }
         transcript.append(TranscriptLine(speaker: speaker, text: trimmed, timestamp: timestamp))
         if speaker == .medic {
