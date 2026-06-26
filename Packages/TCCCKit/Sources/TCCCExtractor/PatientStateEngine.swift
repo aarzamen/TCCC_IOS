@@ -144,6 +144,14 @@ public actor PatientStateEngine {
     /// Snapshot copy of the encounter log. A3 dual-write accessor.
     public func snapshotLog() -> EncounterLog { log }
 
+    /// Events appended since `index` — a small slice copy, for incremental persistence
+    /// without deep-copying the entire `EncounterLog` struct. `index` is a count cursor;
+    /// out-of-range yields `[]`.
+    public func newEvents(since index: Int) -> [EncounterEvent] {
+        guard index < log.events.count else { return [] }
+        return Array(log.events[index...])
+    }
+
     /// Apply typed field writes to one patient. This is the ONLY non-extraction
     /// mutation entry; it accepts only the typed `PatientStateFieldWrite` vocabulary,
     /// so the engine remains the sole writer of `PatientState`.

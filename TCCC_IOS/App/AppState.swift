@@ -553,12 +553,11 @@ final class AppState {
     /// Cursor-guarded ⇒ idempotent and safe to call after every engine mutation.
     func persistNewEvents() async {
         guard let store = encounterStore else { return }
-        let log = await engine.snapshotLog()
-        guard log.events.count > persistedCursor else { return }
-        let new = Array(log.events[persistedCursor...])
+        let new = await engine.newEvents(since: persistedCursor)
+        guard !new.isEmpty else { return }
         do {
             try await store.appendToActive(new)
-            persistedCursor = log.events.count
+            persistedCursor += new.count
         } catch {
             appendSystem("PERSIST FAILED · \(error.localizedDescription)")
         }

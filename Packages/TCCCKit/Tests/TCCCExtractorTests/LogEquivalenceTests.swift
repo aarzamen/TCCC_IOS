@@ -121,4 +121,19 @@ final class LogEquivalenceTests: XCTestCase {
         XCTAssertEqual(snap["PATIENT_1"]?.vitals.spo2, 94)
         XCTAssertEqual(snap["PATIENT_1"]?.paws.pain, "ketamine")
     }
+
+    func testNewEventsSinceReturnsSuffixOrEmpty() async throws {
+        let engine = PatientStateEngine.standard()
+        await engine.processTranscript("Heart rate one ten.")
+        let total = await engine.snapshotLog().events.count
+        XCTAssertGreaterThan(total, 1)                      // seed + asr + facts
+        let wholeLog = await engine.newEvents(since: 0)
+        XCTAssertEqual(wholeLog.count, total)                                // whole log
+        let tail = await engine.newEvents(since: total - 1)
+        XCTAssertEqual(tail.count, 1)                                        // just the last event
+        let caughtUp = await engine.newEvents(since: total)
+        XCTAssertTrue(caughtUp.isEmpty)                                      // caught up
+        let outOfRange = await engine.newEvents(since: total + 5)
+        XCTAssertTrue(outOfRange.isEmpty)                                    // out-of-range guarded
+    }
 }
