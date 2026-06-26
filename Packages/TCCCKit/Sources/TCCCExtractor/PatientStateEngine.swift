@@ -124,8 +124,11 @@ public actor PatientStateEngine {
             patients[currentPatientID] = current
         }
 
-        emitEvents(text: text, before: before, timestamp: unixTimestamp)   // A3 dual-write
-        patients = Self.project(log)              // ← FLIP: state flows from the log
+        emitEvents(text: text, before: before, timestamp: unixTimestamp)
+        // No re-fold: the imperative loop above already maintains `patients` as the
+        // materialized projection. project(log) (used by restore + the equivalence
+        // tests) is provably equal to it (A2 inverse property + A3 equivalence), so
+        // recomputing it here would be O(N) wasted work per transcript line.
     }
 
     /// Snapshot copy of the entire patient dict.
@@ -169,7 +172,12 @@ public actor PatientStateEngine {
         log.append(.operatorAcceptedFact(.init(
             id: "op-\(opCount)", patientId: patientId, timestampUnix: unix,
             write: write, sourceFactId: factId, domain: domain, field: field, rawValue: rawValue)))
-        patients = Self.project(log)              // ← FLIP
+        // Incremental: apply the accepted write in place (identical to project()'s
+        // operatorAcceptedFact arm) instead of re-folding the whole log.
+        var p = patients[patientId]!          // ensurePatientExists guaranteed the row
+        Self.applyWrite(write, to: &p)
+        p.timestampLastUpdate = unix          // == the event's timestampUnix, as project sets it
+        patients[patientId] = p
     }
 
     /// Record an operator rejection (audit only — never mutates state).

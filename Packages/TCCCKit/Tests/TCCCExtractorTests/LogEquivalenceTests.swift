@@ -99,4 +99,26 @@ final class LogEquivalenceTests: XCTestCase {
         // And a known field still lands (guards against an all-empty projection passing trivially):
         XCTAssertEqual(snap["PATIENT_1"]?.vitals.hr, 110)
     }
+
+    func testIncrementalProjectionNeverDivergesAcrossTranscriptAndAccepts() async throws {
+        let engine = PatientStateEngine.standard()
+        await engine.processTranscript("GSW right thigh. Heart rate one ten.")
+        await engine.recordOperatorAcceptedFact(
+            write: .spo2(94), factId: "g1", domain: "vitals", field: "spo2",
+            rawValue: "94", to: "PATIENT_1")
+        await engine.processTranscript("Blood pressure ninety over sixty. Tourniquet applied.")
+        await engine.recordOperatorAcceptedFact(
+            write: .pain("ketamine"), factId: "g2", domain: "paws", field: "pain",
+            rawValue: "ketamine", to: "PATIENT_1")
+        await engine.processTranscript("Patient is alert.")
+
+        // The incrementally-maintained snapshot must equal a fresh full re-fold of the log.
+        let snap = await engine.snapshot()
+        let projected = PatientStateEngine.project(await engine.snapshotLog())
+        XCTAssertEqual(snap, projected,
+                      "incremental materialized view must never diverge from project(log)")
+        // …and the accepted writes actually landed through the incremental path:
+        XCTAssertEqual(snap["PATIENT_1"]?.vitals.spo2, 94)
+        XCTAssertEqual(snap["PATIENT_1"]?.paws.pain, "ketamine")
+    }
 }
