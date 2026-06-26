@@ -160,9 +160,10 @@ public actor PatientStateEngine {
 
     private var opCount = 0
 
-    /// Record + apply an operator-accepted fact. A5: append event then project so
-    /// state flows from the log. `ensurePatientExists` keeps `currentPatientID`/row
-    /// bookkeeping consistent before project rebuilds `patients`.
+    /// Record + apply an operator-accepted fact: append the `operatorAcceptedFact`
+    /// event, then apply the write IN PLACE to the materialized `patients` (BLOCK A —
+    /// identical to `project`'s `operatorAcceptedFact` arm, without re-folding the log).
+    /// `ensurePatientExists` guarantees the row first.
     public func recordOperatorAcceptedFact(write: PatientStateFieldWrite, factId: String?,
         domain: String, field: String, rawValue: String?, to patientId: String,
         timestamp: Date = Date()) {
