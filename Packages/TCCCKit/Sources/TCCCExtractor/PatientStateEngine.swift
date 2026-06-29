@@ -42,6 +42,15 @@ public actor PatientStateEngine {
 
     /// Append-only event log for this encounter. A3 dual-write.
     public private(set) var log = EncounterLog()
+
+    /// Snapshot of engine state taken before the outstanding provisional chunk was
+    /// processed. Non-nil ⇒ a provisional chunk is the log tail and may be revised.
+    private var provisionalBoundary: (cursor: Int,
+                                      patients: [String: PatientState],
+                                      currentPatientID: String)?
+
+    public var hasProvisional: Bool { provisionalBoundary != nil }
+
     private var asrCount = 0
     private var factCount = 0
     private var lifecycleCount = 1   // init seeds "lc-1"
@@ -129,6 +138,51 @@ public actor PatientStateEngine {
         // materialized projection. project(log) (used by restore + the equivalence
         // tests) is provably equal to it (A2 inverse property + A3 equivalence), so
         // recomputing it here would be O(N) wasted work per transcript line.
+    }
+
+    /// Commit a chunk as provisional: record a rollback boundary, then extract.
+    /// The chunk's events become the log tail until `reviseProvisional`/`settleProvisional`.
+    public func commitProvisional(_ text: String, timestamp: Date = Date()) {
+        provisionalBoundary = (cursor: log.events.count,
+                               patients: patients,
+                               currentPatientID: currentPatientID)
+        processTranscript(text, timestamp: timestamp)
+    }
+
+    /// Replace the outstanding provisional chunk with refined text. Rolls engine state
+    /// back to the boundary, retains the chunk's asrSegment(s) as `isFinal:false` audit
+    /// events, truncates, and re-extracts on the refined text. The boundary is refreshed
+    /// so a subsequent revision (rare) is also valid.
+    public func reviseProvisional(_ refinedText: String, timestamp: Date = Date()) {
+        guard let b = provisionalBoundary else {
+            assertionFailure("reviseProvisional with no outstanding provisional")
+            return
+        }
+        precondition(b.cursor <= log.events.count, "boundary cursor beyond log tail")
+        // Capture retired asrSegment(s) in [cursor...) for audit before truncation.
+        let retired: [ASRSegmentPayload] = log.events[b.cursor...].compactMap {
+            if case .asrSegment(let p) = $0 { return p }
+            return nil
+        }
+        patients = b.patients
+        currentPatientID = b.currentPatientID
+        log.truncate(toCount: b.cursor)
+        for seg in retired {
+            log.append(.asrSegment(.init(id: seg.id + "-retired", patientId: seg.patientId,
+                timestampUnix: seg.timestampUnix, text: seg.text, backend: seg.backend,
+                isFinal: false)))
+        }
+        // Refresh the boundary to the post-audit position so the re-extracted chunk is
+        // again the revisable tail.
+        provisionalBoundary = (cursor: log.events.count,
+                               patients: b.patients,
+                               currentPatientID: b.currentPatientID)
+        processTranscript(refinedText, timestamp: timestamp)
+    }
+
+    /// Settle the outstanding provisional: it is now permanent. No state change.
+    public func settleProvisional() {
+        provisionalBoundary = nil
     }
 
     /// Snapshot copy of the entire patient dict.
