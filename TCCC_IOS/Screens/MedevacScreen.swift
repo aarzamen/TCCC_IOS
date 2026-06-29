@@ -52,16 +52,95 @@ struct MedevacScreen: View {
 
     private var nineLinePanel: some View {
         Panel("9-Line Format", action: completionAction, padded: false) {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(form.entries) { entry in
-                        NineLineRow(entry: entry)
-                        Rectangle()
-                            .fill(palette.line)
-                            .frame(height: Layout.hairline)
+            VStack(spacing: 0) {
+                gpsCaptureBar
+                Rectangle()
+                    .fill(palette.line)
+                    .frame(height: Layout.hairline)
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(form.entries) { entry in
+                            NineLineRow(entry: entry)
+                            Rectangle()
+                                .fill(palette.line)
+                                .frame(height: Layout.hairline)
+                        }
                     }
                 }
             }
+        }
+    }
+
+    /// LINE 1 capture control. The only runtime location source is the real
+    /// iPhone GPS (operator-gated one-shot). Status label and color reflect
+    /// `state.locationStatus`; primary action is gloved-hand sized (≥56 pt).
+    private var gpsCaptureBar: some View {
+        let requesting = state.locationStatus == .requesting
+        return HStack(spacing: 12) {
+            Image(systemName: gpsStatusIcon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(gpsStatusColor)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("LINE 1 · GPS")
+                    .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                    .tracking(1.2)
+                    .foregroundStyle(palette.fg2)
+                Text(gpsStatusLabel)
+                    .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                    .foregroundStyle(gpsStatusColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            Spacer(minLength: 8)
+            Button {
+                Task { await state.captureGPSFix() }
+            } label: {
+                Text(requesting ? "…" : "USE GPS FIX")
+                    .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                    .tracking(0.6)
+                    .foregroundStyle(requesting ? palette.fg3 : palette.bg)
+                    .frame(minWidth: 132, minHeight: 56)
+                    .background(requesting ? palette.fg3.opacity(0.25) : palette.accent)
+            }
+            .disabled(requesting)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private var gpsStatusLabel: String {
+        switch state.locationStatus {
+        case .noFix:                          "NO FIX"
+        case .requesting:                     "REQUESTING GPS"
+        case .fix(let acc):                   "GPS FIX\(accuracySuffix(acc))"
+        case .degraded(let acc):              "GPS DEGRADED\(accuracySuffix(acc))"
+        case .denied:                         "GPS DENIED — enable Location in iOS Settings"
+        case .restricted:                     "GPS RESTRICTED"
+        case .mgrsUnavailable:                "MGRS UNAVAILABLE"
+        }
+    }
+
+    private func accuracySuffix(_ meters: Double?) -> String {
+        guard let m = meters, m >= 0 else { return "" }
+        return " ± \(Int(m.rounded()))m"
+    }
+
+    private var gpsStatusColor: Color {
+        switch state.locationStatus {
+        case .fix:                       palette.accent
+        case .requesting:                palette.fg2
+        case .degraded:                  palette.warn
+        case .noFix, .denied,
+             .restricted, .mgrsUnavailable: palette.crit
+        }
+    }
+
+    private var gpsStatusIcon: String {
+        switch state.locationStatus {
+        case .fix:          "location.fill"
+        case .requesting:   "location.circle"
+        case .degraded:     "location.slash"
+        case .noFix, .denied, .restricted, .mgrsUnavailable: "exclamationmark.triangle.fill"
         }
     }
 

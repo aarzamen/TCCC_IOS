@@ -421,6 +421,65 @@ final class AppState {
     /// screen and a real CoreLocation fix lands.
     var locationFix: LocationFix = LocationFix(source: .none, latitude: nil, longitude: nil)
 
+    /// Drives the MEDEVAC USE GPS FIX control's status label. One-to-one
+    /// with the spec's labels: NO FIX / REQUESTING GPS / GPS FIX ± Xm /
+    /// GPS DEGRADED ± Xm / GPS DENIED / GPS RESTRICTED / MGRS UNAVAILABLE.
+    enum LocationCaptureStatus: Equatable {
+        case noFix
+        case requesting
+        case fix(accuracyMeters: Double?)
+        case degraded(accuracyMeters: Double?)
+        case denied
+        case restricted
+        case mgrsUnavailable
+    }
+
+    var locationStatus: LocationCaptureStatus = .noFix
+
+    /// Horizontal-accuracy ceiling (metres) above which an otherwise-valid
+    /// fix is surfaced as GPS DEGRADED. Field-tunable starting value.
+    static let degradedAccuracyThreshold: Double = 100
+
+    /// The real GPS source. Injectable so tests can substitute a stub;
+    /// production always uses the CoreLocation one-shot provider. Observation
+    /// is ignored — it is plumbing, not observable UI state.
+    @ObservationIgnored
+    var locationProvider: LocationProviding = CoreLocationProvider()
+
+    /// Operator-gated one-shot GPS capture for MEDEVAC LINE 1. Requests the
+    /// system permission the first time, then a single fix. Classifies the
+    /// result into `locationStatus` and stores the fix; the MEDEVAC `form`
+    /// recomputes LINE 1 from the observable `locationFix`. Never crashes on
+    /// denied/restricted/no-fix — those are visible states, not faults.
+    func captureGPSFix() async {
+        locationStatus = .requesting
+        do {
+            let fix = try await locationProvider.requestOneShotFix()
+            locationFix = fix
+            guard let lat = fix.latitude, let lon = fix.longitude else {
+                locationStatus = .noFix
+                return
+            }
+            // Full-precision MGRS only — no decimal fallback. Polar/UPS
+            // coordinates that MGRS cannot encode leave LINE 1 unverified.
+            guard MGRS.formatted(latitude: lat, longitude: lon) != nil else {
+                locationStatus = .mgrsUnavailable
+                return
+            }
+            let reduced = fix.accuracyAuthorizationDescription == LocationAccuracyTag.reduced
+            let poor = (fix.horizontalAccuracyMeters ?? 0) > Self.degradedAccuracyThreshold
+            locationStatus = (reduced || poor)
+                ? .degraded(accuracyMeters: fix.horizontalAccuracyMeters)
+                : .fix(accuracyMeters: fix.horizontalAccuracyMeters)
+        } catch LocationError.denied {
+            locationStatus = .denied
+        } catch LocationError.restricted {
+            locationStatus = .restricted
+        } catch {
+            locationStatus = .noFix
+        }
+    }
+
     /// Settle window in seconds: if a provisional is not revised by a final echo
     /// within this interval, the timer fires `promoteProvisional()` and the chunk
     /// is committed as-is. 2.0 s matches the SFSpeechRecognizer silence-trigger
