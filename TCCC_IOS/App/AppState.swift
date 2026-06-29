@@ -639,6 +639,17 @@ final class AppState {
     /// `persistedCursor`, so each slice is exact — no overlap, no skip. The flag reads and
     /// writes never straddle an await, so on `@MainActor` (a serial executor) they are
     /// atomic with respect to reentrancy.
+    // INVARIANT (provisional-replace): while a provisional chunk is outstanding
+    // (`engine.hasProvisional`), it is the log tail and may be truncated by
+    // `engine.reviseProvisional`. We therefore flush only on settle
+    // (`promoteProvisional` → `refreshPatientSnapshot(persist: true)`), never on the
+    // provisional commit/revise refreshes (`persist: false`). The append-only JSONL
+    // cannot un-write a line, so flushing an unsettled chunk would strand gen-0 events
+    // on disk after a revise truncates them. The other `persist: true` callers
+    // (operator accept/reject, lifecycle) are safe because each first appends a foreign
+    // engine event, which trips `reviseProvisional`'s tail-guard into its no-truncate
+    // fallback. If you add a new `persist: true` path, ensure it cannot run mid-provisional
+    // without a preceding foreign event.
     func persistNewEvents() async {
         guard let store = encounterStore else { return }
         if isPersisting { persistAgain = true; return }
