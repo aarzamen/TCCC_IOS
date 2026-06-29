@@ -30,7 +30,7 @@ Verified on an iPhone 17 Pro (iOS 26.x) and in the iOS Simulator.
 | 02 Vital Signs Log | DD 1380 Section C grid (4 timestamped columns × 7 rows) populated from engine snapshots; interventions panel | **Cells are read-only** — tap-to-edit is not built |
 | 03 TCCC Card | Anterior + posterior body diagram, MARCH (incl. Hypothermia §7 + TBI §8 sub-rows), PAWS, meds log, front/back card with §D–H scaffold | §D–H fields are best-effort from extracted state; not all are populated |
 | 04 MEDEVAC | Auto-populated 9-line (incl. in-house WGS-84→MGRS for Line 1), voice-readable transmit script | **"Transmit" produces a script and logs an event — there is no over-the-air transmission of any kind** |
-| 05 Handoff | Encounter summary, timeline, on-device LLM narrative + ZMIST, JSON / audio+transcript / CSV exports, offline QR | **DD-1380 PDF export is not implemented** (card shows "Pending PDFKit") |
+| 05 Handoff | Encounter summary, timeline, on-device LLM narrative + ZMIST, JSON / audio+transcript / CSV exports, offline QR, **DD-1380 PDF** (deterministic two-page export, protected at rest, shared via the sheet) | DD-1380 uses a **fallback layout, not the official DD Form 1380 template**; identity fields are still **mock app-state** |
 
 **Lifecycle & persistence (shipped, device-validated):** each casualty's
 encounter is an append-only event log written continuously to disk
@@ -227,7 +227,12 @@ xcrun devicectl device process launch --device <device-uuid> com.aarzamen.TCCCai
 
 ## Known gaps / not yet built
 
-- DD-1380 PDF export (the rubric's primary deliverable) — stubbed.
+- DD-1380 PDF export — **shipped**: a deterministic two-page PDF mapped
+  from structured state (no LLM), protected at rest, shared only on explicit
+  operator action. Remaining gaps: it renders a **fallback layout**, not the
+  official DD Form 1380 template, and the **identity fields** (name / service
+  number / unit / allergies / sex / service branch) are **placeholder
+  app-state**, not a real roster or intake source.
 - Section C grid tap-to-edit — read-only today.
 - Over-the-air MEDEVAC transmission — intentionally absent (RF discipline);
   "Transmit" is script + logged event only.

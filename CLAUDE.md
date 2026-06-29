@@ -184,9 +184,13 @@ empty-state (transcript empty).
 
 Priority order; each item is roughly its own session.
 
-1. **DD-1380 PDF export** (the rubric's primary deliverable, still stubbed) —
-   PDFKit overlay mapping `dd1380_field_inventory.json` fields to coordinates;
-   flip the Handoff card's `isReady`. Needs a clean DD Form 1380 image.
+1. **DD-1380 PDF export — SHIPPED** (deterministic, `DD1380Mapper` +
+   `DD1380PDFRenderer` + `DD1380PDFExportService`, Handoff card live). Two
+   follow-ons remain: (a) overlay onto the **official** DD Form 1380 template
+   instead of the current vector **fallback** layout (bundle a clean form
+   image + a coordinate field-map); (b) source the **identity** fields
+   (name/service#/unit/allergies/sex/branch) from a real roster/intake — they
+   are mock app-state today, so the mapped §A header is placeholder.
 2. **§C grid tap-to-edit** — cells are read-only; add inline editors (BP pad,
    AVPU selector, Pain stepper, numeric pads, time picker) + "Add Reading".
 3. **Multi-casualty UI** — engine returns a patient dict; surface a casualty
