@@ -81,7 +81,6 @@
 		5F831CD02E231B867E55884F /* EvidenceLinkageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F46C00BD2F2DD93A7F5807C /* EvidenceLinkageTests.swift */; };
 		600E655D057BE15E389CC357 /* MLXBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129984C4E0F1CB5E8FF56A58 /* MLXBackend.swift */; };
 		61490C4F3F48390EE2EA2AC0 /* TranscriptLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5279A4A90D8BE4BEC038F0A8 /* TranscriptLine.swift */; };
-		61CF016631D41CBACEE66692 /* TranscriptCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 771B01601872B488CF2B1B0C /* TranscriptCleaner.swift */; };
 		6369F90A6238D66A43DD242E /* ConfirmationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C6B5DD035E601B88468377 /* ConfirmationAction.swift */; };
 		65723436424B03087D2796A3 /* VoiceCommandChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44D1BCE15092A382D0C8A83E /* VoiceCommandChip.swift */; };
 		65EAB97DFC4A75174E6319C4 /* GraniteHotSeatPacketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF67D464862430720D81313 /* GraniteHotSeatPacketTests.swift */; };
@@ -132,6 +131,7 @@
 		CA4EC2183B056422C16E94E5 /* BodyMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA4BB66A62C7E065D6C2282 /* BodyMap.swift */; };
 		CC431037BDB5DAE9F34FBA76 /* PAWSRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EED0969895F125C962A9134 /* PAWSRowView.swift */; };
 		CF2A891275EF13C4AAD3F116 /* PageHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D59C15139886E7B8C11A614 /* PageHeader.swift */; };
+		D028CA48835686577DA6E477 /* GraniteAudioBenchmarkRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E0C63B7775AF019B709EA3 /* GraniteAudioBenchmarkRunner.swift */; };
 		D0E1D462FCB005800E7E6772 /* PlaceholderBody.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FE3B8D34AC99C28F9DB2B61 /* PlaceholderBody.swift */; };
 		D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904C678A5044C0CC41C1D43F /* ScreenPager.swift */; };
 		D556473072B2E63B261ADA9A /* DevToolsLandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130A60CA016A0775525BB5F9 /* DevToolsLandingView.swift */; };
@@ -240,7 +240,6 @@
 		75B6C5790C9B8A862E9688FE /* GraniteRealModelFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteRealModelFixtures.swift; sourceTree = "<group>"; };
 		760440A05970E300FA8EE623 /* SpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizer.swift; sourceTree = "<group>"; };
 		77172C1FDE135370A2934BB7 /* TranscriptSegmentLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSegmentLedgerTests.swift; sourceTree = "<group>"; };
-		771B01601872B488CF2B1B0C /* TranscriptCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptCleaner.swift; sourceTree = "<group>"; };
 		77292E524CA7F6BE07FFBF4A /* Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Layout.swift; sourceTree = "<group>"; };
 		7DABF7F4742C5E33EE2AADC7 /* HotSeatPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotSeatPacket.swift; sourceTree = "<group>"; };
 		7E3FDCFE95B25704BCF644DC /* GraniteLocalModelAssetGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteLocalModelAssetGate.swift; sourceTree = "<group>"; };
@@ -269,6 +268,7 @@
 		9EF4359B55FA4EEAF1485551 /* TranscriptStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStream.swift; sourceTree = "<group>"; };
 		A1EA433E85994D4343C0AF2D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A2BE707617C0EEFDF5A336E6 /* FieldRouterBoundaryGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldRouterBoundaryGateTests.swift; sourceTree = "<group>"; };
+		A4E0C63B7775AF019B709EA3 /* GraniteAudioBenchmarkRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteAudioBenchmarkRunner.swift; sourceTree = "<group>"; };
 		AA865D94AC15BA6F345C5C8B /* ReceiverPlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverPlaceholderView.swift; sourceTree = "<group>"; };
 		AB573FE657D740D397D5C736 /* HoldToConfirmButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldToConfirmButton.swift; sourceTree = "<group>"; };
 		AC0EF0B04ABAB9BAD0EBBABE /* TCCCAudio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCAudio; path = Packages/TCCCAudio; sourceTree = SOURCE_ROOT; };
@@ -412,6 +412,7 @@
 			children = (
 				130A60CA016A0775525BB5F9 /* DevToolsLandingView.swift */,
 				F7CC523213C16C2AFD23DDFF /* DevToolsRootView.swift */,
+				A4E0C63B7775AF019B709EA3 /* GraniteAudioBenchmarkRunner.swift */,
 				D4696F5D7C473458EB42D1AD /* GraniteBakeoffView.swift */,
 				EF42F804C8A546D9B349D000 /* GraniteLiveView.swift */,
 				2C3A951F721B164346611BE7 /* Audio */,
@@ -479,7 +480,6 @@
 				EC7666599E263562C0948458 /* RadioScriptGenerator.swift */,
 				E8DD000AEA797F182C96445E /* TCCCLanguageModel.swift */,
 				0D3107D62542750F42D865F8 /* TCCCLLMBackend.swift */,
-				771B01601872B488CF2B1B0C /* TranscriptCleaner.swift */,
 				D1E92BC23E69C490B140D2E2 /* ZMISTNarrativeGenerator.swift */,
 			);
 			path = Intelligence;
@@ -801,6 +801,7 @@
 				03123FCFDF4C95F89710CE1B /* Field.swift in Sources */,
 				0B6D4A2413CEAC0EF9B72964 /* FieldRouter.swift in Sources */,
 				86BA530C6C55B2B98D486750 /* FooterHints.swift in Sources */,
+				D028CA48835686577DA6E477 /* GraniteAudioBenchmarkRunner.swift in Sources */,
 				DC37FBCD7F9DDDB148EE7051 /* GraniteBakeoffView.swift in Sources */,
 				BE3307F53C3A6140AF8EB5FC /* GraniteGeneratedCandidatePatch.swift in Sources */,
 				2EBBAB3052AB516334173286 /* GraniteHotSeatGenerator.swift in Sources */,
@@ -871,7 +872,6 @@
 				2F90B64ADB799DF96C4344D4 /* ThemeOptCard.swift in Sources */,
 				E4A00614965DC23F19655DB3 /* TimelineRow.swift in Sources */,
 				1DDE20C19095ACE12D4A0AD4 /* ToggleRow.swift in Sources */,
-				61CF016631D41CBACEE66692 /* TranscriptCleaner.swift in Sources */,
 				61490C4F3F48390EE2EA2AC0 /* TranscriptLine.swift in Sources */,
 				7C0A4CFA9C21CD15F51F7770 /* TranscriptLineView.swift in Sources */,
 				F744E0E72E104FD826C3D51F /* TranscriptSegmentLedger.swift in Sources */,

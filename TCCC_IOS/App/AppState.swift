@@ -502,14 +502,6 @@ final class AppState {
         }
         partialTranscript = ""
         Task { await processWithEngine(trimmed, timestamp: timestamp) }
-        // Auto-clean second pass DISABLED 2026-05-07 — was rewriting
-        // committed transcript content behind the operator's back via
-        // `state.transcriptCleaned`, producing the bubble-overwrite
-        // pattern documented in the 2026-05-07 bug report. Manual
-        // cleaning via the "Clean transcript" button remains; auto-pass
-        // stays off until VAD-driven firing replaces the wall-clock
-        // fallback that was misbehaving.
-        // scheduleAutoClean()
         // Voice-command trigger: detect "new patient" / "end encounter" in
         // the just-committed line and arm a 2s auto-fire countdown banner.
         // Voice commands aren't checked on system lines (they originate from
@@ -740,9 +732,6 @@ final class AppState {
             }
         }
         // --- existing in-memory reset (verbatim) ---
-        autoCleanTask?.cancel()
-        autoCleanTask = nil
-        lastCleanedAt = nil
         voiceCommandTask?.cancel()
         voiceCommandTask = nil
         pendingVoiceCommand = nil
@@ -759,7 +748,6 @@ final class AppState {
         lastRecordingURL = nil
         encounterNarrative = nil
         zmistNarrative = nil
-        transcriptCleaned = nil
         vitalsLog.removeAll()
         lastMedevacTransmitTime = nil
         graniteReviewQueue.removeAll()
@@ -790,7 +778,6 @@ final class AppState {
         await persistNewEvents()                                  // flush marker to OLD file
         try? await encounterStore?.archiveActive(endedUnix: now)  // manifest: old → archived
         // --- existing in-memory reset (verbatim), which sets a fresh engine + new casualtyId ---
-        autoCleanTask?.cancel(); autoCleanTask = nil; lastCleanedAt = nil
         voiceCommandTask?.cancel(); voiceCommandTask = nil; pendingVoiceCommand = nil
         let oldId = casualtyId
         casualtyCounter += 1
@@ -798,7 +785,7 @@ final class AppState {
         transcript.removeAll(); transcriptLedger = TranscriptSegmentLedger(); partialTranscript = ""
         recognitionError = nil; primaryPatient = nil; allPatients.removeAll(); sessionStart = Date()
         engine = PatientStateEngine.standard()
-        lastRecordingURL = nil; encounterNarrative = nil; zmistNarrative = nil; transcriptCleaned = nil
+        lastRecordingURL = nil; encounterNarrative = nil; zmistNarrative = nil
         vitalsLog.removeAll(); lastMedevacTransmitTime = nil; graniteReviewQueue.removeAll(); lastConflictMessage = nil
         // --- open the new casualty on disk + flush its seed ---
         persistedCursor = 0
@@ -818,14 +805,13 @@ final class AppState {
         await persistNewEvents()
         try? await encounterStore?.archiveActive(endedUnix: now)
         // --- existing in-memory reset (verbatim) ---
-        autoCleanTask?.cancel(); autoCleanTask = nil; lastCleanedAt = nil
         voiceCommandTask?.cancel(); voiceCommandTask = nil; pendingVoiceCommand = nil
         let endedId = casualtyId
         appendSystem("CARE ENDED · \(endedId) · handoff finalized")
         transcript.removeAll(where: { $0.speaker != .system || !$0.text.contains("CARE ENDED") })
         transcriptLedger = TranscriptSegmentLedger(); partialTranscript = ""
         primaryPatient = nil; allPatients.removeAll(); engine = PatientStateEngine.standard()
-        lastRecordingURL = nil; encounterNarrative = nil; zmistNarrative = nil; transcriptCleaned = nil
+        lastRecordingURL = nil; encounterNarrative = nil; zmistNarrative = nil
         vitalsLog.removeAll(); lastMedevacTransmitTime = nil; graniteReviewQueue.removeAll(); lastConflictMessage = nil
         // End Care leaves a clean slate but keeps persistence live for the next casualty
         // under the same id: re-open a fresh dir + flush the new engine's seed.
@@ -844,30 +830,6 @@ final class AppState {
     /// on Handoff. Cleared on lifecycle changes.
     var zmistNarrative: String?
 
-    /// Cleaned-up version of the transcript with mishearings corrected.
-    /// When non-nil, Live Capture renders this instead of `transcript`.
-    var transcriptCleaned: [TranscriptLine]?
-
-    // MARK: - Auto-clean second pass (Task S3-6)
-    //
-    // Each silence-commit (`appendFinal`) schedules an auto-clean pass to
-    // run 5s later. A new commit cancels the prior schedule so the latest
-    // committed state always wins. The manual "Clean transcript" button
-    // also cancels any in-flight auto-clean before doing its own work.
-    // The auto-clean is opportunistic: failures are swallowed silently —
-    // the manual button surfaces errors directly.
-
-    /// In-flight auto-clean schedule. Non-nil while a 5s sleep is pending
-    /// or the cleaner is running. Cancelled and replaced by every fresh
-    /// commit + by every lifecycle action (newPatient / endCurrentCare /
-    /// wipeSession). The manual cleaner also cancels this before starting
-    /// its own pass so we don't fight ourselves.
-    var autoCleanTask: Task<Void, Never>?
-
-    /// Wall-clock when the last auto-clean run completed successfully.
-    /// Drives the 60s must-run fallback in `scheduleAutoClean()`.
-    var lastCleanedAt: Date?
-
     // MARK: - Voice commands (Task S3-7)
 
     /// Currently armed voice command, or nil. UI binds to this for the
@@ -880,64 +842,6 @@ final class AppState {
     /// every fresh `armVoiceCommand`, and lifecycle actions
     /// (newPatient / endCurrentCare / wipeSession).
     var voiceCommandTask: Task<Void, Never>?
-
-    /// Cap on how many recent transcript lines the auto-clean pass sends
-    /// to the SLM. At ~10 words/line, 200 lines ≈ a few thousand tokens —
-    /// well within model context, but bounded so a 90-minute recording
-    /// doesn't grow the prompt unboundedly. Older lines are preserved
-    /// from the previous cleaned snapshot (or the raw transcript) and
-    /// re-attached as the leading prefix.
-    private static let autoCleanWindow = 200
-
-    /// Schedule an auto-clean pass over the committed transcript. Cancels
-    /// any in-flight schedule so a fresh final-commit always wins. Backs
-    /// off if the transcript is too short (< 3 lines) to bother with.
-    /// Uses the same backend the operator picked for product generation,
-    /// so behaviour stays consistent with the manual button.
-    func scheduleAutoClean() {
-        let lines = transcript
-        guard lines.count >= 3 else { return }
-
-        let mustRun: Bool
-        if let last = lastCleanedAt {
-            mustRun = Date().timeIntervalSince(last) >= 60
-        } else {
-            mustRun = false
-        }
-
-        if !mustRun {
-            // Cancel-and-reschedule (existing behavior). Fresh commits keep
-            // pushing the deadline.
-            autoCleanTask?.cancel()
-        }
-        // If mustRun, leave autoCleanTask alone — let it land if mid-flight,
-        // or schedule a new one if cancelled. Either way, we ensure something
-        // runs within the next 5s.
-
-        let backend = currentBackend
-        autoCleanTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5s
-            guard let self, !Task.isCancelled else { return }
-            let toClean = self.transcript
-            guard toClean.count >= 3 else { return }
-            do {
-                let recent = Array(toClean.suffix(Self.autoCleanWindow))
-                let cleaned = try await TranscriptCleaner(backend: backend).clean(recent)
-                guard !Task.isCancelled else { return }
-                let leadingCount = max(0, toClean.count - recent.count)
-                let leading: [TranscriptLine]
-                if let prior = self.transcriptCleaned, prior.count >= leadingCount {
-                    leading = Array(prior.prefix(leadingCount))
-                } else {
-                    leading = Array(toClean.prefix(leadingCount))
-                }
-                self.transcriptCleaned = leading + cleaned
-                self.lastCleanedAt = Date()
-            } catch {
-                // Silent failure — manual button surfaces errors directly.
-            }
-        }
-    }
 
     // MARK: - Confirmation flow for lifecycle actions
 
@@ -1070,8 +974,8 @@ extension AppState {
     /// the four generators take a backend per call, so allocation cost
     /// is negligible. This is the single decode site for the runtime
     /// LLM choice; everything else (RadioScriptGenerator,
-    /// ZMISTNarrativeGenerator, EncounterNarrativeGenerator,
-    /// TranscriptCleaner) consumes the protocol existential.
+    /// ZMISTNarrativeGenerator, EncounterNarrativeGenerator)
+    /// consumes the protocol existential.
     var currentBackend: any TCCCLLMBackend {
         switch llmBackend {
         case .appleFoundation: AppleFoundationLLMBackend()

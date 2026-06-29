@@ -152,7 +152,7 @@ actor SpeechRecognizer: TranscriptStream {
 
     // MARK: - Recognition lifecycle
 
-    /// Attach the recognizer. The 10s ring buffer is drained as pre-roll, then
+    /// Attach the recognizer. The 30s ring buffer is drained as pre-roll, then
     /// live audio streams in. If `audioURL` is provided, captured PCM is written
     /// to that file for export — pre-roll included.
     func start(audioURL: URL? = nil) async throws -> AsyncStream<RecognitionUpdate> {
@@ -198,7 +198,7 @@ actor SpeechRecognizer: TranscriptStream {
             }
         }
 
-        // Drain pre-roll: feed the last 10s of buffered audio into both the
+        // Drain pre-roll: feed the last 30s of buffered audio into both the
         // recognizer and the audio file.
         for buf in ringBuffer {
             req.append(buf)

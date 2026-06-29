@@ -22,9 +22,6 @@ struct LiveCaptureScreen: View {
     @State private var elapsedDisplay: String = "00:00:00"
     @State private var elapsedTickerTask: Task<Void, Never>?
 
-    @State private var isCleaningTranscript: Bool = false
-    @State private var cleanError: String?
-
     /// Auto-scroll-to-latest gating. Flips off when the operator drags the
     /// transcript content downward (scrolling up through history); the
     /// floating "LATEST" chip re-engages it. Per long-form recording plan
@@ -196,13 +193,12 @@ struct LiveCaptureScreen: View {
             VStack(spacing: 0) {
                 transcriptList
                     .frame(maxHeight: .infinity)
-                cleanerActionRow
             }
         }
     }
 
     private var displayedTranscript: [TranscriptLine] {
-        state.transcriptCleaned ?? state.transcript
+        state.transcript
     }
 
     private var transcriptList: some View {
@@ -302,110 +298,6 @@ struct LiveCaptureScreen: View {
                     .buttonStyle(.plain)
                     .padding(12)
                 }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var cleanerActionRow: some View {
-        if !state.transcript.isEmpty {
-            HStack(spacing: 6) {
-                if state.transcriptCleaned == nil {
-                    Button {
-                        Haptics.tap()
-                        handleCleanTranscript()
-                    } label: {
-                        cleanerButtonLabel(
-                            icon: isCleaningTranscript ? nil : "wand.and.stars",
-                            title: isCleaningTranscript ? "Cleaning…" : "Clean transcript",
-                            tinted: false
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isCleaningTranscript)
-                } else {
-                    Button {
-                        Haptics.tap()
-                        state.transcriptCleaned = nil
-                    } label: {
-                        cleanerButtonLabel(icon: "arrow.uturn.backward", title: "Show raw", tinted: false)
-                    }
-                    .buttonStyle(.plain)
-                    Button {
-                        Haptics.tap()
-                        handleCleanTranscript()
-                    } label: {
-                        cleanerButtonLabel(
-                            icon: "wand.and.stars",
-                            title: "Re-clean",
-                            tinted: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isCleaningTranscript)
-                }
-                if let err = cleanError {
-                    Text(err)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(palette.crit)
-                        .lineLimit(1)
-                }
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(alignment: .top) {
-                Rectangle().fill(palette.line).frame(height: Layout.hairline)
-            }
-        }
-    }
-
-    private func cleanerButtonLabel(icon: String?, title: String, tinted: Bool) -> some View {
-        HStack(spacing: 4) {
-            if let icon {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
-            } else {
-                ProgressView().controlSize(.mini)
-            }
-            Text(title)
-                .font(.system(size: 10, weight: .heavy))
-                .tracking(1.2)
-                .textCase(.uppercase)
-        }
-        .foregroundStyle(tinted ? palette.accent : palette.fg)
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .overlay(
-            Rectangle()
-                .strokeBorder(tinted ? palette.accentDim : palette.line, lineWidth: Layout.hairline)
-        )
-    }
-
-    private func handleCleanTranscript() {
-        // Cancel any pending auto-clean — the manual button takes
-        // precedence so we don't fight ourselves on the same transcript.
-        state.autoCleanTask?.cancel()
-        state.autoCleanTask = nil
-        let lines = state.transcript
-        Task { @MainActor in
-            cleanError = nil
-            isCleaningTranscript = true
-            defer { isCleaningTranscript = false }
-
-            let backend = state.currentBackend
-            let availability = await backend.availability
-            guard availability == .available else {
-                cleanError = availability.message(for: backend.displayName)
-                return
-            }
-
-            do {
-                let cleaner = TranscriptCleaner(backend: backend)
-                let cleaned = try await cleaner.clean(lines)
-                state.transcriptCleaned = cleaned
-            } catch {
-                cleanError = error.localizedDescription
             }
         }
     }

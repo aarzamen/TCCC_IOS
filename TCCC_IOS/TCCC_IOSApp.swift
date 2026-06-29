@@ -6,8 +6,12 @@ struct TCCC_IOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(state: state)
-                .task { await state.load() }
+            if GraniteAudioBenchmarkView.shouldRun {
+                GraniteAudioBenchmarkView(state: state)
+            } else {
+                ContentView(state: state)
+                    .task { await state.load() }
+            }
         }
     }
 }
