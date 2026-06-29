@@ -5,6 +5,7 @@ import os
 import TCCCAudio
 import TCCCDomain
 import TCCCExtractor
+import UIKit
 
 @MainActor
 @Observable
@@ -245,6 +246,10 @@ final class AppState {
         }
         src.resume()
         self.memoryPressureSource = src
+
+        // Enable live battery reporting for the status strip. Local device
+        // API only — no network, no prompt. Returns -1 on the simulator.
+        UIDevice.current.isBatteryMonitoringEnabled = true
     }
 
     private static func timeStamp() -> String {
@@ -407,7 +412,24 @@ final class AppState {
 
     var casualtyId: String = "C-04"
     var sessionStart: Date = Date()
-    var batteryPercent: Int = 78
+
+    /// Live battery charge as a whole percent, read from the device each
+    /// time the status strip ticks (1 Hz). `-1` when unknown (simulator, or
+    /// monitoring unavailable) so the UI can render a placeholder. Replaces
+    /// the former hardcoded `78`.
+    var batteryPercent: Int {
+        let level = UIDevice.current.batteryLevel   // 0.0–1.0, or -1 if unknown
+        guard level >= 0 else { return -1 }
+        return Int((level * 100).rounded())
+    }
+
+    /// True while the device is charging or full (drives a charging glyph).
+    var batteryIsCharging: Bool {
+        switch UIDevice.current.batteryState {
+        case .charging, .full: return true
+        default:               return false
+        }
+    }
 
     /// Wall-clock timestamp of the most recent successful MEDEVAC transmit
     /// (set by `HandoffScreen.completeTransmit` when the destination is
@@ -435,6 +457,17 @@ final class AppState {
     }
 
     var locationStatus: LocationCaptureStatus = .noFix
+
+    /// Full-precision MGRS grid for the current fix (e.g. `42S WD 15867
+    /// 20571`), or `nil` when there is no usable fix or the coordinate is
+    /// unencodable. Drives the always-visible status-strip readout so the
+    /// operator can read their position from any screen.
+    var locationGrid: String? {
+        guard locationFix.isUsable,
+              let lat = locationFix.latitude,
+              let lon = locationFix.longitude else { return nil }
+        return MGRS.formatted(latitude: lat, longitude: lon)
+    }
 
     /// Horizontal-accuracy ceiling (metres) above which an otherwise-valid
     /// fix is surfaced as GPS DEGRADED. Field-tunable starting value.

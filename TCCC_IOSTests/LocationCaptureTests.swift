@@ -112,6 +112,21 @@ final class LocationCaptureTests: XCTestCase {
         XCTAssertEqual(state.locationFix.latitude, 34.5267)
     }
 
+    // The status-strip readout (locationGrid) reflects the live fix:
+    // full-precision MGRS when usable, nil otherwise.
+    func testLocationGridReflectsFix() async {
+        let state = AppState()
+        XCTAssertNil(state.locationGrid, "No fix → no grid.")
+
+        state.locationProvider = StubLocationProvider(result: .success(bagramFix()))
+        await state.captureGPSFix()
+        XCTAssertEqual(state.locationGrid, "42S WD 15867 20571")
+
+        // A polar fix has no MGRS grid.
+        state.locationFix = AppState.LocationFix(source: .gps, latitude: 89.0, longitude: 0.0)
+        XCTAssertNil(state.locationGrid)
+    }
+
     // A real GPS fix at a polar/UPS coordinate MGRS cannot encode → the
     // capture surfaces MGRS UNAVAILABLE rather than fabricating a grid.
     func testUnencodableFixProducesMGRSUnavailableState() async {

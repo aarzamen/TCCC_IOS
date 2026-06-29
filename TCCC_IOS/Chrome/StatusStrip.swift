@@ -107,28 +107,72 @@ struct StatusStrip: View {
         return String(format: "+%02d:%02d", h, m)
     }
 
-    /// Location-source provenance badge — `NO FIX` / `GPS`.
-    /// The 9-line LINE 1 is the loudest data we send to the inbound bird,
-    /// so the operator sees the source of truth for that coordinate at all
-    /// times. Color-coded: `.gps` accent, `.none` crit.
+    /// Location readout — the actual GPS grid + accuracy, always visible.
+    /// The 9-line LINE 1 is the loudest data we send to the inbound bird, so
+    /// the operator can read their position (full-precision MGRS) and its
+    /// quality from any screen. When there is no usable fix the cell shows
+    /// the capture state (NO FIX / ACQUIRING… / DENIED / RESTRICTED).
     private var locationSourceCell: some View {
-        let source = state.locationFix.source
-        let color: Color
-        switch source {
-        case .none: color = palette.crit
-        case .gps:  color = palette.accent
-        }
+        let status = state.locationStatus
+        let grid = state.locationGrid
+        let color = locationColor(status)
         return HStack(spacing: 6) {
-            Image(systemName: "location.fill")
+            Image(systemName: locationIcon(status))
                 .font(.system(size: 11))
                 .foregroundStyle(color)
-            Text(source.badge)
-                .font(.system(size: 10, weight: .heavy, design: .monospaced))
-                .tracking(1.0)
-                .foregroundStyle(color)
+            if let grid {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(grid)
+                        .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(color)
+                    Text(locationDetail(status))
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(palette.fg3)
+                }
+            } else {
+                Text(locationDetail(status))
+                    .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                    .tracking(1.0)
+                    .foregroundStyle(color)
+            }
         }
         .padding(.horizontal, 10)
-        .frame(minWidth: 78)
+        .frame(minWidth: 78, alignment: .leading)
+    }
+
+    private func locationColor(_ status: AppState.LocationCaptureStatus) -> Color {
+        switch status {
+        case .fix:        palette.accent
+        case .degraded:   palette.warn
+        case .requesting: palette.fg2
+        case .noFix, .denied, .restricted, .mgrsUnavailable: palette.crit
+        }
+    }
+
+    private func locationIcon(_ status: AppState.LocationCaptureStatus) -> String {
+        switch status {
+        case .fix:        "location.fill"
+        case .degraded:   "location.fill"
+        case .requesting: "location.circle"
+        case .noFix, .denied, .restricted, .mgrsUnavailable: "location.slash"
+        }
+    }
+
+    private func locationDetail(_ status: AppState.LocationCaptureStatus) -> String {
+        switch status {
+        case .noFix:                  return "NO FIX"
+        case .requesting:             return "ACQUIRING…"
+        case .fix(let acc):           return "GPS\(accuracySuffix(acc))"
+        case .degraded(let acc):      return "DEGRADED\(accuracySuffix(acc))"
+        case .denied:                 return "DENIED"
+        case .restricted:             return "RESTRICTED"
+        case .mgrsUnavailable:        return "NO GRID"
+        }
+    }
+
+    private func accuracySuffix(_ meters: Double?) -> String {
+        guard let m = meters, m >= 0 else { return "" }
+        return " ±\(Int(m.rounded()))m"
     }
 
     private var pageIndicatorCell: some View {
@@ -171,11 +215,14 @@ struct StatusStrip: View {
     }
 
     private var batteryCell: some View {
-        HStack(spacing: 6) {
-            BatteryIcon(percent: state.batteryPercent)
-            Text("\(state.batteryPercent)%")
+        let percent = state.batteryPercent
+        let charging = state.batteryIsCharging
+        return HStack(spacing: 6) {
+            BatteryIcon(percent: percent, charging: charging)
+            Text(percent >= 0 ? "\(percent)%" : "—")
                 .tccc(.timer)
                 .foregroundStyle(palette.fg)
+                .monospacedDigit()
         }
         .padding(.horizontal, 10)
         .frame(minWidth: 84)
@@ -207,10 +254,15 @@ private struct RecDot: View {
 
 private struct BatteryIcon: View {
     let percent: Int
+    var charging: Bool = false
     @Environment(\.palette) private var palette
 
     var body: some View {
-        ZStack(alignment: .leading) {
+        // Unknown (simulator / monitoring off) → render an empty cell.
+        let clamped = max(0, min(100, percent))
+        let fillColor: Color = charging ? palette.accent
+            : (percent >= 0 && percent < 20 ? palette.crit : palette.fg)
+        return ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 2)
                 .stroke(palette.fg2, lineWidth: 1)
                 .frame(width: 22, height: 11)
@@ -221,10 +273,19 @@ private struct BatteryIcon: View {
                         .offset(x: 2)
                 }
 
-            RoundedRectangle(cornerRadius: 1)
-                .fill(percent < 20 ? palette.crit : palette.fg)
-                .frame(width: max(0, CGFloat(percent) / 100.0 * 18), height: 7)
-                .padding(.leading, 2)
+            if percent >= 0 {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(fillColor)
+                    .frame(width: max(0, CGFloat(clamped) / 100.0 * 18), height: 7)
+                    .padding(.leading, 2)
+            }
+
+            if charging {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 7, weight: .black))
+                    .foregroundStyle(palette.bg)
+                    .frame(width: 22, alignment: .center)
+            }
         }
         .frame(width: 24, height: 11)
     }
