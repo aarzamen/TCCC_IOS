@@ -446,38 +446,56 @@ final class AppState {
     @ObservationIgnored
     var locationProvider: LocationProviding = CoreLocationProvider()
 
-    /// Operator-gated one-shot GPS capture for MEDEVAC LINE 1. Requests the
-    /// system permission the first time, then a single fix. Classifies the
-    /// result into `locationStatus` and stores the fix; the MEDEVAC `form`
-    /// recomputes LINE 1 from the observable `locationFix`. Never crashes on
-    /// denied/restricted/no-fix — those are visible states, not faults.
-    func captureGPSFix() async {
-        locationStatus = .requesting
+    /// Acquire a one-shot GPS fix and classify it into `locationStatus`,
+    /// storing the position in the observable `locationFix` (the MEDEVAC
+    /// `form` recomputes LINE 1 from it).
+    ///
+    /// Called automatically at launch and before document generation with
+    /// `silent: true`, and manually from USE GPS FIX with `silent: false`.
+    /// A silent refresh does not flash REQUESTING when a usable fix already
+    /// exists and does not downgrade that fix on a transient miss — so a
+    /// momentary no-fix while generating a ZMIST/MEDEVAC can't blank a grid
+    /// the operator is about to transmit. Still strictly one-shot: no
+    /// continuous tracking, no background updates. Requests the system
+    /// permission the first time only; never crashes on denied/restricted.
+    func captureGPSFix(silent: Bool = false) async {
+        let priorUsable = locationFix.isUsable
+        if !silent || !priorUsable { locationStatus = .requesting }
         do {
             let fix = try await locationProvider.requestOneShotFix()
-            locationFix = fix
-            guard let lat = fix.latitude, let lon = fix.longitude else {
+            if let lat = fix.latitude, let lon = fix.longitude {
+                // Full-precision MGRS only — no decimal fallback.
+                if MGRS.formatted(latitude: lat, longitude: lon) != nil {
+                    locationFix = fix
+                    locationStatus = classifyFix(fix)
+                } else {
+                    // A real position MGRS cannot encode (polar/UPS).
+                    locationFix = fix
+                    locationStatus = .mgrsUnavailable
+                }
+            } else if priorUsable {
+                locationStatus = classifyFix(locationFix)   // keep the prior fix
+            } else {
                 locationStatus = .noFix
-                return
             }
-            // Full-precision MGRS only — no decimal fallback. Polar/UPS
-            // coordinates that MGRS cannot encode leave LINE 1 unverified.
-            guard MGRS.formatted(latitude: lat, longitude: lon) != nil else {
-                locationStatus = .mgrsUnavailable
-                return
-            }
-            let reduced = fix.accuracyAuthorizationDescription == LocationAccuracyTag.reduced
-            let poor = (fix.horizontalAccuracyMeters ?? 0) > Self.degradedAccuracyThreshold
-            locationStatus = (reduced || poor)
-                ? .degraded(accuracyMeters: fix.horizontalAccuracyMeters)
-                : .fix(accuracyMeters: fix.horizontalAccuracyMeters)
         } catch LocationError.denied {
             locationStatus = .denied
         } catch LocationError.restricted {
             locationStatus = .restricted
         } catch {
-            locationStatus = .noFix
+            // Transient miss: keep a prior good fix rather than blank it.
+            locationStatus = priorUsable ? classifyFix(locationFix) : .noFix
         }
+    }
+
+    /// Classify a usable fix into GPS FIX vs GPS DEGRADED. Reduced accuracy
+    /// authorization or horizontal accuracy beyond the threshold degrades.
+    private func classifyFix(_ fix: LocationFix) -> LocationCaptureStatus {
+        let reduced = fix.accuracyAuthorizationDescription == LocationAccuracyTag.reduced
+        let poor = (fix.horizontalAccuracyMeters ?? 0) > Self.degradedAccuracyThreshold
+        return (reduced || poor)
+            ? .degraded(accuracyMeters: fix.horizontalAccuracyMeters)
+            : .fix(accuracyMeters: fix.horizontalAccuracyMeters)
     }
 
     /// Settle window in seconds: if a provisional is not revised by a final echo
@@ -755,6 +773,12 @@ final class AppState {
         } catch {
             appendSystem("PERSIST INIT FAILED · \(error.localizedDescription)")
         }
+
+        // Acquire an initial GPS fix at startup so LINE 1 is populated
+        // without an operator tap. On first launch this drives the system
+        // permission prompt; once granted it is silent on every later
+        // launch. Fire-and-forget so it never delays encounter restore.
+        Task { await captureGPSFix(silent: true) }
     }
 
 #if DEBUG

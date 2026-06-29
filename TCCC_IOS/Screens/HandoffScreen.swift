@@ -247,6 +247,9 @@ struct HandoffScreen: View {
             isGeneratingNarrative = true
             defer { isGeneratingNarrative = false }
 
+            // Pull a current GPS fix before generating the handoff document.
+            await state.captureGPSFix(silent: true)
+
             let backend = state.currentBackend
             let availability = await backend.availability
             guard availability == .available else {
@@ -271,6 +274,9 @@ struct HandoffScreen: View {
             slmError = nil
             isGeneratingZMIST = true
             defer { isGeneratingZMIST = false }
+
+            // Pull a current GPS fix before generating the ZMIST handoff.
+            await state.captureGPSFix(silent: true)
 
             let backend = state.currentBackend
             let availability = await backend.availability

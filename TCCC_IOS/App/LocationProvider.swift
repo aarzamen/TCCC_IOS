@@ -30,8 +30,8 @@ enum LocationError: Error, Sendable, Equatable {
     case alreadyInProgress // a request is already outstanding
 }
 
-/// CoreLocation-backed one-shot provider. Operator-gated: nothing here runs
-/// until `requestOneShotFix()` is called from a USE GPS FIX tap. Uses
+/// CoreLocation-backed one-shot provider. Each call is a single fix: the app
+/// drives it at launch, on USE GPS FIX, and before document generation. Uses
 /// `requestLocation()` (inherently single-shot) — no `startUpdatingLocation`,
 /// no background mode, no continuous tracking to tear down, no reverse
 /// geocoding, no map SDK, no upload.

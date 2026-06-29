@@ -93,6 +93,25 @@ final class LocationCaptureTests: XCTestCase {
         XCTAssertEqual(state.locationFix.source, .gps)
     }
 
+    // A silent auto-refresh (launch / document generation) must not blank an
+    // existing good grid on a transient miss — the operator may be about to
+    // transmit it.
+    func testSilentRefreshKeepsGoodFixOnTransientFailure() async {
+        let state = AppState()
+        state.locationProvider = StubLocationProvider(result: .success(bagramFix()))
+        await state.captureGPSFix()
+        XCTAssertEqual(state.locationStatus, .fix(accuracyMeters: 5))
+
+        // Next acquisition fails transiently.
+        state.locationProvider = StubLocationProvider(result: .failure(.unavailable))
+        await state.captureGPSFix(silent: true)
+
+        // Prior fix and its status are retained, not downgraded to NO FIX.
+        XCTAssertEqual(state.locationStatus, .fix(accuracyMeters: 5))
+        XCTAssertTrue(state.locationFix.isUsable)
+        XCTAssertEqual(state.locationFix.latitude, 34.5267)
+    }
+
     // A real GPS fix at a polar/UPS coordinate MGRS cannot encode → the
     // capture surfaces MGRS UNAVAILABLE rather than fabricating a grid.
     func testUnencodableFixProducesMGRSUnavailableState() async {

@@ -186,19 +186,24 @@ struct MedevacScreen: View {
     }
 
     private func handleGenerate() {
-        let snapshot = form
         let callsign = state.operatorCallsign
-        // Snapshot patients + transcript on the main actor so the validator
-        // can cross-check the SLM output against engine state.
-        let patientsForValidation: [PatientState] = {
-            let sorted = state.allPatients.values.sorted { $0.patientId < $1.patientId }
-            if !sorted.isEmpty { return Array(sorted) }
-            return state.primaryPatient.map { [$0] } ?? []
-        }()
-        let transcriptForValidation = state.transcript.map(\.text).joined(separator: " ")
         Task { @MainActor in
             isGenerating = true
             generationError = nil
+
+            // Refresh the GPS fix so the transmitted LINE 1 reflects the
+            // current position, then snapshot the form. Silent: a transient
+            // miss keeps the existing grid rather than blanking it.
+            await state.captureGPSFix(silent: true)
+            let snapshot = form
+            // Snapshot patients + transcript on the main actor so the
+            // validator can cross-check the SLM output against engine state.
+            let patientsForValidation: [PatientState] = {
+                let sorted = state.allPatients.values.sorted { $0.patientId < $1.patientId }
+                if !sorted.isEmpty { return Array(sorted) }
+                return state.primaryPatient.map { [$0] } ?? []
+            }()
+            let transcriptForValidation = state.transcript.map(\.text).joined(separator: " ")
 
             let backend = state.currentBackend
             // Pre-flight the selected backend so Generate cannot trigger an
