@@ -66,6 +66,23 @@ final class PatientStateEngineTests: XCTestCase {
         XCTAssertEqual(p.timestampLastUpdate, t2.timeIntervalSince1970)
     }
 
+    func testUnpunctuatedASRRunOnTranscriptStillExtractsVisibleFindings() async {
+        let engine = PatientStateEngine.standard()
+        await engine.processTranscript(
+            """
+            Massive hemorrhage first I have bright red pulsing blood from the left thigh applying a high and tight tourniquet to the left leg now tourniquet time is zero 946 bleeding is now controlled
+            Blood pressure is 90/60 his skin is pale cool and clammy I am establishing IV access
+            """
+        )
+
+        let p = await engine.snapshot(of: "PATIENT_1")!
+        XCTAssertEqual(p.march.hemorrhageLocation, "left thigh")
+        XCTAssertEqual(p.march.hemorrhageIntervention, "Tourniquet applied (left thigh)")
+        XCTAssertEqual(p.march.hemorrhageEffective, true)
+        XCTAssertEqual(p.vitals.bp, BloodPressure(systolic: 90, diastolic: 60, palpated: false))
+        XCTAssertEqual(p.march.skinSigns, "pale")
+    }
+
     // MARK: - Patient switching
 
     func testSwitchToPatient2OnMovingToCasualtyTwo() async {
