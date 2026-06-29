@@ -576,8 +576,6 @@ struct SettingsOverlay: View {
             }
 
             tierPickerBlock
-
-            locationSourceBlock
         }
         .padding(16)
     }
@@ -639,99 +637,10 @@ struct SettingsOverlay: View {
         )
     }
 
-    /// A1 hardening — explicit picker over `AppState.LocationSource`.
-    /// `none` is the safe default; `manual` exposes lat/lon TextFields;
-    /// `demo` seeds the historical Bagram-area training coordinates so
-    /// the demo path still works without lying to the radio script.
-    @ViewBuilder
-    private var locationSourceBlock: some View {
-        Text("Location Source")
-            .font(.system(size: 10, weight: .heavy))
-            .tracking(1.6)
-            .foregroundStyle(palette.fg2)
-            .textCase(.uppercase)
-            .padding(.top, 6)
-
-        Picker("Location Source", selection: locationSourceBinding) {
-            ForEach(AppState.LocationSource.allCases) { src in
-                Text(src.badge).tag(src)
-            }
-        }
-        .pickerStyle(.segmented)
-
-        if state.locationFix.source == .manual {
-            HStack(spacing: 6) {
-                manualField(label: "LAT", binding: latitudeBinding)
-                manualField(label: "LON", binding: longitudeBinding)
-            }
-        } else if state.locationFix.source == .demo {
-            Text("Demo coords: 34.5267, 69.1729 (training only — flagged DEMO on 9-line)")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(palette.warn)
-        } else {
-            Text("No fix — 9-line LINE 1 will render UNVERIFIED.")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(palette.crit)
-        }
-    }
-
-    private var locationSourceBinding: Binding<AppState.LocationSource> {
-        Binding(
-            get: { state.locationFix.source },
-            set: { newSource in
-                switch newSource {
-                case .none:
-                    state.locationFix = .init(source: .none, latitude: nil, longitude: nil)
-                case .demo:
-                    // Same Bagram-area coords as the legacy hardcoded
-                    // default — but now explicitly labeled DEMO.
-                    state.locationFix = .init(source: .demo, latitude: 34.5267, longitude: 69.1729)
-                case .manual:
-                    // Preserve any prior coords if switching from .demo;
-                    // otherwise start blank and let operator type values.
-                    let lat = state.locationFix.latitude
-                    let lon = state.locationFix.longitude
-                    state.locationFix = .init(source: .manual, latitude: lat, longitude: lon)
-                }
-            }
-        )
-    }
-
-    private var latitudeBinding: Binding<String> {
-        Binding(
-            get: { state.locationFix.latitude.map { String($0) } ?? "" },
-            set: { state.locationFix.latitude = Double($0) }
-        )
-    }
-
-    private var longitudeBinding: Binding<String> {
-        Binding(
-            get: { state.locationFix.longitude.map { String($0) } ?? "" },
-            set: { state.locationFix.longitude = Double($0) }
-        )
-    }
-
-    private func manualField(label: String, binding: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.system(size: 9, weight: .semibold))
-                .tracking(1.4)
-                .foregroundStyle(palette.fg2)
-                .textCase(.uppercase)
-            TextField("", text: binding)
-                .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                .foregroundStyle(palette.fg)
-                .keyboardType(.numbersAndPunctuation)
-                .textFieldStyle(.plain)
-        }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(
-            Rectangle()
-                .strokeBorder(palette.line, lineWidth: Layout.hairline)
-        )
-    }
+    // Location is captured on the MEDEVAC screen via USE GPS FIX (real
+    // CoreLocation one-shot). The former Settings location-source picker
+    // (manual lat/lon + demo Bagram seed) was removed — no manual/demo
+    // grid entry exists in production UI.
 
     // MARK: - Session
 

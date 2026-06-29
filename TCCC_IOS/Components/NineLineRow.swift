@@ -62,7 +62,6 @@ struct NineLineRow: View {
         case .warn:    palette.warn
         case .auto:    palette.fg
         case .ok:      palette.fg
-        case .demo:    palette.warn   // training coords — visually warn-tier
         case .pending: palette.crit   // unverified — surface as crit
         }
     }
@@ -70,7 +69,6 @@ struct NineLineRow: View {
     private var badgeText: String {
         switch entry.status {
         case .pending: "NO FIX"
-        case .demo: "DEMO"
         case .auto: "GPS"
         case .ok, .warn, .crit: entry.isAuto ? "GPS" : "EDIT"
         }
@@ -79,7 +77,6 @@ struct NineLineRow: View {
     private var badgeIcon: String {
         switch entry.status {
         case .pending: "exclamationmark.triangle.fill"
-        case .demo: "flag.fill"
         case .auto: "location.fill"
         case .ok, .warn, .crit: entry.isAuto ? "location.fill" : "pencil"
         }
@@ -88,7 +85,6 @@ struct NineLineRow: View {
     private var badgeColor: Color {
         switch entry.status {
         case .pending: palette.crit
-        case .demo: palette.warn
         case .auto: palette.accent
         case .ok, .warn, .crit: entry.isAuto ? palette.accent : palette.fg3
         }

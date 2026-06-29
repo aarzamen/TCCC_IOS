@@ -107,18 +107,16 @@ struct StatusStrip: View {
         return String(format: "+%02d:%02d", h, m)
     }
 
-    /// Location-source provenance badge — `NO FIX` / `MANUAL` / `DEMO`.
-    /// Per A1 hardening: the 9-line LINE 1 is the loudest data we send
-    /// to the inbound bird. The operator should see the source of truth
-    /// for that coordinate at all times. Color-coded: `.demo` warn,
-    /// `.manual` neutral, `.none` crit.
+    /// Location-source provenance badge — `NO FIX` / `GPS`.
+    /// The 9-line LINE 1 is the loudest data we send to the inbound bird,
+    /// so the operator sees the source of truth for that coordinate at all
+    /// times. Color-coded: `.gps` accent, `.none` crit.
     private var locationSourceCell: some View {
         let source = state.locationFix.source
         let color: Color
         switch source {
-        case .none:   color = palette.crit
-        case .demo:   color = palette.warn
-        case .manual: color = palette.fg2
+        case .none: color = palette.crit
+        case .gps:  color = palette.accent
         }
         return HStack(spacing: 6) {
             Image(systemName: "location.fill")

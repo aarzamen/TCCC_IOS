@@ -3,9 +3,10 @@ import TCCCDomain
 
 struct NineLineEntry: Identifiable {
     /// Line-1 source-aware statuses:
-    /// - `.demo`    — populated from training/demo coordinates; not real-fix.
-    /// - `.pending` — no usable location source; operator must provide one.
-    enum Status { case ok, warn, crit, auto, demo, pending }
+    /// - `.ok`      — GPS fix with a valid full-precision MGRS; ready.
+    /// - `.pending` — no usable GPS fix (or MGRS conversion failed);
+    ///   operator must capture a GPS fix before transmit.
+    enum Status { case ok, warn, crit, auto, pending }
 
     let number: Int
     let label: String
@@ -17,7 +18,7 @@ struct NineLineEntry: Identifiable {
     var id: Int { number }
 
     var countsTowardCompletion: Bool {
-        value != "—" && status != .pending && status != .demo
+        value != "—" && status != .pending
     }
 
     var isVerifiedForTransmit: Bool {
@@ -53,27 +54,30 @@ struct NineLineForm {
 
         var entries: [NineLineEntry] = []
 
-        // Line 1 — Location.
-        // We refuse to fabricate a position when no source is set.
-        // `.demo` still renders coordinates but flags status so the UI
-        // and any radio-script consumer can warn that this is training
-        // data, not a real fix. `.manual` shows EDIT instead of GPS in
-        // the badge column (`isAuto = false`).
+        // Line 1 — Location. Production: GPS only, full-precision MGRS, no
+        // fabrication and no decimal-degrees fallback.
+        //   • no usable GPS fix            → UNVERIFIED, pending, not ready
+        //   • GPS fix + MGRS encodes       → 5+5 MGRS, ok, ready (badge GPS)
+        //   • GPS fix but MGRS nil (polar) → MGRS UNAVAILABLE, pending, not ready
         let line1Value: String
         let line1Status: NineLineEntry.Status
-        if let lat = locationFix.latitude, let lon = locationFix.longitude, locationFix.isUsable {
-            line1Value = formattedLocation(lat: lat, lon: lon)
-            switch locationFix.source {
-            case .demo:
-                line1Status = .demo
-            case .manual:
+        let line1IsAuto: Bool
+        if locationFix.isUsable,
+           let lat = locationFix.latitude,
+           let lon = locationFix.longitude {
+            if let mgrs = MGRS.formatted(latitude: lat, longitude: lon) {
+                line1Value = mgrs
                 line1Status = .ok
-            case .none:
+                line1IsAuto = true          // GPS-derived → badge renders GPS
+            } else {
+                line1Value = "MGRS UNAVAILABLE"
                 line1Status = .pending
+                line1IsAuto = false
             }
         } else {
-            line1Value = "UNVERIFIED — set location"
+            line1Value = "UNVERIFIED — use GPS fix"
             line1Status = .pending
+            line1IsAuto = false
         }
         entries.append(.init(
             number: 1,
@@ -81,7 +85,7 @@ struct NineLineForm {
             value: line1Value,
             icon: "mappin.and.ellipse",
             status: line1Status,
-            isAuto: line1Status == .auto
+            isAuto: line1IsAuto
         ))
 
         // Line 2 — Frequency / Callsign
@@ -183,19 +187,6 @@ struct NineLineForm {
     }
 
     // MARK: - Helpers
-
-    private static func formattedLocation(lat: Double, lon: Double) -> String {
-        // 9-line MEDEVAC LINE 1 is voice-transmitted to the inbound bird —
-        // MGRS is the canonical military format. Per night-pass A2.
-        // Falls back to decimal degrees for UPS polar regions or NaN
-        // inputs that MGRS rejects.
-        if let mgrs = MGRS.formatted(latitude: lat, longitude: lon) {
-            return mgrs
-        }
-        let nsLat = String(format: "%.4f° %@", abs(lat), lat >= 0 ? "N" : "S")
-        let ewLon = String(format: "%.4f° %@", abs(lon), lon >= 0 ? "E" : "W")
-        return "\(nsLat)  \(ewLon)"
-    }
 
     private static func formattedPrecedence(urgent: Int, urgentSurg: Int, priority: Int, routine: Int) -> String {
         var parts: [String] = []

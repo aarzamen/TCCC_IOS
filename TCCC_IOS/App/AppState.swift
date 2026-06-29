@@ -371,30 +371,38 @@ final class AppState {
     }
 
     /// Provenance of the casualty location used for 9-line LINE 1.
-    /// Modeled explicitly so the UI can render a `NO FIX` / `MANUAL` /
-    /// `DEMO` badge and the 9-line refuses to populate Line 1 unless
-    /// the source is usable. The Bagram-area lat/lon that used to be
-    /// hardcoded silently is now only reachable via `.demo`.
+    /// Production model: the only real source is the iPhone's GPS. The
+    /// former `.manual` (typed lat/lon) and `.demo` (hardcoded Bagram
+    /// training coords) development modes were removed — neither read the
+    /// device's real position, so neither may drive a transmitted Line 1.
     enum LocationSource: String, Codable, Sendable, CaseIterable, Identifiable {
-        case none      // no fix — Line 1 must be marked UNVERIFIED
-        case manual    // operator entered MGRS / lat-lon manually
-        case demo      // bundled demo coordinates (training only)
+        case none   // no fix — Line 1 must be marked UNVERIFIED
+        case gps    // real one-shot CoreLocation fix
         var id: String { rawValue }
         var badge: String {
             switch self {
-            case .none:   "NO FIX"
-            case .manual: "MANUAL"
-            case .demo:   "DEMO"
+            case .none: "NO FIX"
+            case .gps:  "GPS"
             }
         }
     }
 
+    /// A captured position plus the GPS metadata an operator needs to judge
+    /// it. Transient app state only — never written to the event log, the
+    /// manifest, or any export. The new metadata fields default to `nil` so
+    /// existing `LocationFix(source: .none, latitude: nil, longitude: nil)`
+    /// call sites still compile.
     struct LocationFix: Codable, Sendable, Equatable {
         var source: LocationSource
         var latitude: Double?
         var longitude: Double?
-        /// True when source != .none AND lat/lon are non-nil.
-        var isUsable: Bool { source != .none && latitude != nil && longitude != nil }
+        var horizontalAccuracyMeters: Double? = nil
+        var verticalAccuracyMeters: Double?   = nil
+        var capturedAt: Date?                 = nil
+        var authorizationStatusDescription: String?   = nil
+        var accuracyAuthorizationDescription: String? = nil
+        /// True only for a real GPS fix with non-nil lat/lon.
+        var isUsable: Bool { source == .gps && latitude != nil && longitude != nil }
     }
 
     var casualtyId: String = "C-04"
@@ -408,9 +416,9 @@ final class AppState {
     /// timeline so it never appears for an unsent encounter.
     var lastMedevacTransmitTime: Date? = nil
 
-    /// Replaces the silent Bagram lat/lon default. Defaults to `.none`
-    /// so the 9-line LOCATION line will render UNVERIFIED until the
-    /// operator explicitly opts into a source via Settings.
+    /// No silent default position. Stays `.none` (Line 1 renders
+    /// UNVERIFIED) until the operator taps USE GPS FIX on the MEDEVAC
+    /// screen and a real CoreLocation fix lands.
     var locationFix: LocationFix = LocationFix(source: .none, latitude: nil, longitude: nil)
 
     /// Settle window in seconds: if a provisional is not revised by a final echo
