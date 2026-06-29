@@ -108,6 +108,25 @@ actor SpeechRecognizer: TranscriptStream {
         try configureSession()
 
         let inputNode = engine.inputNode
+
+        // iOS Voice Processing IO Unit: AGC + AEC + noise suppression on
+        // the input node, applied BEFORE the tap fires. This is the
+        // adaptive-gain layer the operator asked for — iOS tracks ambient
+        // RMS and pushes speech toward ~-16 dBFS with attack/release tuned
+        // for voice. The manual gain slider (`gainProvider`) still applies
+        // as a multiplicative trim on top, so a quiet medic in a noisy
+        // field gets boosted automatically without fighting a Settings
+        // slider mid-narration. setVoiceProcessingEnabled must run BEFORE
+        // installTap and BEFORE engine.start, and is documented to throw
+        // on some devices/sessions — fall back silently to hardware-unity
+        // capture if it fails.
+        do {
+            try inputNode.setVoiceProcessingEnabled(true)
+            inputNode.isVoiceProcessingAGCEnabled = true
+        } catch {
+            // Best-effort — capture continues at hardware unity gain.
+        }
+
         let format = inputNode.outputFormat(forBus: 0)
         self.inputFormat = format
 

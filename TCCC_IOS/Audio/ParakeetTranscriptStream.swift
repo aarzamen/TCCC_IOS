@@ -259,6 +259,24 @@ actor ParakeetTranscriptStream: TranscriptStream {
         try configureSession()
 
         let inputNode = engine.inputNode
+
+        // iOS Voice Processing IO Unit: AGC + AEC + noise suppression on
+        // the input node, applied BEFORE the tap fires. iOS tracks ambient
+        // RMS and pushes speech toward ~-16 dBFS with attack/release tuned
+        // for voice. The manual gain slider still applies as a trim on
+        // top. Must run BEFORE the format read and tap install. See the
+        // matching comment in SpeechRecognizer.prime() for full reasoning.
+        do {
+            try inputNode.setVoiceProcessingEnabled(true)
+            inputNode.isVoiceProcessingAGCEnabled = true
+            DiagnosticsLogger.shared.log("prime · voice processing AGC enabled", category: "lifecycle")
+        } catch {
+            DiagnosticsLogger.shared.log(
+                "prime · voice processing enable failed: \(error.localizedDescription) — falling back to unity-gain capture",
+                category: "lifecycle"
+            )
+        }
+
         let format = inputNode.outputFormat(forBus: 0)
         self.inputFormat = format
         DiagnosticsLogger.shared.log(
