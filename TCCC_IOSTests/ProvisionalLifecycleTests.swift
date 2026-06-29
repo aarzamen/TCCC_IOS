@@ -39,4 +39,26 @@ final class ProvisionalLifecycleTests: XCTestCase {
         s.promoteProvisional()
         XCTAssertEqual(s.transcript.count, 2)
     }
+
+    // #6/#12 + #8: a backend whose forceFinalize never echoes (Parakeet / 30s tail)
+    // still commits via timeout-settle — the snapshot IS the commit.
+    func testNoEchoBackendSettlesByTimeout() async {
+        let s = AppState()
+        s.commitProvisional("airway is patent")
+        // no applyFinalEcho ever arrives
+        s.promoteProvisional()   // stands in for the 2.0s settle timer
+        XCTAssertEqual(s.transcript.map(\.text), ["airway is patent"])
+        let hasProv = await s.engine.hasProvisional
+        XCTAssertFalse(hasProv)
+    }
+
+    // #4: memory-pressure-style promotion mid-chunk does not duplicate when a later
+    // echo arrives after settle (the echo with no provisional becomes its own line).
+    func testEchoAfterSettleBecomesFreshLineNotDuplicateMutation() async {
+        let s = AppState()
+        s.commitProvisional("pulse is weak")
+        s.promoteProvisional()
+        s.applyFinalEcho("pulse is weak and thready")   // arrives late, no provisional
+        XCTAssertEqual(s.transcript.map(\.text), ["pulse is weak", "pulse is weak and thready"])
+    }
 }
