@@ -515,9 +515,14 @@ final class AppState {
         provisionalLineId = line.id
         partialTranscript = ""
         let prior0 = provisionalEngineTask
+        let eng0 = engine   // capture at submission time; lifecycle reset can't target new engine
         provisionalEngineTask = Task { @MainActor in
             await prior0?.value
-            await engine.commitProvisional(trimmed, timestamp: timestamp)
+            // Short-circuit if a lifecycle reset (wipe/newPatient/endCare) cancelled this
+            // chain while it was suspended. The captured `eng0` also prevents the op below
+            // from targeting a post-swap engine even if the check were somehow skipped.
+            if Task.isCancelled { return }
+            await eng0.commitProvisional(trimmed, timestamp: timestamp)
             await refreshPatientSnapshot(persist: false)   // defer persist until settle
         }
         if let cmd = detectVoiceCommand(in: trimmed) { armVoiceCommand(cmd) }
@@ -537,9 +542,11 @@ final class AppState {
         transcript[idx] = TranscriptLine(speaker: .medic, text: trimmed, timestamp: timestamp)
         provisionalLineId = transcript[idx].id
         let prior1 = provisionalEngineTask
+        let eng1 = engine   // capture at submission time; lifecycle reset can't target new engine
         provisionalEngineTask = Task { @MainActor in
             await prior1?.value
-            await engine.reviseProvisional(trimmed, timestamp: timestamp)
+            if Task.isCancelled { return }
+            await eng1.reviseProvisional(trimmed, timestamp: timestamp)
             await refreshPatientSnapshot(persist: false)
             promoteProvisional()
         }
@@ -554,9 +561,11 @@ final class AppState {
         // Populate the export/Granite ledger with the SETTLED (possibly refined) text.
         appendTranscriptEvidence(line.text, timestamp: line.timestamp)
         let prior2 = provisionalEngineTask
+        let eng2 = engine   // capture at submission time; lifecycle reset can't target new engine
         provisionalEngineTask = Task { @MainActor in
             await prior2?.value
-            await engine.settleProvisional()
+            if Task.isCancelled { return }
+            await eng2.settleProvisional()
             await refreshPatientSnapshot(persist: true)   // flush the settled chunk
         }
     }
@@ -792,6 +801,10 @@ final class AppState {
         }
         // --- existing in-memory reset (verbatim) ---
         provisionalSettleTask?.cancel(); provisionalSettleTask = nil; provisionalLineId = nil
+        // Cancelling provisionalEngineTask signals any suspended chained tasks to short-circuit
+        // at their `if Task.isCancelled { return }` guards. The captured engine reference inside
+        // those closures also ensures they cannot accidentally target the fresh engine assigned
+        // below even if they had somehow already passed the cancellation check.
         provisionalEngineTask?.cancel(); provisionalEngineTask = nil
         voiceCommandTask?.cancel()
         voiceCommandTask = nil
