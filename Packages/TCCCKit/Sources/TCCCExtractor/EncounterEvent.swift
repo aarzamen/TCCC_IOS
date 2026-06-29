@@ -141,4 +141,13 @@ public struct EncounterLog: Sendable, Codable, Equatable {
     public private(set) var events: [EncounterEvent]
     public init(events: [EncounterEvent] = []) { self.events = events }
     public mutating func append(_ event: EncounterEvent) { events.append(event) }
+
+    /// Drop trailing events so `events.count == max(0, n)`. No-op when `n` is at or
+    /// beyond the current length. Used only by provisional-tail revision; the log is
+    /// append-only on every other path.
+    public mutating func truncate(toCount n: Int) {
+        let target = max(0, n)
+        guard target < events.count else { return }
+        events.removeLast(events.count - target)
+    }
 }
