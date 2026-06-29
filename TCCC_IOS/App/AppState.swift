@@ -874,6 +874,38 @@ final class AppState {
         return (e, d)
     }()
 
+    /// Assemble the deterministic DD Form 1380 card from current app state +
+    /// structured patient state. The testable seam for the Handoff export.
+    /// Returns nil when there is no casualty state. App-layer glue only — all
+    /// clinical mapping happens in the pure `DD1380Mapper`; the LLM is never
+    /// consulted.
+    func makeDD1380Card() -> DD1380CardData? {
+        guard let patient = primaryPatient else { return nil }
+        let input = DD1380MapperInput(
+            patient: patient,
+            casualtyId: casualtyId,
+            casualtyName: casualtyName,
+            casualtyLast4: Self.last4Digits(from: casualtyServiceNumberMasked),
+            casualtySex: nil,              // no sex field exists in app state → blank
+            casualtyService: "",           // no service-branch field → blank
+            casualtyUnit: casualtyUnit,
+            casualtyAllergies: casualtyAllergies,
+            operatorName: operatorCallsign,
+            operatorLast4: "",             // no operator last-4 field → blank
+            sectionCReadings: vitalsLog.map { $0.toDD1380() },
+            encounterStart: sessionStart,
+            now: Date()
+        )
+        return DD1380Mapper.map(input)
+    }
+
+    /// Trailing four digits of a (possibly masked) service number, e.g.
+    /// "••• 4471" → "4471". Blank if fewer than four digits are present.
+    static func last4Digits(from masked: String) -> String {
+        let digits = masked.filter(\.isNumber)
+        return digits.count >= 4 ? String(digits.suffix(4)) : ""
+    }
+
     /// Up-to-4-entry rolling buffer. New readings append; older ones are
     /// dropped from the head when count exceeds 4.
     var vitalsLog: [SectionCReading] = []

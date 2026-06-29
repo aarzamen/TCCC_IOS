@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import TCCCDomain
+import TCCCReports
 
 /// Screen 05 — Role-1 → Role-2 Handoff.
 ///
@@ -27,6 +28,8 @@ struct HandoffScreen: View {
     @State private var isGeneratingNarrative: Bool = false
     @State private var isGeneratingZMIST: Bool = false
     @State private var slmError: String?
+
+    private let dd1380Export = DD1380PDFExportService()
 
     private var patient: PatientState? { state.primaryPatient }
 
@@ -387,8 +390,9 @@ struct HandoffScreen: View {
             ExportCard(
                 icon: "doc.richtext",
                 title: "DD-1380 PDF",
-                detail: "Pending PDFKit",
-                isReady: false
+                detail: dd1380Detail,
+                isReady: patient != nil,
+                action: { shareDD1380PDF() }
             )
 
             section19Callout
@@ -456,6 +460,40 @@ struct HandoffScreen: View {
 
     private var hasAudioOrTranscript: Bool {
         !state.transcript.isEmpty || state.lastRecordingURL != nil
+    }
+
+    /// DD-1380 card detail. Deterministic; readiness informs the text but never
+    /// blocks generation (a partial DD1380 beats none).
+    private var dd1380Detail: String {
+        guard let card = state.makeDD1380Card() else { return "No casualty state" }
+        let readiness = DD1380Readiness.evaluate(card: card)
+        if readiness.criticalMissing.isEmpty {
+            return "Ready · 2 pages · CUI when filled"
+        }
+        return "Ready · 2 pages · \(readiness.criticalMissing.count) blank · CUI when filled"
+    }
+
+    /// Render the deterministic DD-1380 to a protected PDF and hand it to the
+    /// iOS share sheet. The only way the file leaves the device is this explicit
+    /// operator action. Never crashes on blank fields; never uses LLM output.
+    private func shareDD1380PDF() {
+        guard let card = state.makeDD1380Card() else {
+            state.appendSystem("DD-1380 · no casualty state")
+            return
+        }
+        let casualtyId = state.casualtyId
+        let documentsURL = state.documentsURL
+        Task { @MainActor in
+            do {
+                let url = try await dd1380Export.export(
+                    card: card, casualtyId: casualtyId, documentsURL: documentsURL)
+                shareItems = [url]
+                shareSheetVisible = true
+                state.appendSystem("DD-1380 PDF · generated on-device")
+            } catch {
+                state.appendSystem("DD-1380 PDF FAILED · \(error.localizedDescription)")
+            }
+        }
     }
 
     private func shareJSON() {

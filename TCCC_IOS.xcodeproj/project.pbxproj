@@ -50,6 +50,7 @@
 		344E26DF03B3E113A3126F80 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1439B6599811FA567A67B1C2 /* ShareSheet.swift */; };
 		35A6B49EC22BF29E1BCF65D7 /* DD1380PDFExportServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3AADAE3192CDB5C8CD233E /* DD1380PDFExportServiceTests.swift */; };
 		35E78FFD09C75B680082CF5E /* InvariantStructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF1449B5952AFB7AA165C38 /* InvariantStructureTests.swift */; };
+		396F09F3B72F3C438824C5DF /* DD1380WiringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7179B301947780E5A09583F /* DD1380WiringTests.swift */; };
 		3AFD0BF4799175DAD7A77305 /* GraniteReportCritiqueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE5BC27729D5C0A981AAAC9D /* GraniteReportCritiqueTests.swift */; };
 		413E2267D1F0EBE40FBA130A /* NineLineForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0894014601F9571B1B376A /* NineLineForm.swift */; };
 		424652A98CD7C9860C59FCF0 /* SmallVital.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274E6A86610FEAD04C57413F /* SmallVital.swift */; };
@@ -318,6 +319,7 @@
 		DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCC_IOSApp.swift; sourceTree = "<group>"; };
 		E2FE58F83E5CABF70A1598BE /* DD1380PDFRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DD1380PDFRenderer.swift; sourceTree = "<group>"; };
 		E353D7D5CFBBD897E0505457 /* test_5min.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = test_5min.wav; sourceTree = "<group>"; };
+		E7179B301947780E5A09583F /* DD1380WiringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DD1380WiringTests.swift; sourceTree = "<group>"; };
 		E774A5672369442A1E8C33C3 /* KokoroEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroEngineTests.swift; sourceTree = "<group>"; };
 		E8DD000AEA797F182C96445E /* TCCCLanguageModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCCLanguageModel.swift; sourceTree = "<group>"; };
 		EB23DCCB7B28461988442861 /* PlaybackVisualizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackVisualizer.swift; sourceTree = "<group>"; };
@@ -638,6 +640,7 @@
 			children = (
 				6E3AADAE3192CDB5C8CD233E /* DD1380PDFExportServiceTests.swift */,
 				26EEF8B5021A98A8D47F6245 /* DD1380PDFRendererTests.swift */,
+				E7179B301947780E5A09583F /* DD1380WiringTests.swift */,
 				6DEE262741052B0E405D0A19 /* DeterministicFactProjectorTests.swift */,
 				58FA5C688962CB88681ABB4E /* EncounterStoreTests.swift */,
 				507459C6ED5524BF0A96256B /* EventSourcingApplyPathTests.swift */,
@@ -926,6 +929,7 @@
 			files = (
 				35A6B49EC22BF29E1BCF65D7 /* DD1380PDFExportServiceTests.swift in Sources */,
 				B227A57FBFCDB23C173086F4 /* DD1380PDFRendererTests.swift in Sources */,
+				396F09F3B72F3C438824C5DF /* DD1380WiringTests.swift in Sources */,
 				A864CDAF43DD094DA4A508A4 /* DeterministicFactProjectorTests.swift in Sources */,
 				671ECD80AB4AFC7C4287DA1F /* EncounterStoreTests.swift in Sources */,
 				E7287D82B2A32D6C58AB6B72 /* EventSourcingApplyPathTests.swift in Sources */,
