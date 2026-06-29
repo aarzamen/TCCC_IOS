@@ -489,8 +489,11 @@ Replace the body of `appendFinal` (the dedup block at 487–498 and the append a
     /// Settle the outstanding provisional: it becomes permanent and is persisted.
     func promoteProvisional() {
         provisionalSettleTask?.cancel(); provisionalSettleTask = nil
-        guard provisionalLineId != nil else { return }
+        guard let id = provisionalLineId,
+              let line = transcript.first(where: { $0.id == id }) else { return }
         provisionalLineId = nil
+        // Populate the export/Granite ledger with the SETTLED (possibly refined) text.
+        appendTranscriptEvidence(line.text, timestamp: line.timestamp)
         Task { await engine.settleProvisional()
                await refreshPatientSnapshot(persist: true) }   // flush the settled chunk
     }
@@ -517,7 +520,7 @@ Change `refreshPatientSnapshot` to take a persist flag:
     }
 ```
 
-Note: `appendTranscriptEvidence` (the in-memory `transcriptLedger`) is dropped from the commit path — it was only feeding the removed auto-clean window and the export ledger; the engine's `asrSegment` events are now the canonical raw-text record. If a later export consumer needs the ledger, repopulate it on `promoteProvisional` instead (out of scope here; no current test depends on it — verify in Step 4).
+Note: `appendTranscriptEvidence` (the `transcriptLedger`) is **moved from the commit path to the settle path** — `GraniteReviewQueue.swift:38` and `GraniteHotSeatInvocationTests` consume `transcriptLedger.normalizedSegments`, so the ledger MUST stay populated. Populating it in `promoteProvisional` (on settle) means it records the **refined** text, not the provisional — strictly better. The existing `appendFinal → ledger.count == 1` assertion in `GraniteHotSeatInvocationTests` still passes via the shim (commit → promote). Do NOT call `appendTranscriptEvidence` from `commitProvisional`.
 
 - [ ] **Step 4: Run the lifecycle tests + the full app + package suites**
 
