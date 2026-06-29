@@ -428,6 +428,11 @@ final class AppState {
     /// a new commit promote it to permanent first.
     private var provisionalLineId: TranscriptLine.ID?
     private var provisionalSettleTask: Task<Void, Never>?
+    /// Serializes engine mutations (commit / revise / settle) so they execute in
+    /// submission order regardless of scheduler. Each new engine op awaits the prior
+    /// task's value before proceeding, preventing applyFinalEcho's reviseProvisional
+    /// from running before commitProvisional's boundary has been set in the engine.
+    private var provisionalEngineTask: Task<Void, Never>?
 
     var isRecording: Bool = false
     var recognitionError: String?
@@ -509,8 +514,12 @@ final class AppState {
         transcript.append(line)
         provisionalLineId = line.id
         partialTranscript = ""
-        Task { await engine.commitProvisional(trimmed, timestamp: timestamp)
-               await refreshPatientSnapshot(persist: false) }   // defer persist until settle
+        let prior0 = provisionalEngineTask
+        provisionalEngineTask = Task { @MainActor in
+            await prior0?.value
+            await engine.commitProvisional(trimmed, timestamp: timestamp)
+            await refreshPatientSnapshot(persist: false)   // defer persist until settle
+        }
         if let cmd = detectVoiceCommand(in: trimmed) { armVoiceCommand(cmd) }
         startSettleTimer()
     }
@@ -527,9 +536,13 @@ final class AppState {
         provisionalSettleTask?.cancel(); provisionalSettleTask = nil
         transcript[idx] = TranscriptLine(speaker: .medic, text: trimmed, timestamp: timestamp)
         provisionalLineId = transcript[idx].id
-        Task { await engine.reviseProvisional(trimmed, timestamp: timestamp)
-               await refreshPatientSnapshot(persist: false)
-               promoteProvisional() }
+        let prior1 = provisionalEngineTask
+        provisionalEngineTask = Task { @MainActor in
+            await prior1?.value
+            await engine.reviseProvisional(trimmed, timestamp: timestamp)
+            await refreshPatientSnapshot(persist: false)
+            promoteProvisional()
+        }
     }
 
     /// Settle the outstanding provisional: it becomes permanent and is persisted.
@@ -540,8 +553,12 @@ final class AppState {
         provisionalLineId = nil
         // Populate the export/Granite ledger with the SETTLED (possibly refined) text.
         appendTranscriptEvidence(line.text, timestamp: line.timestamp)
-        Task { await engine.settleProvisional()
-               await refreshPatientSnapshot(persist: true) }   // flush the settled chunk
+        let prior2 = provisionalEngineTask
+        provisionalEngineTask = Task { @MainActor in
+            await prior2?.value
+            await engine.settleProvisional()
+            await refreshPatientSnapshot(persist: true)   // flush the settled chunk
+        }
     }
 
     private func startSettleTimer() {
@@ -775,6 +792,7 @@ final class AppState {
         }
         // --- existing in-memory reset (verbatim) ---
         provisionalSettleTask?.cancel(); provisionalSettleTask = nil; provisionalLineId = nil
+        provisionalEngineTask?.cancel(); provisionalEngineTask = nil
         voiceCommandTask?.cancel()
         voiceCommandTask = nil
         pendingVoiceCommand = nil
@@ -822,6 +840,7 @@ final class AppState {
         try? await encounterStore?.archiveActive(endedUnix: now)  // manifest: old → archived
         // --- existing in-memory reset (verbatim), which sets a fresh engine + new casualtyId ---
         provisionalSettleTask?.cancel(); provisionalSettleTask = nil; provisionalLineId = nil
+        provisionalEngineTask?.cancel(); provisionalEngineTask = nil
         voiceCommandTask?.cancel(); voiceCommandTask = nil; pendingVoiceCommand = nil
         let oldId = casualtyId
         casualtyCounter += 1
@@ -850,6 +869,7 @@ final class AppState {
         try? await encounterStore?.archiveActive(endedUnix: now)
         // --- existing in-memory reset (verbatim) ---
         provisionalSettleTask?.cancel(); provisionalSettleTask = nil; provisionalLineId = nil
+        provisionalEngineTask?.cancel(); provisionalEngineTask = nil
         voiceCommandTask?.cancel(); voiceCommandTask = nil; pendingVoiceCommand = nil
         let endedId = casualtyId
         appendSystem("CARE ENDED · \(endedId) · handoff finalized")

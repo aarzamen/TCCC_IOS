@@ -164,10 +164,9 @@ struct LiveCaptureScreen: View {
         .onChange(of: state.pendingInterruptionPause) { _, newValue in
             guard newValue else { return }
             state.pendingInterruptionPause = false
-            // Make teardown self-contained: cancel the commit timers directly rather
-            // than relying on the stream's continuation finishing — a future
-            // TranscriptStream that tore down without finishing would otherwise leak
-            // and spin the watchdog.
+            let pending = state.partialTranscript
+            if !pending.isEmpty { state.commitProvisional(pending) }   // flush in-flight first
+            state.promoteProvisional()                                  // then settle, like STOP
             periodicCommitTask?.cancel()
             partialCommitTask?.cancel()
             Task { await recognizer?.stopImmediate() }
@@ -482,17 +481,15 @@ struct LiveCaptureScreen: View {
             // but DON'T cancel the streaming task — final transcript lines
             // arrive during the tail and we want them appended.
             //
-            // Flush the in-flight partial FIRST (defensive commit), then forceFinalize
-            // to RESET the recogniser context BEFORE scheduling the tail — so the tail's
-            // partials start from a clean slate and don't re-include the just-committed
-            // prefix. The forceFinalize echo of `pending` is absorbed by appendFinal's
-            // superset dedup. forceFinalize is a no-op once the tail deadline is set, so
-            // it MUST run before stop().
+            // Commit any in-flight partial as provisional, then promote it before the
+            // tail starts. forceFinalize resets the recogniser context; the subsequent
+            // echo is refined in place by applyFinalEcho. Must run before stop().
             let pending = state.partialTranscript
             if !pending.isEmpty {
-                state.appendFinal(pending)
+                state.commitProvisional(pending)
                 lastCommitAt = Date()
             }
+            state.promoteProvisional()   // promote-first (loss-safe), closes ordering race
             periodicCommitTask?.cancel()
             partialCommitTask?.cancel()
             await recognizer?.forceFinalize()
@@ -528,7 +525,7 @@ struct LiveCaptureScreen: View {
                     if Task.isCancelled { break }
                     if update.isFinal {
                         partialCommitTask?.cancel()
-                        state.appendFinal(update.text, timestamp: update.timestamp)
+                        state.applyFinalEcho(update.text, timestamp: update.timestamp)
                         lastCommitAt = Date()
                     } else {
                         state.partialTranscript = update.text
@@ -570,7 +567,7 @@ struct LiveCaptureScreen: View {
                     if Task.isCancelled { break }
                     if update.isFinal {
                         partialCommitTask?.cancel()
-                        state.appendFinal(update.text, timestamp: update.timestamp)
+                        state.applyFinalEcho(update.text, timestamp: update.timestamp)
                         lastCommitAt = Date()
                     } else {
                         state.partialTranscript = update.text
@@ -594,15 +591,14 @@ struct LiveCaptureScreen: View {
     private func scheduleSilenceCommit() {
         partialCommitTask?.cancel()
         let pendingAtSchedule = state.partialTranscript
-        guard !pendingAtSchedule.isEmpty else { return }
         partialCommitTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(silenceDebounce * 1_000_000_000))
             if Task.isCancelled { return }
-            // Only commit if the partial hasn't changed since the timer was
-            // scheduled — otherwise speech is still flowing (the watchdog
-            // catches that case so a long unbroken run still commits).
-            guard state.partialTranscript == pendingAtSchedule, !pendingAtSchedule.isEmpty else { return }
-            await commitPartial(pendingAtSchedule)
+            guard let textToCommit = PartialCommitGate.committableText(
+                scheduled: pendingAtSchedule, latest: state.partialTranscript) else { return }
+            state.commitProvisional(textToCommit)
+            lastCommitAt = Date()
+            await recognizer?.forceFinalize()
         }
     }
 
@@ -627,15 +623,13 @@ struct LiveCaptureScreen: View {
         }
     }
 
-    /// The single commit path shared by the silence debounce and the watchdog:
-    /// append the line (which runs the engine + persistence via AppState), stamp the
-    /// commit clock, then reset the recogniser context so the next partials don't
-    /// re-include this text. `AppState.appendFinal` dedupes the `isFinal` echo that
-    /// `forceFinalize` produces.
+    /// Watchdog commit path: commits text as provisional (on screen immediately),
+    /// stamps the commit clock, then resets the recogniser context. The subsequent
+    /// isFinal echo from forceFinalize revises the provisional in place via applyFinalEcho.
     @MainActor
     private func commitPartial(_ text: String) async {
         partialCommitTask?.cancel()
-        state.appendFinal(text)
+        state.commitProvisional(text)
         lastCommitAt = Date()
         await recognizer?.forceFinalize()
     }
