@@ -413,9 +413,22 @@ final class AppState {
     /// operator explicitly opts into a source via Settings.
     var locationFix: LocationFix = LocationFix(source: .none, latitude: nil, longitude: nil)
 
+    /// Settle window in seconds: if a provisional is not revised by a final echo
+    /// within this interval, the timer fires `promoteProvisional()` and the chunk
+    /// is committed as-is. 2.0 s matches the SFSpeechRecognizer silence-trigger
+    /// calibrated during the silence-debounce sprint.
+    static let settleWindow: TimeInterval = 2.0
+
     var transcript: [TranscriptLine] = []
     var transcriptLedger = TranscriptSegmentLedger()
     var partialTranscript: String = ""
+
+    /// Identity of the outstanding provisional transcript line, or nil. While non-nil,
+    /// the next refined `isFinal` echo revises it in place; STOP/interruption/timeout/
+    /// a new commit promote it to permanent first.
+    private var provisionalLineId: TranscriptLine.ID?
+    private var provisionalSettleTask: Task<Void, Never>?
+
     var isRecording: Bool = false
     var recognitionError: String?
 
@@ -469,45 +482,74 @@ final class AppState {
     /// actively overrides. `nil` when there is no pending conflict.
     var lastConflictMessage: String?
 
+    /// Compatibility entry used by tests and any non-streaming caller: treat as a
+    /// fresh final (commit + immediate settle).
     func appendFinal(
         _ text: String,
         speaker: TranscriptLine.Speaker = .medic,
         timestamp: Date = Date()
     ) {
-        var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard speaker == .medic else {
+            let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty else { return }
+            transcript.append(TranscriptLine(speaker: speaker, text: t, timestamp: timestamp))
+            return
+        }
+        commitProvisional(text, timestamp: timestamp)
+        promoteProvisional()
+    }
+
+    /// Commit a chunk as provisional (loss-safe, on screen now). Promotes any prior
+    /// provisional first (succession), then opens the settle window.
+    func commitProvisional(_ text: String, timestamp: Date = Date()) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        // Dedupe the echo `forceFinalize()` produces after a debounce/watchdog commit,
-        // in two shapes (both only vs the most recent same-speaker line):
-        //  • EXACT — the isFinal echo equals the just-committed line: swallow it.
-        //  • SUPERSET — forceFinalize ingested a few more words before endAudio cut the
-        //    pass, so the echo is "<committed prefix> <new tail>". Commit ONLY the new
-        //    tail, so the overlap isn't re-shown or re-run through the extractors
-        //    (re-running could double-apply an intervention). Continuous-speech commits
-        //    make this the common case, not an edge case.
-        if let last = transcript.last, last.speaker == speaker {
-            if last.text == trimmed {
-                partialTranscript = ""
-                return
-            }
-            if trimmed.hasPrefix(last.text) {
-                let tail = String(trimmed.dropFirst(last.text.count))
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !tail.isEmpty else { partialTranscript = ""; return }
-                trimmed = tail
-            }
-        }
-        transcript.append(TranscriptLine(speaker: speaker, text: trimmed, timestamp: timestamp))
-        if speaker == .medic {
-            appendTranscriptEvidence(trimmed, timestamp: timestamp)
-        }
+        if provisionalLineId != nil { promoteProvisional() }
+        let line = TranscriptLine(speaker: .medic, text: trimmed, timestamp: timestamp)
+        transcript.append(line)
+        provisionalLineId = line.id
         partialTranscript = ""
-        Task { await processWithEngine(trimmed, timestamp: timestamp) }
-        // Voice-command trigger: detect "new patient" / "end encounter" in
-        // the just-committed line and arm a 2s auto-fire countdown banner.
-        // Voice commands aren't checked on system lines (they originate from
-        // the app itself). (Task S3-7.)
-        if speaker == .medic, let cmd = detectVoiceCommand(in: trimmed) {
-            armVoiceCommand(cmd)
+        Task { await engine.commitProvisional(trimmed, timestamp: timestamp)
+               await refreshPatientSnapshot(persist: false) }   // defer persist until settle
+        if let cmd = detectVoiceCommand(in: trimmed) { armVoiceCommand(cmd) }
+        startSettleTimer()
+    }
+
+    /// A refined `isFinal` echo. Revise the outstanding provisional in place, else
+    /// commit-and-settle a fresh final.
+    func applyFinalEcho(_ text: String, timestamp: Date = Date()) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard let id = provisionalLineId,
+              let idx = transcript.firstIndex(where: { $0.id == id }) else {
+            commitProvisional(text, timestamp: timestamp); promoteProvisional(); return
+        }
+        provisionalSettleTask?.cancel(); provisionalSettleTask = nil
+        transcript[idx] = TranscriptLine(speaker: .medic, text: trimmed, timestamp: timestamp)
+        provisionalLineId = transcript[idx].id
+        Task { await engine.reviseProvisional(trimmed, timestamp: timestamp)
+               await refreshPatientSnapshot(persist: false)
+               promoteProvisional() }
+    }
+
+    /// Settle the outstanding provisional: it becomes permanent and is persisted.
+    func promoteProvisional() {
+        provisionalSettleTask?.cancel(); provisionalSettleTask = nil
+        guard let id = provisionalLineId,
+              let line = transcript.first(where: { $0.id == id }) else { return }
+        provisionalLineId = nil
+        // Populate the export/Granite ledger with the SETTLED (possibly refined) text.
+        appendTranscriptEvidence(line.text, timestamp: line.timestamp)
+        Task { await engine.settleProvisional()
+               await refreshPatientSnapshot(persist: true) }   // flush the settled chunk
+    }
+
+    private func startSettleTimer() {
+        provisionalSettleTask?.cancel()
+        provisionalSettleTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(AppState.settleWindow * 1_000_000_000))
+            guard let self, !Task.isCancelled else { return }
+            self.promoteProvisional()
         }
     }
 
@@ -545,7 +587,7 @@ final class AppState {
         await refreshPatientSnapshot()
     }
 
-    func refreshPatientSnapshot() async {
+    func refreshPatientSnapshot(persist: Bool = true) async {
         let snapshot = await engine.snapshot()
         allPatients = snapshot
         // Single-casualty UI per design §9 — surface PATIENT_1 only.
@@ -553,7 +595,7 @@ final class AppState {
         // 2026 sprint Phase 4 — record a §C reading per snapshot. The grid
         // shows the 4 most recent readings.
         appendVitalsSnapshot()
-        await persistNewEvents()        // continuous persistence (cursor-guarded)
+        if persist { await persistNewEvents() }     // skip on provisional commits; flush on settle
     }
 
     /// Flush any engine-log events beyond the cursor to the active casualty's file.
@@ -732,6 +774,7 @@ final class AppState {
             }
         }
         // --- existing in-memory reset (verbatim) ---
+        provisionalSettleTask?.cancel(); provisionalSettleTask = nil; provisionalLineId = nil
         voiceCommandTask?.cancel()
         voiceCommandTask = nil
         pendingVoiceCommand = nil
@@ -778,6 +821,7 @@ final class AppState {
         await persistNewEvents()                                  // flush marker to OLD file
         try? await encounterStore?.archiveActive(endedUnix: now)  // manifest: old → archived
         // --- existing in-memory reset (verbatim), which sets a fresh engine + new casualtyId ---
+        provisionalSettleTask?.cancel(); provisionalSettleTask = nil; provisionalLineId = nil
         voiceCommandTask?.cancel(); voiceCommandTask = nil; pendingVoiceCommand = nil
         let oldId = casualtyId
         casualtyCounter += 1
@@ -805,6 +849,7 @@ final class AppState {
         await persistNewEvents()
         try? await encounterStore?.archiveActive(endedUnix: now)
         // --- existing in-memory reset (verbatim) ---
+        provisionalSettleTask?.cancel(); provisionalSettleTask = nil; provisionalLineId = nil
         voiceCommandTask?.cancel(); voiceCommandTask = nil; pendingVoiceCommand = nil
         let endedId = casualtyId
         appendSystem("CARE ENDED · \(endedId) · handoff finalized")
