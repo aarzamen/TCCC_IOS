@@ -5,6 +5,7 @@ import os
 import TCCCAudio
 import TCCCDomain
 import TCCCExtractor
+import TCCCReports
 import UIKit
 
 @MainActor
@@ -738,8 +739,11 @@ final class AppState {
         primaryPatient = snapshot["PATIENT_1"]
         // 2026 sprint Phase 4 — record a §C reading per snapshot. The grid
         // shows the 4 most recent readings.
-        appendVitalsSnapshot()
-        if persist { await persistNewEvents() }     // skip on provisional commits; flush on settle
+        let didAppendVitals = appendVitalsSnapshot()
+        if persist {
+            await persistNewEvents()                // skip on provisional commits; flush on settle
+            if didAppendVitals { await persistSectionC() }
+        }
     }
 
     /// Flush any engine-log events beyond the cursor to the active casualty's file.
@@ -796,6 +800,13 @@ final class AppState {
                 casualtyId = id
                 await engine.restore(log)
                 persistedCursor = log.events.count
+                // Restore the persisted §C grid BEFORE the snapshot refresh so
+                // the rolling buffer (and the DD1380 export) survives recovery;
+                // the refresh then appends the current reading (deduped).
+                if let scData = await store.loadSectionC(),
+                   let restored = try? Self.sectionCCodec.decoder.decode([SectionCReading].self, from: scData) {
+                    vitalsLog = restored
+                }
                 await refreshPatientSnapshot()        // cursor up-to-date ⇒ persists nothing
                 appendSystem("RECOVERED · \(id) · \(log.events.count) events replayed")
             } else {
@@ -823,7 +834,7 @@ final class AppState {
     /// One timestamped column of the DD 1380 Section C vital-sign grid.
     /// The form supports up to 4 columns; the rolling buffer keeps the
     /// most recent 4 readings.
-    struct SectionCReading: Sendable, Identifiable, Hashable {
+    struct SectionCReading: Sendable, Identifiable, Hashable, Codable {
         let id: UUID
         let timestamp: Date
         let vitals: Vitals
@@ -835,7 +846,33 @@ final class AppState {
             self.vitals = vitals
             self.avpu = avpu
         }
+
+        /// Convert to the pure DD1380 grid column (pre-formatted display
+        /// strings; AVPU text → letter; no pain source in Vitals → blank).
+        func toDD1380() -> DD1380SectionCReading {
+            // Local formatter: a static one on @MainActor AppState can't be
+            // referenced from this nonisolated nested type.
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.timeZone = TimeZone(identifier: "UTC")
+            f.dateFormat = "HHmm"
+            return DD1380SectionCReading(
+                timeHHMM: f.string(from: timestamp),
+                pulse: vitals.hr.map(String.init),
+                bloodPressure: vitals.bp.map { "\($0.systolic)/\($0.diastolic)" },
+                respiratoryRate: vitals.rr.map(String.init),
+                spo2: vitals.spo2.map(String.init),
+                avpu: DD1380Mapper.avpuLetter(avpu),
+                pain: nil
+            )
+        }
     }
+
+    private static let sectionCCodec: (encoder: JSONEncoder, decoder: JSONDecoder) = {
+        let e = JSONEncoder(); e.dateEncodingStrategy = .secondsSince1970
+        let d = JSONDecoder(); d.dateDecodingStrategy = .secondsSince1970
+        return (e, d)
+    }()
 
     /// Up-to-4-entry rolling buffer. New readings append; older ones are
     /// dropped from the head when count exceeds 4.
@@ -843,9 +880,11 @@ final class AppState {
 
     /// Append a snapshot of the current patient's vitals + AVPU. Skips if
     /// nothing has changed since the last entry (the engine fires on every
-    /// processed sentence, not every reading).
-    private func appendVitalsSnapshot() {
-        guard let p = primaryPatient else { return }
+    /// processed sentence, not every reading). Returns true when a reading
+    /// was actually appended, so the caller can persist only on change.
+    @discardableResult
+    private func appendVitalsSnapshot() -> Bool {
+        guard let p = primaryPatient else { return false }
         let reading = SectionCReading(
             timestamp: Date(),
             vitals: p.vitals,
@@ -854,12 +893,23 @@ final class AppState {
         if let last = vitalsLog.last,
            last.vitals == reading.vitals,
            last.avpu == reading.avpu {
-            return
+            return false
         }
         vitalsLog.append(reading)
         if vitalsLog.count > 4 {
             vitalsLog.removeFirst(vitalsLog.count - 4)
         }
+        return true
+    }
+
+    /// Persist the §C rolling buffer to the active encounter dir so the
+    /// DD1380 exporter is not dependent on ephemeral UI state and the grid
+    /// survives crash recovery. App-layer only — `vitalsLog` is not part of
+    /// `PatientState`, so this does not touch the event-sourcing invariant.
+    private func persistSectionC() async {
+        guard let store = encounterStore else { return }
+        guard let data = try? Self.sectionCCodec.encoder.encode(vitalsLog) else { return }
+        try? await store.saveSectionC(data)
     }
 
     func loadDemoTranscript(_ text: String) async {

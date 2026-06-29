@@ -93,6 +93,21 @@ actor EncounterStore {
         return (activeId, loadLog(from: dir.appendingPathComponent("events.jsonl")))
     }
 
+    /// Persist the §C vital-sign grid for the active encounter (protected).
+    /// Separate from the event log: `vitalsLog` is an app-layer rolling buffer,
+    /// not part of `PatientState`, so it lives beside `events.jsonl` rather than
+    /// in it. No-op when there is no active encounter.
+    func saveSectionC(_ data: Data) throws {
+        guard let dir = activeDir else { return }
+        try ProtectedWrite.data(data, to: dir.appendingPathComponent("sectionC.json"))
+    }
+
+    /// Load the persisted §C grid for the active encounter, or nil if none.
+    func loadSectionC() -> Data? {
+        guard let dir = activeDir else { return nil }
+        return try? Data(contentsOf: dir.appendingPathComponent("sectionC.json"))
+    }
+
     // MARK: - Helpers
 
     private func ensureEncountersDir() throws {
