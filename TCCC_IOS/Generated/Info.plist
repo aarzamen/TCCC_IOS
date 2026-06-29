@@ -26,6 +26,8 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Use this iPhone's location to populate the MEDEVAC Line 1 MGRS grid. Location stays on this device unless the operator manually exports the casualty record.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

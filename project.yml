@@ -69,6 +69,7 @@ targets:
         LSSupportsOpeningDocumentsInPlace: true
         NSMicrophoneUsageDescription: "Microphone access is required for offline voice intake of medic narration during casualty documentation. Audio never leaves the device."
         NSSpeechRecognitionUsageDescription: "Speech recognition runs entirely on-device to transcribe medic narration into the casualty record. Transcription never leaves the device."
+        NSLocationWhenInUseUsageDescription: "Use this iPhone's location to populate the MEDEVAC Line 1 MGRS grid. Location stays on this device unless the operator manually exports the casualty record."
         NSPhotoLibraryAddUsageDescription: "Save the offline QR code of the encounter to Photos so you can scan it from another device when no wired handoff is available."
     dependencies:
       - package: TCCCKit
