@@ -291,4 +291,13 @@ final class MGRSTests: XCTestCase {
         }
         XCTAssertEqual(spaced, "06V UN 44247 90536")
     }
+
+    // Part G·kit-3: coordinates outside the UTM/MGRS bands (UPS polar) must
+    // return nil so MEDEVAC LINE 1 renders unverified — never a decimal
+    // fallback. 89°N and 85°S are both beyond the 84°N / 80°S band limits.
+    func testFormattedReturnsNilForUnencodablePolarCoordinate() {
+        XCTAssertNil(MGRS.from(latitude: 89.0, longitude: 0.0))
+        XCTAssertNil(MGRS.formatted(latitude: 89.0, longitude: 0.0))
+        XCTAssertNil(MGRS.formatted(latitude: -85.0, longitude: 30.0))
+    }
 }
