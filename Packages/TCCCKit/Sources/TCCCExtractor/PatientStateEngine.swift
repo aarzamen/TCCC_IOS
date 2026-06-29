@@ -45,7 +45,10 @@ public actor PatientStateEngine {
 
     /// Snapshot of engine state taken before the outstanding provisional chunk was
     /// processed. Non-nil ⇒ a provisional chunk is the log tail and may be revised.
+    /// `tail` records the log length AFTER the provisional chunk was processed; it is
+    /// used by `reviseProvisional` to detect whether a foreign event interleaved.
     private var provisionalBoundary: (cursor: Int,
+                                      tail: Int,
                                       patients: [String: PatientState],
                                       currentPatientID: String)?
 
@@ -143,22 +146,51 @@ public actor PatientStateEngine {
     /// Commit a chunk as provisional: record a rollback boundary, then extract.
     /// The chunk's events become the log tail until `reviseProvisional`/`settleProvisional`.
     public func commitProvisional(_ text: String, timestamp: Date = Date()) {
-        provisionalBoundary = (cursor: log.events.count,
-                               patients: patients,
-                               currentPatientID: currentPatientID)
+        // Capture pre-extraction state (the rollback point).
+        let cursor = log.events.count
+        let priorPatients = patients
+        let priorPatientID = currentPatientID
         processTranscript(text, timestamp: timestamp)
+        // Record `tail` AFTER extraction so reviseProvisional can detect whether
+        // a foreign event was appended between commit and revise.
+        provisionalBoundary = (cursor: cursor,
+                               tail: log.events.count,
+                               patients: priorPatients,
+                               currentPatientID: priorPatientID)
     }
 
     /// Replace the outstanding provisional chunk with refined text. Rolls engine state
     /// back to the boundary, retains the chunk's asrSegment(s) as `isFinal:false` audit
     /// events, truncates, and re-extracts on the refined text. The boundary is refreshed
     /// so a subsequent revision (rare) is also valid.
+    ///
+    /// If no provisional boundary is outstanding, this is a no-op by design (loss-safe):
+    /// the prior committed line stands untouched and `refinedText` is silently dropped.
+    /// This is preferable to a hard failure on a field medical device.
     public func reviseProvisional(_ refinedText: String, timestamp: Date = Date()) {
         guard let b = provisionalBoundary else {
-            assertionFailure("reviseProvisional with no outstanding provisional")
+            // No-op on misuse by design (loss-safe): the prior committed line stands.
+            // assertionFailure is debug-only and would crash release builds on the device.
             return
         }
         precondition(b.cursor <= log.events.count, "boundary cursor beyond log tail")
+
+        // IMPORTANT (tail-guard): verify the provisional chunk is still the exact log
+        // tail. If a foreign event (e.g. recordLifecycle / recordOperatorAcceptedFact)
+        // was appended after commitProvisional but before this call, truncating at
+        // b.cursor would silently discard that foreign event — PHI/audit loss.
+        guard log.events.count == b.tail else {
+            // Loss-safe fallback: a foreign event interleaved. Do NOT truncate.
+            // Settle the original provisional as-is and append the refined text as a
+            // fresh chunk. Both the original provisional text and the foreign event
+            // survive in the log; the refined text lands on top. This is the rare path.
+            provisionalBoundary = nil
+            processTranscript(refinedText, timestamp: timestamp)
+            return
+        }
+
+        // Normal path: provisional chunk is still the tail — roll back and re-extract.
+
         // Capture retired asrSegment(s) in [cursor...) for audit before truncation.
         let retired: [ASRSegmentPayload] = log.events[b.cursor...].compactMap {
             if case .asrSegment(let p) = $0 { return p }
@@ -167,6 +199,9 @@ public actor PatientStateEngine {
         patients = b.patients
         currentPatientID = b.currentPatientID
         log.truncate(toCount: b.cursor)
+        // Note: asrCount/factCount/lifecycleCount are intentionally NOT rolled back.
+        // The refined chunk gets higher event ids than the truncated one, keeping ids
+        // monotonically increasing. This is safe: ids are inert to project().
         for seg in retired {
             log.append(.asrSegment(.init(id: seg.id + "-retired", patientId: seg.patientId,
                 timestampUnix: seg.timestampUnix, text: seg.text, backend: seg.backend,
@@ -174,10 +209,14 @@ public actor PatientStateEngine {
         }
         // Refresh the boundary to the post-audit position so the re-extracted chunk is
         // again the revisable tail.
-        provisionalBoundary = (cursor: log.events.count,
-                               patients: b.patients,
-                               currentPatientID: b.currentPatientID)
+        let newCursor = log.events.count
+        let priorPatients = b.patients
+        let priorPatientID = b.currentPatientID
         processTranscript(refinedText, timestamp: timestamp)
+        provisionalBoundary = (cursor: newCursor,
+                               tail: log.events.count,
+                               patients: priorPatients,
+                               currentPatientID: priorPatientID)
     }
 
     /// Settle the outstanding provisional: it is now permanent. No state change.

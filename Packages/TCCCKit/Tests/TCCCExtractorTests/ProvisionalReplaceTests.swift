@@ -96,4 +96,38 @@ extension ProvisionalReplaceTests {
         let proj = PatientStateEngine.project(log)
         XCTAssertEqual(snap, proj)
     }
+
+    /// Regression: when a foreign event (e.g. a lifecycle marker) is appended AFTER
+    /// `commitProvisional` but BEFORE `reviseProvisional`, the tail-guard must detect
+    /// the interleave and take the loss-safe fallback — append the refined text as a
+    /// fresh chunk — rather than truncating and silently discarding the foreign event.
+    func testReviseFallsBackToFreshAppendWhenForeignEventInterleaved() async {
+        let e = PatientStateEngine.standard()
+        await e.commitProvisional("tourniquet on left arm")
+
+        // Interleave a foreign event after the provisional chunk.
+        await e.recordLifecycle(.encounterEnded)
+
+        let countBefore = await e.snapshotLog().events.count
+        await e.reviseProvisional("tourniquet on left leg")
+
+        let log = await e.snapshotLog()
+
+        // 1. The foreign lifecycle event must NOT have been discarded.
+        let hasEncounterEnded = log.events.contains {
+            if case .lifecycle(let p) = $0 { return p.kind == .encounterEnded }
+            return false
+        }
+        XCTAssertTrue(hasEncounterEnded, "foreign lifecycle event must survive the fallback path")
+
+        // 2. The log must have grown (refined text appended as a fresh chunk), not shrunk.
+        XCTAssertGreaterThan(log.events.count, countBefore,
+            "fallback must append refined text as a new chunk, not truncate")
+
+        // 3. The equivalence invariant must still hold after the fallback.
+        let snap = await e.snapshot()
+        let proj = PatientStateEngine.project(log)
+        XCTAssertEqual(snap, proj,
+            "snapshot() must equal project(log) after the loss-safe fallback")
+    }
 }
