@@ -8,6 +8,8 @@ struct TCCC_IOSApp: App {
         WindowGroup {
             if GraniteAudioBenchmarkView.shouldRun {
                 GraniteAudioBenchmarkView(state: state)
+            } else if TranscriptionBenchmarkView.shouldRun {
+                TranscriptionBenchmarkView()
             } else {
                 ContentView(state: state)
                     .task { await state.load() }

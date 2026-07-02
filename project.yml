@@ -83,6 +83,8 @@ targets:
         product: TCCCReports
       - package: TCCCKit
         product: TCCCDesign
+      - package: TCCCKit
+        product: TCCCBench
       - package: FluidAudio
         product: FluidAudio
       - package: TCCCLLM
@@ -123,6 +125,8 @@ targets:
       - target: TCCC_IOS
       - package: TCCCKit
         product: TCCCDomain
+      - package: TCCCKit
+        product: TCCCExtractor
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aarzamen.TCCCaiTests
