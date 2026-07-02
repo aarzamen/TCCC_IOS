@@ -45,7 +45,7 @@ actor SpeechRecognizer: TranscriptStream {
     private var inputFormat: AVAudioFormat?
     private var isPrimed: Bool = false
 
-    // MARK: - Pre-roll ring buffer (last ~10s of PCM)
+    // MARK: - Pre-roll ring buffer (last 30s of PCM — see leadDuration)
 
     private var ringBuffer: [AVAudioPCMBuffer] = []
     private var ringBufferFrames: Int = 0
