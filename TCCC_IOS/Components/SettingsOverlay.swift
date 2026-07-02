@@ -535,6 +535,17 @@ struct SettingsOverlay: View {
             ToggleRow(label: "Haptic Feedback", detail: nil, isOn: Binding(get: { state.hapticFeedbackEnabled }, set: { state.hapticFeedbackEnabled = $0 }))
             ToggleRow(label: "Lock Orientation (Landscape)", detail: nil, isOn: Binding(get: { state.lockOrientationEnabled }, set: { state.lockOrientationEnabled = $0 }))
             ToggleRow(label: "Auto-Export on Wired Handoff", detail: nil, isOn: Binding(get: { state.autoExportOnWiredHandoffEnabled }, set: { state.autoExportOnWiredHandoffEnabled = $0 }))
+            HStack {
+                Text("Build")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(palette.fg)
+                Spacer()
+                Text(BuildStamp.current.display)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(palette.fg.opacity(0.7))
+                    .textSelection(.enabled)
+            }
+            .padding(.vertical, 10)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 16)

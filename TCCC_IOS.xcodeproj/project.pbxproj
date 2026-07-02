@@ -101,6 +101,7 @@
 		772F8924AED6A64FF9563720 /* GraniteReviewQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4102A47240C1D37E1CB4DCA /* GraniteReviewQueue.swift */; };
 		779DDF2F9EDBF73AD98FE377 /* HotSeatPacketBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 527C05C6D0E360CB54678865 /* HotSeatPacketBuilder.swift */; };
 		79899357C672ABAFD0A67D9B /* HandoffScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9D9A775A7C3BB84A0D9A2E /* HandoffScreen.swift */; };
+		7BBB5804B7ADE8DD5B3BAB74 /* BuildStamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 033BF3F9182D45F2A90CBDB4 /* BuildStamp.swift */; };
 		7C0A4CFA9C21CD15F51F7770 /* TranscriptLineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E1035E8B149E396C8EED9FC /* TranscriptLineView.swift */; };
 		80A9706B7C846C944D32A832 /* DevToolsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7CC523213C16C2AFD23DDFF /* DevToolsRootView.swift */; };
 		8359BAE7142E42E4A383DFD0 /* GraniteSchemaValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4CF80413C3312E9574BA4EA /* GraniteSchemaValidatorTests.swift */; };
@@ -144,6 +145,7 @@
 		D028CA48835686577DA6E477 /* GraniteAudioBenchmarkRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E0C63B7775AF019B709EA3 /* GraniteAudioBenchmarkRunner.swift */; };
 		D0E1D462FCB005800E7E6772 /* PlaceholderBody.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FE3B8D34AC99C28F9DB2B61 /* PlaceholderBody.swift */; };
 		D3FA9F01237CEA56C52EEA93 /* ScreenPager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904C678A5044C0CC41C1D43F /* ScreenPager.swift */; };
+		D49A87D113186C5CCAAB51C7 /* BuildStampTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFCEEF0018D57506CDAAC596 /* BuildStampTests.swift */; };
 		D556473072B2E63B261ADA9A /* DevToolsLandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130A60CA016A0775525BB5F9 /* DevToolsLandingView.swift */; };
 		D64F97E6360516BC2E015B7E /* VoiceCommandBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C640369EA0F3741F8FA36A0B /* VoiceCommandBanner.swift */; };
 		D672BC6DF18D9F64F6834439 /* ExportCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67CD12F7F9F83C6D0D2AAA0 /* ExportCard.swift */; };
@@ -181,6 +183,7 @@
 
 /* Begin PBXFileReference section */
 		003685598739D0A338246D81 /* TranscriptSegmentLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSegmentLedger.swift; sourceTree = "<group>"; };
+		033BF3F9182D45F2A90CBDB4 /* BuildStamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildStamp.swift; sourceTree = "<group>"; };
 		04BC9CC5B5E0351D55C2A0B7 /* RecCapsule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecCapsule.swift; sourceTree = "<group>"; };
 		086D4943CFA26B905A152423 /* SenderReadoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SenderReadoutView.swift; sourceTree = "<group>"; };
 		0905B039EBBC1CD78798C731 /* GraniteLocalTextLLMBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteLocalTextLLMBackend.swift; sourceTree = "<group>"; };
@@ -300,6 +303,7 @@
 		B4B50A8C1C4A39B3241BFC2B /* EncounterNarrativeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncounterNarrativeGenerator.swift; sourceTree = "<group>"; };
 		BB801690CCDCF2E1C0E6BBC3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		BCFF304EFDD26BCF4E8F18B7 /* GraniteSchemaValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteSchemaValidator.swift; sourceTree = "<group>"; };
+		BFCEEF0018D57506CDAAC596 /* BuildStampTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildStampTests.swift; sourceTree = "<group>"; };
 		C152DEAEC9274079106ADFA7 /* BigVital.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BigVital.swift; sourceTree = "<group>"; };
 		C4102A47240C1D37E1CB4DCA /* GraniteReviewQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteReviewQueue.swift; sourceTree = "<group>"; };
 		C640369EA0F3741F8FA36A0B /* VoiceCommandBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandBanner.swift; sourceTree = "<group>"; };
@@ -511,6 +515,7 @@
 			isa = PBXGroup;
 			children = (
 				5228B58B0B7DEB4A7E25D6EB /* AppState.swift */,
+				033BF3F9182D45F2A90CBDB4 /* BuildStamp.swift */,
 				F5C6B5DD035E601B88468377 /* ConfirmationAction.swift */,
 				3EA2A0D3C32577F1BEF55816 /* DD1380PDFExportService.swift */,
 				E2FE58F83E5CABF70A1598BE /* DD1380PDFRenderer.swift */,
@@ -638,6 +643,7 @@
 		EE8FC10BCC8F366AD9FF53E0 /* TCCC_IOSTests */ = {
 			isa = PBXGroup;
 			children = (
+				BFCEEF0018D57506CDAAC596 /* BuildStampTests.swift */,
 				6E3AADAE3192CDB5C8CD233E /* DD1380PDFExportServiceTests.swift */,
 				26EEF8B5021A98A8D47F6245 /* DD1380PDFRendererTests.swift */,
 				E7179B301947780E5A09583F /* DD1380WiringTests.swift */,
@@ -722,6 +728,7 @@
 				6E9A0E110280A9BBEBB9BFF8 /* Sources */,
 				81954D0402411ADAA8D282C9 /* Resources */,
 				F29C626FEF63D365412BCBB0 /* Frameworks */,
+				6A212FD4B128D3EED53535D9 /* Stamp build identity */,
 			);
 			buildRules = (
 			);
@@ -800,6 +807,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		6A212FD4B128D3EED53535D9 /* Stamp build identity */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Stamp build identity";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -euo pipefail\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\nif [ ! -f \"$PLIST\" ]; then exit 0; fi\nGIT_SHA=$(git -C \"${SRCROOT}\" rev-parse --short HEAD 2>/dev/null || echo unknown)\nGIT_BRANCH=$(git -C \"${SRCROOT}\" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)\nif [ -n \"$(git -C \"${SRCROOT}\" status --porcelain 2>/dev/null)\" ]; then GIT_SHA=\"${GIT_SHA}+\"; fi\nBUILD_DATE=$(date \"+%Y-%m-%d %H:%M\")\nfor KEY in TCCCGitSHA TCCCGitBranch TCCCBuildDate; do\n  /usr/libexec/PlistBuddy -c \"Delete :${KEY}\" \"$PLIST\" 2>/dev/null || true\ndone\n/usr/libexec/PlistBuddy -c \"Add :TCCCGitSHA string ${GIT_SHA}\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Add :TCCCGitBranch string ${GIT_BRANCH}\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Add :TCCCBuildDate string ${BUILD_DATE}\" \"$PLIST\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		6E9A0E110280A9BBEBB9BFF8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -816,6 +845,7 @@
 				17188C8A87B777FCDD8A6308 /* BigButton.swift in Sources */,
 				E3A9865C23E78EF08438BBCA /* BigVital.swift in Sources */,
 				CA4EC2183B056422C16E94E5 /* BodyMap.swift in Sources */,
+				7BBB5804B7ADE8DD5B3BAB74 /* BuildStamp.swift in Sources */,
 				6369F90A6238D66A43DD242E /* ConfirmationAction.swift in Sources */,
 				B0FA15641FED8566A4B55CE8 /* ConfirmationBanner.swift in Sources */,
 				FB00759BDB3E3A0B862E33C3 /* ContentView.swift in Sources */,
@@ -927,6 +957,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D49A87D113186C5CCAAB51C7 /* BuildStampTests.swift in Sources */,
 				35A6B49EC22BF29E1BCF65D7 /* DD1380PDFExportServiceTests.swift in Sources */,
 				B227A57FBFCDB23C173086F4 /* DD1380PDFRendererTests.swift in Sources */,
 				396F09F3B72F3C438824C5DF /* DD1380WiringTests.swift in Sources */,
@@ -1030,7 +1061,7 @@
 				DEVELOPMENT_TEAM = XM6E4PUXTU;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -1151,7 +1182,7 @@
 				DEVELOPMENT_TEAM = XM6E4PUXTU;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

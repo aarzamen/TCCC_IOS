@@ -37,7 +37,10 @@ settings:
     SWIFT_VERSION: "6.0"
     DEVELOPMENT_TEAM: "XM6E4PUXTU"
     CODE_SIGN_STYLE: Automatic
-    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    # Xcode 15 user-script sandboxing blocks the git reads the build-stamp
+    # post-build script needs (.git/HEAD, refs, index). Offline local
+    # project; scripts are ours; determinism > sandbox here.
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
 targets:
   TCCC_IOS:
     type: application
@@ -93,6 +96,24 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: TCCC_IOS/TCCC_IOS.entitlements
+    postBuildScripts:
+      - name: "Stamp build identity"
+        basedOnDependencyAnalysis: false
+        shell: /bin/bash
+        script: |
+          set -euo pipefail
+          PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
+          if [ ! -f "$PLIST" ]; then exit 0; fi
+          GIT_SHA=$(git -C "${SRCROOT}" rev-parse --short HEAD 2>/dev/null || echo unknown)
+          GIT_BRANCH=$(git -C "${SRCROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)
+          if [ -n "$(git -C "${SRCROOT}" status --porcelain 2>/dev/null)" ]; then GIT_SHA="${GIT_SHA}+"; fi
+          BUILD_DATE=$(date "+%Y-%m-%d %H:%M")
+          for KEY in TCCCGitSHA TCCCGitBranch TCCCBuildDate; do
+            /usr/libexec/PlistBuddy -c "Delete :${KEY}" "$PLIST" 2>/dev/null || true
+          done
+          /usr/libexec/PlistBuddy -c "Add :TCCCGitSHA string ${GIT_SHA}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :TCCCGitBranch string ${GIT_BRANCH}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :TCCCBuildDate string ${BUILD_DATE}" "$PLIST"
   TCCC_IOSTests:
     type: bundle.unit-test
     platform: iOS
