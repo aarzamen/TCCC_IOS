@@ -1,12 +1,13 @@
 import Foundation
 import Speech
-import AVFoundation
 
-/// Feeds an audio file through the on-device SFSpeechRecognizer using the
-/// SAME request configuration as production capture (SpeechRequestFactory),
-/// re-arming a fresh request whenever the recognizer finalizes mid-file —
-/// mirroring SpeechRecognizer.handleFinalResult's continuous-narration
-/// behavior. File-ingestion mode: deterministic input, no mic, no DSP.
+/// Transcribes an audio file through the on-device SFSpeechRecognizer using
+/// the shared production configuration (SpeechRequestFactory) — same
+/// recognizer and same `requiresOnDeviceRecognition` as live capture. Uses
+/// `SFSpeechURLRecognitionRequest`, the API designed for whole-file
+/// transcription; buffer requests (the live-mic path) silently drop
+/// faster-than-real-time file feeds and yield no results. The true live
+/// buffer pipeline is exercised separately by the acoustic replay procedure.
 actor AppleSpeechFileTranscriber {
     struct Output: Sendable {
         let finals: [String]
@@ -17,21 +18,29 @@ actor AppleSpeechFileTranscriber {
     enum BenchError: Error, LocalizedError {
         case recognizerUnavailable
         case onDeviceUnavailable
+        case recognitionFailed(String)
+        case timedOut
         var errorDescription: String? {
             switch self {
             case .recognizerUnavailable: "SFSpeechRecognizer unavailable"
             case .onDeviceUnavailable: "On-device recognition unsupported here"
+            case .recognitionFailed(let r): "Recognition failed: \(r)"
+            case .timedOut: "Recognition timed out"
             }
         }
     }
 
-    private var request: SFSpeechAudioBufferRecognitionRequest?
-    private var task: SFSpeechRecognitionTask?
-    private var finals: [String] = []
-    private var firstPartialAt: Date?
-    private var lastResultAt: Date = .distantPast
-    private var sawError = false
     private let recognizer: SFSpeechRecognizer?
+    private var continuation: CheckedContinuation<Output, Error>?
+    private var task: SFSpeechRecognitionTask?
+    private var timeoutTask: Task<Void, Never>?
+    private var bestFinal = ""
+    private var firstPartialAt: Date?
+    private var started = Date()
+
+    /// Hard cap so a recognizer that never delivers `isFinal` can't leak the
+    /// continuation. If partials arrived, return them; otherwise fail.
+    private let timeout: TimeInterval = 180
 
     init(locale: Locale = Locale(identifier: "en-US")) {
         self.recognizer = SFSpeechRecognizer(locale: locale)
@@ -40,79 +49,75 @@ actor AppleSpeechFileTranscriber {
     func transcribe(fileURL: URL) async throws -> Output {
         guard let recognizer, recognizer.isAvailable else { throw BenchError.recognizerUnavailable }
         guard recognizer.supportsOnDeviceRecognition else { throw BenchError.onDeviceUnavailable }
+        started = Date()
+        bestFinal = ""
+        firstPartialAt = nil
 
-        let file = try AVAudioFile(forReading: fileURL)
-        let format = file.processingFormat
-        let started = Date()
-        armRequest()
-
-        // Feed the whole file (faster than real time — model comparison
-        // mode; latency figures here are ingest-relative, not real-time).
-        let chunkFrames: AVAudioFrameCount = 4096
-        while file.framePosition < file.length {
-            guard let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: chunkFrames) else { break }
-            try file.read(into: buf, frameCount: chunkFrames)
-            if buf.frameLength == 0 { break }
-            request?.append(buf)
-            // Yield so recognition callbacks interleave with feeding.
-            await Task.yield()
+        let request = SpeechRequestFactory.makeURLRequest(url: fileURL)
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Output, Error>) in
+            self.continuation = cont
+            // SFSpeechRecognitionResult is not Sendable — extract Sendable
+            // values (String/Bool) inside the @Sendable callback before hopping
+            // back onto the actor.
+            self.task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+                guard let self else { return }
+                if let result {
+                    let text = result.bestTranscription.formattedString
+                    let isFinal = result.isFinal
+                    Task { await self.ingest(text: text, isFinal: isFinal) }
+                } else if let error {
+                    let reason = error.localizedDescription
+                    Task { await self.fail(reason: reason) }
+                }
+            }
+            self.timeoutTask = Task { [weak self, timeout] in
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                await self?.fireTimeout()
+            }
         }
-        request?.endAudio()
+    }
 
-        // Wait for the recognizer to drain: done when no new result has
-        // arrived for 3s after end-of-audio, or 60s hard cap.
-        let deadline = Date().addingTimeInterval(60)
-        while Date() < deadline {
-            try? await Task.sleep(nanoseconds: 250_000_000)
-            if sawError { break }
-            if lastResultAt != .distantPast, Date().timeIntervalSince(lastResultAt) > 3.0 { break }
-            if lastResultAt == .distantPast, Date().timeIntervalSince(started) > 30 { break }
+    private func ingest(text: String, isFinal: Bool) {
+        if firstPartialAt == nil { firstPartialAt = Date() }
+        if !text.isEmpty { bestFinal = text }
+        if isFinal { finish(.success(makeOutput())) }
+    }
+
+    private func fail(reason: String) {
+        // If partials already arrived, treat a late error as end-of-audio and
+        // keep what we have; otherwise surface the failure.
+        if bestFinal.isEmpty {
+            finish(.failure(BenchError.recognitionFailed(reason)))
+        } else {
+            finish(.success(makeOutput()))
         }
-        task?.cancel()
-        task = nil
-        request = nil
+    }
 
-        return Output(
-            finals: finals,
+    private func fireTimeout() {
+        if bestFinal.isEmpty {
+            finish(.failure(BenchError.timedOut))
+        } else {
+            finish(.success(makeOutput()))
+        }
+    }
+
+    private func makeOutput() -> Output {
+        Output(
+            finals: bestFinal.isEmpty ? [] : [bestFinal],
             firstPartialLatencySec: firstPartialAt.map { $0.timeIntervalSince(started) },
             wallTimeSec: Date().timeIntervalSince(started)
         )
     }
 
-    // NOTE: the recognition callback must NOT capture the (non-Sendable)
-    // SFSpeechRecognizer — strict concurrency. It reaches it back through
-    // the actor property inside handle().
-    private func armRequest() {
-        guard let recognizer else { return }
-        let req = SpeechRequestFactory.makeBufferRequest()
-        self.request = req
-        self.task = recognizer.recognitionTask(with: req) { [weak self] result, error in
-            guard let self else { return }
-            if let result {
-                let text = result.bestTranscription.formattedString
-                let isFinal = result.isFinal
-                Task { await self.handle(text: text, isFinal: isFinal) }
-            } else if error != nil {
-                Task { await self.noteError() }
-            }
+    /// Resume the continuation exactly once and tear down.
+    private func finish(_ result: Result<Output, Error>) {
+        guard let cont = continuation else { return }
+        continuation = nil
+        timeoutTask?.cancel(); timeoutTask = nil
+        task?.cancel(); task = nil
+        switch result {
+        case .success(let output): cont.resume(returning: output)
+        case .failure(let error): cont.resume(throwing: error)
         }
-    }
-
-    private func handle(text: String, isFinal: Bool) {
-        lastResultAt = Date()
-        if firstPartialAt == nil { firstPartialAt = Date() }
-        if isFinal {
-            if !text.isEmpty { finals.append(text) }
-            // Mid-file finalization: re-arm so the rest of the audio lands
-            // in a fresh request (production parity).
-            if request != nil {
-                request?.endAudio()
-                armRequest()
-            }
-        }
-    }
-
-    private func noteError() {
-        sawError = true
     }
 }

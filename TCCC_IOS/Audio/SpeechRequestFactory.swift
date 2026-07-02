@@ -3,14 +3,34 @@ import Speech
 /// Single source of SFSpeechRecognizer request configuration. Production
 /// capture (SpeechRecognizer) and the DevTools transcription benchmark
 /// build requests here, so a config change (vocabulary biasing, task
-/// hints, custom LM — sprint WS-3) lands in one place and both lanes
-/// measure the same recognizer the app ships.
+/// hints, custom LM — sprint WS-3) lands in one place and reaches every
+/// request type (live-mic buffer requests and file URL requests alike).
 enum SpeechRequestFactory {
+    /// Apply the shared production ASR configuration to any request type.
+    /// Both `SFSpeechAudioBufferRecognitionRequest` and
+    /// `SFSpeechURLRecognitionRequest` inherit from `SFSpeechRecognitionRequest`,
+    /// so future vocabulary biasing (`contextualStrings`, `taskHint`, custom
+    /// LM — WS-3) added here reaches both the live and benchmark lanes.
+    static func configure(_ request: SFSpeechRecognitionRequest) {
+        request.shouldReportPartialResults = true
+        // RF Ghost hard constraint — cloud transcription is forbidden.
+        request.requiresOnDeviceRecognition = true
+    }
+
+    /// Live-mic capture request (production `SpeechRecognizer`).
     static func makeBufferRequest() -> SFSpeechAudioBufferRecognitionRequest {
         let req = SFSpeechAudioBufferRecognitionRequest()
-        req.shouldReportPartialResults = true
-        // RF Ghost hard constraint — cloud transcription is forbidden.
-        req.requiresOnDeviceRecognition = true
+        configure(req)
+        return req
+    }
+
+    /// File-transcription request (DevTools benchmark). Same recognizer and
+    /// on-device model as production; the URL API reliably transcribes a whole
+    /// file, whereas buffer requests are designed for live mic audio and drop
+    /// faster-than-real-time file feeds.
+    static func makeURLRequest(url: URL) -> SFSpeechURLRecognitionRequest {
+        let req = SFSpeechURLRecognitionRequest(url: url)
+        configure(req)
         return req
     }
 }

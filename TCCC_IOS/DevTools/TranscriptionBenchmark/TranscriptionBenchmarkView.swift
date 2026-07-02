@@ -3,6 +3,19 @@ import Speech
 import TCCCBench
 import TCCCExtractor
 
+/// One-shot thread-safe latch so a callback that may fire multiple times
+/// resumes a continuation exactly once.
+private final class OnceFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var used = false
+    func claim() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        if used { return false }
+        used = true
+        return true
+    }
+}
+
 /// Launch-arg-gated benchmark screen (`--transcription-benchmark`).
 /// File-ingestion mode: for every audio file in
 /// Documents/TranscriptionBenchmark/fixtures/, run the on-device Apple
@@ -15,6 +28,21 @@ struct TranscriptionBenchmarkView: View {
 
     static var shouldRun: Bool {
         ProcessInfo.processInfo.arguments.contains("--transcription-benchmark")
+    }
+
+    /// Crash-safe Speech authorization. Returns the current status without
+    /// prompting when it's already determined; otherwise prompts once with a
+    /// continuation guarded against double-resume (the system callback has
+    /// been observed to fire more than once).
+    private static func speechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
+        let current = SFSpeechRecognizer.authorizationStatus()
+        if current != .notDetermined { return current }
+        return await withCheckedContinuation { (cont: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
+            let once = OnceFlag()
+            SFSpeechRecognizer.requestAuthorization { status in
+                if once.claim() { cont.resume(returning: status) }
+            }
+        }
     }
 
     var body: some View {
@@ -37,6 +65,17 @@ struct TranscriptionBenchmarkView: View {
     }
 
     private func run() async {
+        // Stage breadcrumb → results/_progress.txt, rewritten synchronously at
+        // each stage so a hard crash (SIGTRAP etc.) leaves the last-reached
+        // stage on disk for post-mortem via `devicectl copy from`.
+        var crumbs: [String] = []
+        var progressURL: URL?
+        func mark(_ stage: String) {
+            crumbs.append(stage)
+            if let progressURL {
+                try? crumbs.joined(separator: "\n").write(to: progressURL, atomically: true, encoding: .utf8)
+            }
+        }
         do {
             let fm = FileManager.default
             let docs = try fm.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
@@ -44,23 +83,30 @@ struct TranscriptionBenchmarkView: View {
             let resultsDir = docs.appendingPathComponent("TranscriptionBenchmark/results", isDirectory: true)
             try fm.createDirectory(at: fixturesDir, withIntermediateDirectories: true)
             try fm.createDirectory(at: resultsDir, withIntermediateDirectories: true)
+            progressURL = resultsDir.appendingPathComponent("_progress.txt")
+            mark("dirs-created")
 
             let audioExtensions = Set(["m4a", "wav", "caf", "aif", "aiff"])
             let fixtures = try fm.contentsOfDirectory(at: fixturesDir, includingPropertiesForKeys: nil)
                 .filter { audioExtensions.contains($0.pathExtension.lowercased()) }
                 .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            mark("fixtures-listed: \(fixtures.map { $0.lastPathComponent })")
 
             guard !fixtures.isEmpty else {
                 status = "No fixtures. Copy audio into Documents/TranscriptionBenchmark/fixtures/ (devicectl copy) and relaunch."
                 return
             }
 
-            // Speech permission (first run on a fresh install).
-            let auth: SFSpeechRecognizerAuthorizationStatus = await withCheckedContinuation { cont in
-                SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0) }
-            }
+            // Speech permission. Check the current status first and only
+            // request when undetermined — SFSpeechRecognizer.requestAuthorization
+            // can invoke its completion handler more than once, which would
+            // resume a bare CheckedContinuation twice and trap (SIGTRAP). The
+            // request path below is guarded so it resumes exactly once.
+            mark("before-requestAuthorization")
+            let auth: SFSpeechRecognizerAuthorizationStatus = await Self.speechAuthorization()
+            mark("auth-status: \(auth.rawValue) (authorized=\(auth == .authorized))")
             guard auth == .authorized else {
-                status = "Speech recognition not authorized."
+                status = "Speech recognition not authorized (status \(auth.rawValue)). Grant in Settings › Privacy › Speech Recognition."
                 return
             }
 
@@ -69,8 +115,17 @@ struct TranscriptionBenchmarkView: View {
                 let slug = BenchmarkReference.slug(forFixture: fixture)
                 status = "Transcribing \(fixture.lastPathComponent)…"
                 let memBefore = MemoryStat.availableBytes().map { Double($0) / 1_048_576.0 }
+                mark("before-transcribe: \(slug)")
                 let transcriber = AppleSpeechFileTranscriber()
-                let output = try await transcriber.transcribe(fileURL: fixture)
+                let output: AppleSpeechFileTranscriber.Output
+                do {
+                    output = try await transcriber.transcribe(fileURL: fixture)
+                } catch {
+                    mark("transcribe-threw: \(slug): \(error)")
+                    lines.append("\(slug): FAILED — transcribe threw: \(error.localizedDescription)")
+                    continue
+                }
+                mark("after-transcribe: \(slug) finals=\(output.finals.count)")
                 let memAfter = MemoryStat.availableBytes().map { Double($0) / 1_048_576.0 }
                 guard !output.finals.isEmpty else {
                     lines.append("\(slug): FAILED — recognizer produced no finals")
@@ -83,6 +138,7 @@ struct TranscriptionBenchmarkView: View {
                     continue
                 }
                 status = "Scoring \(slug)…"
+                mark("before-scoring: \(slug)")
                 let folds = ref.sidecar.extraFolds
                 let refTokens = TokenNormalizer.tokens(ref.referenceText, extraFolds: folds)
                 let hypTokens = TokenNormalizer.tokens(hypothesis, extraFolds: folds)
@@ -131,6 +187,7 @@ struct TranscriptionBenchmarkView: View {
                     output.firstPartialLatencySec ?? -1, output.wallTimeSec
                 ))
             }
+            mark("all-fixtures-done")
             let report = lines.joined(separator: "\n")
             try report.write(
                 to: resultsDir.appendingPathComponent("summary.md"),
@@ -138,6 +195,12 @@ struct TranscriptionBenchmarkView: View {
             summary = report
             status = "Done. Pull Documents/TranscriptionBenchmark/results/."
         } catch {
+            mark("CAUGHT-ERROR: \(error)")
+            // Also drop a dedicated error file next to the breadcrumb.
+            if let progressURL {
+                let errURL = progressURL.deletingLastPathComponent().appendingPathComponent("_error.txt")
+                try? "\(error)".write(to: errURL, atomically: true, encoding: .utf8)
+            }
             status = "Benchmark failed: \(error.localizedDescription)"
         }
     }
