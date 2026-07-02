@@ -157,11 +157,27 @@ empty-state (transcript empty).
 
 ## Project state & history
 
-- **`main` @ `254d17c`, pushed — `origin/main` == local** (the long-running
-  local-only / origin-behind status from prior sprints is resolved).
-- **TCCCKit 768/0, app 92/0.** 5 screens run end-to-end on the iPhone 17 Pro.
+- **`main` @ `7854eb7`, local — origin/main is 14 behind (push pending).**
+- **TCCCKit 793/0, app 116/0 (2 model-gated skips).** 5 screens run end-to-end
+  on the iPhone 17 Pro. Build-identity stamp shows in Settings → System.
+- A launch-arg transcription benchmark exists: `--transcription-benchmark`
+  (pass it after `--` with devicectl: `… launch … com.aarzamen.TCCCai --
+  --transcription-benchmark`; without the `--` separator devicectl silently
+  eats the flag). Fixtures in `Documents/TranscriptionBenchmark/fixtures/`,
+  results + `_progress.txt` breadcrumbs in `…/results/`. Audio fixtures are
+  authored-script + Kokoro-TTS (ground truth exact by construction).
 - Detailed sprint records live in `git log` and `docs/superpowers/specs/` +
   `docs/superpowers/plans/`. Major landed sprints, newest first:
+  - **Transcription sprint Phase 0+1: build stamp + benchmark harness**
+    (2026-07-02, spec `2026-07-02-transcription-and-fm-harness-sprint-design.md`).
+    TCCCBench scorers (WER/keyword/extraction) in TCCCKit; SpeechRequestFactory
+    = single source of recognizer config (WS-3 vocabulary lands there once);
+    device-validated baseline: **SFSpeechRecognizer truncates long-form — only
+    the final utterance of a 3.9-min narration transcribes (271/323 words
+    dropped; 6 substitutions in what it heard)** — the empirical case for the
+    WS-3 SpeechAnalyzer lane (`docs/research/2026-07-02-transcription-baseline.md`).
+    New app icon (tactical case). Sprint continues: WS-2 DSP A/B → WS-3
+    vocabulary + SpeechAnalyzer → WS-4 Apple FM structured candidate lane.
   - **ASR provisional-replace + branch consolidation** (2026-06-28). Provisional
     commit pipeline (above); closed transcript-commit review findings
     #2/#4/#6/#8/#9/#11/#12/#13/#14; device-validated (no duplications). Audio
