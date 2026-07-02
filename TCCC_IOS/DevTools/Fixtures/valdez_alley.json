@@ -1,17 +1,17 @@
 {
-  "keywords": ["8734", "9120", "44.50", "Reaper", "urgent surgical", "GSW", "chest", "AVPU", "pain", "SpO2", "88", "93", "TXA", "Hextend", "chest seal", "needle decompression", "NKDA", "Dawson", "6942"],
-  "keywordCaveat": "Fixture-overfitted list (contains proper nouns). Secondary metric only — WER and extraction recall are primary.",
-  "knownDefects": ["TTS voice garbles 'TXA' on the med line — report TXA-related errors separately; do not tune the normalizer to hide them."],
-  "extraFolds": [["t", "x", "a", "txa"], ["spo", "2", "spo2"], ["dd", "1380", "dd1380"]],
+  "scenario": "GSW left thigh + IED blast; MARCH/PAWS with tourniquet conversion. Authored ground truth (this .txt) rendered to audio via Kokoro-TTS; ground truth is exact by construction.",
+  "keywords": ["tourniquet", "tranexamic acid", "ketamine", "ertapenem", "combat gauze", "pressure dressing", "hemorrhage", "pneumothorax", "gunshot", "blast", "urgent surgical", "MEDEVAC", "hypothermia"],
+  "keywordCaveat": "Clinical vocabulary only (no fixture-specific proper nouns). Secondary metric — WER and extraction recall are primary.",
+  "knownDefects": ["Pronunciation is controlled at TTS time via Kokoro [word](/ipa/) overrides (e.g. tranexamic acid). If a term still sounds wrong, add an override and regenerate — do not tune the normalizer to hide TTS artifacts."],
+  "extraFolds": [["spo", "2", "spo2"]],
   "fieldExpectations": [
-    { "key": "moi", "expected": "gsw", "mode": "contains" },
-    { "key": "hr", "expected": "135", "mode": "exact" },
-    { "key": "bp", "expected": "88/60", "mode": "exact" },
-    { "key": "rr", "expected": "32", "mode": "exact" },
-    { "key": "spo2", "expected": "93", "mode": "exact" },
-    { "key": "classification", "expected": "unstable", "mode": "contains" },
-    { "key": "interventions", "expected": "chest seal", "mode": "contains" },
-    { "key": "interventions", "expected": "decompression", "mode": "contains" },
-    { "key": "interventions", "expected": "txa", "mode": "contains" }
+    { "key": "hr", "expected": "110", "mode": "exact" },
+    { "key": "bp", "expected": "100/65", "mode": "exact" },
+    { "key": "rr", "expected": "22", "mode": "exact" },
+    { "key": "spo2", "expected": "97", "mode": "exact" },
+    { "key": "interventions", "expected": "tourniquet", "mode": "contains" },
+    { "key": "interventions", "expected": "tranexamic", "mode": "contains" },
+    { "key": "interventions", "expected": "ketamine", "mode": "contains" },
+    { "key": "interventions", "expected": "gauze", "mode": "contains" }
   ]
 }
