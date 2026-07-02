@@ -186,9 +186,7 @@ actor SpeechRecognizer: TranscriptStream {
             throw TranscriptStreamError.onDeviceUnavailable
         }
 
-        let req = SFSpeechAudioBufferRecognitionRequest()
-        req.shouldReportPartialResults = true
-        req.requiresOnDeviceRecognition = true
+        let req = SpeechRequestFactory.makeBufferRequest()
         self.request = req
 
         // Open audio file for writing if URL provided.
@@ -325,9 +323,7 @@ actor SpeechRecognizer: TranscriptStream {
         task = nil
         request = nil
 
-        let req = SFSpeechAudioBufferRecognitionRequest()
-        req.shouldReportPartialResults = true
-        req.requiresOnDeviceRecognition = true
+        let req = SpeechRequestFactory.makeBufferRequest()
         self.request = req
 
         guard let recognizer else { return }

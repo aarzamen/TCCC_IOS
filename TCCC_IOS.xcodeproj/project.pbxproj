@@ -143,6 +143,7 @@
 		C930CCF18A688DBB38C35A34 /* SenderPlaybackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BEF089205E92C5658B4F1B8 /* SenderPlaybackView.swift */; };
 		CA4EC2183B056422C16E94E5 /* BodyMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA4BB66A62C7E065D6C2282 /* BodyMap.swift */; };
 		CC431037BDB5DAE9F34FBA76 /* PAWSRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EED0969895F125C962A9134 /* PAWSRowView.swift */; };
+		CDDE8153E0C8426363D93AF0 /* SpeechRequestFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 042F395A84EFE852791FEDAD /* SpeechRequestFactory.swift */; };
 		CF2A891275EF13C4AAD3F116 /* PageHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D59C15139886E7B8C11A614 /* PageHeader.swift */; };
 		D028CA48835686577DA6E477 /* GraniteAudioBenchmarkRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E0C63B7775AF019B709EA3 /* GraniteAudioBenchmarkRunner.swift */; };
 		D0E1D462FCB005800E7E6772 /* PlaceholderBody.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FE3B8D34AC99C28F9DB2B61 /* PlaceholderBody.swift */; };
@@ -186,6 +187,7 @@
 /* Begin PBXFileReference section */
 		003685598739D0A338246D81 /* TranscriptSegmentLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSegmentLedger.swift; sourceTree = "<group>"; };
 		033BF3F9182D45F2A90CBDB4 /* BuildStamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildStamp.swift; sourceTree = "<group>"; };
+		042F395A84EFE852791FEDAD /* SpeechRequestFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRequestFactory.swift; sourceTree = "<group>"; };
 		04BC9CC5B5E0351D55C2A0B7 /* RecCapsule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecCapsule.swift; sourceTree = "<group>"; };
 		086D4943CFA26B905A152423 /* SenderReadoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SenderReadoutView.swift; sourceTree = "<group>"; };
 		0905B039EBBC1CD78798C731 /* GraniteLocalTextLLMBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteLocalTextLLMBackend.swift; sourceTree = "<group>"; };
@@ -577,6 +579,7 @@
 				FCD2E4CE27D7E01F8784D6FB /* GraniteSpeechTranscriptStream.swift */,
 				742A5F531208D6CFD94F99E1 /* ParakeetTranscriptStream.swift */,
 				760440A05970E300FA8EE623 /* SpeechRecognizer.swift */,
+				042F395A84EFE852791FEDAD /* SpeechRequestFactory.swift */,
 				003685598739D0A338246D81 /* TranscriptSegmentLedger.swift */,
 				9EF4359B55FA4EEAF1485551 /* TranscriptStream.swift */,
 			);
@@ -944,6 +947,7 @@
 				344E26DF03B3E113A3126F80 /* ShareSheet.swift in Sources */,
 				424652A98CD7C9860C59FCF0 /* SmallVital.swift in Sources */,
 				59B76D40E7C2FC6C97543EFD /* SpeechRecognizer.swift in Sources */,
+				CDDE8153E0C8426363D93AF0 /* SpeechRequestFactory.swift in Sources */,
 				945BFD4353589934B27B6B86 /* SplashView.swift in Sources */,
 				03E2E966AFCFB4A4EBB0399F /* StatusStrip.swift in Sources */,
 				588D0FF07310F89B70C93707 /* SumLineView.swift in Sources */,
