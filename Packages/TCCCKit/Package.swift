@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "TCCCExtractor", targets: ["TCCCExtractor"]),
         .library(name: "TCCCReports", targets: ["TCCCReports"]),
         .library(name: "TCCCDesign", targets: ["TCCCDesign"]),
+        .library(name: "TCCCBench", targets: ["TCCCBench"]),
     ],
     targets: [
         .target(
@@ -43,6 +44,13 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency"),
             ]
         ),
+        .target(
+            name: "TCCCBench",
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+                .enableUpcomingFeature("StrictConcurrency"),
+            ]
+        ),
         .testTarget(
             name: "TCCCDomainTests",
             dependencies: ["TCCCDomain"],
@@ -63,6 +71,13 @@ let package = Package(
         .testTarget(
             name: "TCCCReportsTests",
             dependencies: ["TCCCReports", "TCCCDomain"],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
+        .testTarget(
+            name: "TCCCBenchTests",
+            dependencies: ["TCCCBench"],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ]
