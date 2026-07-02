@@ -47,12 +47,14 @@
 		2F90B64ADB799DF96C4344D4 /* ThemeOptCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBE6D7852D92258C933FEF8 /* ThemeOptCard.swift */; };
 		3035A2E5FD0CD76D0C2D1021 /* GraniteRealModelRunTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE96C18B6902CC8A8BC5418 /* GraniteRealModelRunTests.swift */; };
 		3079A030E1574FDBFA01D960 /* InterventionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99C033D7A4B1BF4742D8F743 /* InterventionRow.swift */; };
+		334B2CB77658CFA07D42D7FD /* valdez_alley.txt in Resources */ = {isa = PBXBuildFile; fileRef = 78D19C0DBD5360046282AD43 /* valdez_alley.txt */; };
 		344E26DF03B3E113A3126F80 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1439B6599811FA567A67B1C2 /* ShareSheet.swift */; };
 		35A6B49EC22BF29E1BCF65D7 /* DD1380PDFExportServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3AADAE3192CDB5C8CD233E /* DD1380PDFExportServiceTests.swift */; };
 		35E78FFD09C75B680082CF5E /* InvariantStructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF1449B5952AFB7AA165C38 /* InvariantStructureTests.swift */; };
 		396F09F3B72F3C438824C5DF /* DD1380WiringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7179B301947780E5A09583F /* DD1380WiringTests.swift */; };
 		3AFD0BF4799175DAD7A77305 /* GraniteReportCritiqueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE5BC27729D5C0A981AAAC9D /* GraniteReportCritiqueTests.swift */; };
 		413E2267D1F0EBE40FBA130A /* NineLineForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0894014601F9571B1B376A /* NineLineForm.swift */; };
+		4169B64DEB953F29C6C52FA2 /* valdez_alley.json in Resources */ = {isa = PBXBuildFile; fileRef = 4392B4C87DC6E1A6DE985B51 /* valdez_alley.json */; };
 		424652A98CD7C9860C59FCF0 /* SmallVital.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274E6A86610FEAD04C57413F /* SmallVital.swift */; };
 		434A512EC4D22D590B8B3324 /* GraniteLocalTextLLMBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0905B039EBBC1CD78798C731 /* GraniteLocalTextLLMBackend.swift */; };
 		4438165A68BB5C4EAF4461EE /* QwenLLMBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5D4C6D20902E00D65E368B1 /* QwenLLMBackend.swift */; };
@@ -225,6 +227,7 @@
 		3CAAF88DF513C78083F43399 /* SumLineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SumLineView.swift; sourceTree = "<group>"; };
 		3E1035E8B149E396C8EED9FC /* TranscriptLineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptLineView.swift; sourceTree = "<group>"; };
 		3EA2A0D3C32577F1BEF55816 /* DD1380PDFExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DD1380PDFExportService.swift; sourceTree = "<group>"; };
+		4392B4C87DC6E1A6DE985B51 /* valdez_alley.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = valdez_alley.json; sourceTree = "<group>"; };
 		44D1BCE15092A382D0C8A83E /* VoiceCommandChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommandChip.swift; sourceTree = "<group>"; };
 		44F2B33AA3BB5856ECC1D263 /* LiveCaptureScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCaptureScreen.swift; sourceTree = "<group>"; };
 		45432B79F663572BEAD08956 /* TCCC_IOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TCCC_IOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -260,6 +263,7 @@
 		760440A05970E300FA8EE623 /* SpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizer.swift; sourceTree = "<group>"; };
 		77172C1FDE135370A2934BB7 /* TranscriptSegmentLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSegmentLedgerTests.swift; sourceTree = "<group>"; };
 		77292E524CA7F6BE07FFBF4A /* Layout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Layout.swift; sourceTree = "<group>"; };
+		78D19C0DBD5360046282AD43 /* valdez_alley.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = valdez_alley.txt; sourceTree = "<group>"; };
 		7D37273491850ABBB93D41AB /* PartialCommitGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartialCommitGate.swift; sourceTree = "<group>"; };
 		7DABF7F4742C5E33EE2AADC7 /* HotSeatPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotSeatPacket.swift; sourceTree = "<group>"; };
 		7E3FDCFE95B25704BCF644DC /* GraniteLocalModelAssetGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteLocalModelAssetGate.swift; sourceTree = "<group>"; };
@@ -433,6 +437,15 @@
 			path = Audio;
 			sourceTree = "<group>";
 		};
+		2F6AFEA16BCFBCB4356A6657 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				4392B4C87DC6E1A6DE985B51 /* valdez_alley.json */,
+				78D19C0DBD5360046282AD43 /* valdez_alley.txt */,
+			);
+			path = Fixtures;
+			sourceTree = "<group>";
+		};
 		3F26307B87637028A05E922C /* DevTools */ = {
 			isa = PBXGroup;
 			children = (
@@ -442,6 +455,7 @@
 				D4696F5D7C473458EB42D1AD /* GraniteBakeoffView.swift */,
 				EF42F804C8A546D9B349D000 /* GraniteLiveView.swift */,
 				2C3A951F721B164346611BE7 /* Audio */,
+				2F6AFEA16BCFBCB4356A6657 /* Fixtures */,
 				9CBC438C3E2B91AC19E40290 /* Receiver */,
 				9EF6144CB5E5C9C0233DD76D /* Sender */,
 				494C333BB25F8F25C888604B /* TTS */,
@@ -802,6 +816,8 @@
 				1E0C329A9CA7D6C528C490B4 /* PrivacyInfo.xcprivacy in Resources */,
 				4A17AE7E58B1B9F0D17FA795 /* test_5min.txt in Resources */,
 				FE5D32F287EAFD6518754FC3 /* test_5min.wav in Resources */,
+				4169B64DEB953F29C6C52FA2 /* valdez_alley.json in Resources */,
+				334B2CB77658CFA07D42D7FD /* valdez_alley.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

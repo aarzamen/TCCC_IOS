@@ -1,0 +1,17 @@
+{
+  "keywords": ["8734", "9120", "44.50", "Reaper", "urgent surgical", "GSW", "chest", "AVPU", "pain", "SpO2", "88", "93", "TXA", "Hextend", "chest seal", "needle decompression", "NKDA", "Dawson", "6942"],
+  "keywordCaveat": "Fixture-overfitted list (contains proper nouns). Secondary metric only — WER and extraction recall are primary.",
+  "knownDefects": ["TTS voice garbles 'TXA' on the med line — report TXA-related errors separately; do not tune the normalizer to hide them."],
+  "extraFolds": [["t", "x", "a", "txa"], ["spo", "2", "spo2"], ["dd", "1380", "dd1380"]],
+  "fieldExpectations": [
+    { "key": "moi", "expected": "gsw", "mode": "contains" },
+    { "key": "hr", "expected": "135", "mode": "exact" },
+    { "key": "bp", "expected": "88/60", "mode": "exact" },
+    { "key": "rr", "expected": "32", "mode": "exact" },
+    { "key": "spo2", "expected": "93", "mode": "exact" },
+    { "key": "classification", "expected": "unstable", "mode": "contains" },
+    { "key": "interventions", "expected": "chest seal", "mode": "contains" },
+    { "key": "interventions", "expected": "decompression", "mode": "contains" },
+    { "key": "interventions", "expected": "txa", "mode": "contains" }
+  ]
+}
