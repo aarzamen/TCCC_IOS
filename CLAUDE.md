@@ -157,7 +157,7 @@ empty-state (transcript empty).
 
 ## Project state & history
 
-- **`main` @ `7854eb7`, local — origin/main is 14 behind (push pending).**
+- **`main` @ `e02927b`, pushed — `origin/main` == local.**
 - **TCCCKit 793/0, app 116/0 (2 model-gated skips).** 5 screens run end-to-end
   on the iPhone 17 Pro. Build-identity stamp shows in Settings → System.
 - A launch-arg transcription benchmark exists: `--transcription-benchmark`
