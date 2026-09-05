@@ -12,11 +12,17 @@ workflow dispatch. It uses the existing macOS 15 / Xcode 26.2 baseline and:
 
 1. Runs all TCCCKit package tests.
 2. Generates the Xcode project from `project.yml` and resolves dependencies.
-3. Creates a fresh iPhone 17 Pro simulator on iOS 26.2.
+3. Creates and boots a fresh iPhone 17 Pro simulator on iOS 26.2, granting
+   microphone permission to the test host so authorization tests need no dialog.
 4. Builds and runs the entire `TCCC_IOSTests` target, with serial test execution
    and bounded test timeouts. No test classes are excluded.
 5. Checks the Xcode result bundle for a nonzero passing test count, preventing
    an accidentally empty scheme or test filter from passing the gate.
+
+The microphone grant is a simulator test precondition, not a check of the
+first-launch permission experience. Permission prompts and denial/recovery on
+hardware remain separate checks. The result summary is extracted after failed
+test runs too, so failures and skips can be inspected without opening Xcode.
 
 The workflow has read-only repository permissions. It does not sign a device
 build, publish to TestFlight, change app defaults, or merge a PR. Newer pushes

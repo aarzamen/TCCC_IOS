@@ -56,11 +56,17 @@ jobs:
 
       - name: Create clean iPhone simulator
         id: simulator
+        timeout-minutes: 5
         run: |
           TCCC_SIMULATOR_ID=$(xcrun simctl create "TCCC CI" \
             com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro \
             com.apple.CoreSimulator.SimRuntime.iOS-26-2)
           echo "id=$TCCC_SIMULATOR_ID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$TCCC_SIMULATOR_ID"
+          xcrun simctl bootstatus "$TCCC_SIMULATOR_ID" -b
+          # The missing-model authorization test expects mic permission to be granted.
+          # Set that precondition on this disposable simulator so no dialog needs a human.
+          xcrun simctl privacy "$TCCC_SIMULATOR_ID" grant microphone com.aarzamen.TCCCai
 
       # Test builds the app and its hosted test bundle, replacing the old build-only gate.
       # Real-model tests keep their existing opt-in gates; CI supplies no model assets.
@@ -87,6 +93,7 @@ jobs:
 
       - name: Verify tests actually executed
         id: test-count
+        if: ${{ !cancelled() && (steps.app-tests.outcome == 'success' || steps.app-tests.outcome == 'failure') }}
         run: |
           xcrun xcresulttool get test-results summary \
             --path "$RUNNER_TEMP/tccc-ci/app-tests.xcresult" \
