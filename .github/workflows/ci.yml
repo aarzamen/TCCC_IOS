@@ -4,19 +4,41 @@ name: CI
   push:
     branches: [main]
   pull_request: {}
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      # adjust if runner image lacks Xcode 26.2
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_26.2.app
+      - name: Record build environment
+        run: |
+          mkdir -p "$RUNNER_TEMP/tccc-ci"
+          xcodebuild -version 2>&1 | tee "$RUNNER_TEMP/tccc-ci/xcode-version.log"
+          swift --version 2>&1 | tee "$RUNNER_TEMP/tccc-ci/swift-version.log"
+          git rev-parse HEAD > "$RUNNER_TEMP/tccc-ci/checkout-sha.txt"
+          xcrun simctl list devices available > "$RUNNER_TEMP/tccc-ci/simulators.txt"
 
       - name: Swift Package Tests
-        run: swift test --package-path Packages/TCCCKit
+        id: package-tests
+        run: |
+          swift test --package-path Packages/TCCCKit 2>&1 | tee "$RUNNER_TEMP/tccc-ci/package-tests.log"
 
       - name: Install xcodegen
         run: brew install xcodegen
@@ -28,15 +50,74 @@ jobs:
         run: |
           xcodebuild -project TCCC_IOS.xcodeproj \
             -scheme TCCC_IOS \
+            -derivedDataPath "$RUNNER_TEMP/tccc-derived-data" \
             -skipMacroValidation \
-            -resolvePackageDependencies
+            -resolvePackageDependencies 2>&1 | tee "$RUNNER_TEMP/tccc-ci/dependencies.log"
 
-      - name: Simulator build
+      - name: Create clean iPhone simulator
+        id: simulator
         run: |
-          xcodebuild -project TCCC_IOS.xcodeproj \
+          TCCC_SIMULATOR_ID=$(xcrun simctl create "TCCC CI" \
+            com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro \
+            com.apple.CoreSimulator.SimRuntime.iOS-26-2)
+          echo "id=$TCCC_SIMULATOR_ID" >> "$GITHUB_OUTPUT"
+
+      # Test builds the app and its hosted test bundle, replacing the old build-only gate.
+      # Real-model tests keep their existing opt-in gates; CI supplies no model assets.
+      - name: Simulator app tests
+        id: app-tests
+        timeout-minutes: 30
+        env:
+          TCCC_SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          xcodebuild test -project TCCC_IOS.xcodeproj \
             -scheme TCCC_IOS \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination "platform=iOS Simulator,id=$TCCC_SIMULATOR_ID" \
+            -destination-timeout 120 \
             -configuration Debug \
-            build \
+            -derivedDataPath "$RUNNER_TEMP/tccc-derived-data" \
+            -resultBundlePath "$RUNNER_TEMP/tccc-ci/app-tests.xcresult" \
+            -only-testing:TCCC_IOSTests \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
             CODE_SIGNING_ALLOWED=NO \
-            -skipMacroValidation
+            -skipMacroValidation 2>&1 | tee "$RUNNER_TEMP/tccc-ci/app-tests.log"
+
+      - name: Verify tests actually executed
+        id: test-count
+        run: |
+          xcrun xcresulttool get test-results summary \
+            --path "$RUNNER_TEMP/tccc-ci/app-tests.xcresult" \
+            > "$RUNNER_TEMP/tccc-ci/app-test-summary.json"
+          # A misconfigured scheme or filter must not produce a green zero-test run.
+          jq -e '.passedTests > 0 and .failedTests == 0' \
+            "$RUNNER_TEMP/tccc-ci/app-test-summary.json"
+
+      - name: Summarize validation
+        if: always()
+        run: |
+          cat <<'SUMMARY' >> "$GITHUB_STEP_SUMMARY"
+          ## TCCC iOS automated validation
+
+          | Check | Result |
+          | --- | --- |
+          | TCCCKit logic tests | ${{ steps.package-tests.outcome }} |
+          | iPhone simulator app tests | ${{ steps.app-tests.outcome }} |
+          | Nonzero passing app-test count | ${{ steps.test-count.outcome }} |
+
+          Logs and the Xcode result bundle are attached to this run when available.
+          Existing real-model tests skip unless their local opt-in requirements are met.
+          This run does not validate physical microphone capture, offline model readiness,
+          thermal behavior, battery use, or clinical accuracy. No signed device build is produced.
+          SUMMARY
+
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tccc-ci-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/tccc-ci/
+          if-no-files-found: warn
+          retention-days: 14
