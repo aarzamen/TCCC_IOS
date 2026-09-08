@@ -93,7 +93,8 @@ simulator.
   in-progress encounter after a crash. New Casualty / End Care **archive**
   (never delete); WIPE (hold 3 s) **purges** the tree and re-arms a fresh
   casualty. TCCCKit stays in-memory-pure; all I/O is app-layer.
-- **Apple capture:** partials are visible previews; finalized request IDs enter
+- **Apple capture:** a shared timed utterance assembler preserves speech across
+  intra-request pauses; partials are visible previews; finalized request IDs enter
   extraction once. Incomplete segments persist as audit-only evidence. A decision
   made after request-open blocks automatic extraction of that delayed result.
   STOP keeps 30 seconds of tail and allows up to 5 seconds for request finalization;
@@ -174,6 +175,12 @@ empty-state (transcript empty).
 
 ## Project state & history
 
+- **Speech coverage fix, 2026-09-08:** 170 app tests, 3 skips, 0 failures.
+  Timed utterances survive callback resets; shared requests preserve punctuation.
+  Matched synthetic device WER improves 91.33% → 20.74%, deletions 289 → 5.
+  Extraction remains 2/8; natural phrasing/negation and medical-word accuracy
+  are the next priority. See `docs/superpowers/plans/2026-09-08-speech-coverage.md`.
+
 - **Capture reliability sprint, 2026-09-08:** package 793/0; simulator 152
   executed, 3 skipped, 0 failures. Two physical iPhone 17 Pro / iOS 26.2
   persistence tests pass, including strict complete-file-protection verification.
@@ -201,10 +208,11 @@ empty-state (transcript empty).
     (2026-07-02, spec `2026-07-02-transcription-and-fm-harness-sprint-design.md`).
     TCCCBench scorers (WER/keyword/extraction) in TCCCKit; SpeechRequestFactory
     = single source of recognizer config (WS-3 vocabulary lands there once);
-    device-validated baseline: **SFSpeechRecognizer truncates long-form — only
-    the final utterance of a 3.9-min narration transcribes (271/323 words
-    dropped; 6 substitutions in what it heard)** — the empirical case for the
-    WS-3 SpeechAnalyzer lane (`docs/research/2026-07-02-transcription-baseline.md`).
+    historical baseline retained only the final utterance. **2026-09-08 correction:**
+    a device trace proves replace-only application assembly dropped earlier
+    delivered utterances; the audio also includes an extra unreferenced scenario.
+    This was not evidence that Apple never transcribed the earlier audio.
+    See `docs/research/2026-07-02-transcription-baseline.md` and the speech-coverage plan.
     New app icon (tactical case). Sprint continues: WS-2 DSP A/B → WS-3
     vocabulary + SpeechAnalyzer → WS-4 Apple FM structured candidate lane.
   - **ASR provisional-replace + branch consolidation** (2026-06-28). Provisional

@@ -1,4 +1,5 @@
 import XCTest
+import Speech
 @testable import TCCC_IOS
 
 /// Deterministic synthetic-event tests for the benchmark run-state helper
@@ -13,10 +14,58 @@ import XCTest
 ///   - Exactly one completion per run; late events after completion are inert.
 ///   - Events carrying a stale run ID cannot mutate a newer run.
 ///   - An overlapping begin is rejected without overwriting the active run.
-///   - Cumulative hypotheses replace (never concatenate).
+///   - Cumulative hypotheses replace within an utterance; timed utterances accumulate.
 ///   - Finalization is recognizer evidence only — none of these tests assert
 ///     whole-file coverage from a `.finalized` termination.
 final class AppleSpeechFileTranscriberTests: XCTestCase {
+
+    func testRequestsPreservePunctuationForSentenceScopedExtraction() {
+        let requests: [SFSpeechRecognitionRequest] = [
+            SpeechRequestFactory.makeBufferRequest(),
+            SpeechRequestFactory.makeURLRequest(url: URL(fileURLWithPath: "/tmp/synthetic.wav"))
+        ]
+        for request in requests {
+            XCTAssertTrue(request.addsPunctuation)
+            XCTAssertTrue(request.requiresOnDeviceRecognition)
+            XCTAssertTrue(request.shouldReportPartialResults)
+        }
+    }
+
+    func testTimedUtterancesSurviveResetsAndNilFinalCallback() {
+        var run = startedRun()
+        _ = run.ingestCallback(text: "pulse 120", isFinal: false, errorReason: nil,
+            runID: run.runID, at: t1, speechStart: 7.83, speechDuration: 26.73)
+        _ = run.ingestCallback(text: "blood", isFinal: false, errorReason: nil,
+            runID: run.runID, at: t2, segmentStart: 0, segmentEnd: 0)
+        _ = run.ingestCallback(text: "blood pressure 90 over 60", isFinal: false, errorReason: nil,
+            runID: run.runID, at: t3, speechStart: 34.56, speechDuration: 22.53)
+        let result = run.ingestCallback(text: nil, isFinal: true, errorReason: nil,
+            runID: run.runID, at: t4)
+        XCTAssertEqual(result?.transcript, "pulse 120 blood pressure 90 over 60")
+        XCTAssertEqual(result?.termination, .finalized)
+        XCTAssertEqual(result?.callbackCount, 4)
+    }
+
+    func testErrorRetainsEarlierUtteranceAndLatestPartial() {
+        var run = startedRun()
+        _ = run.ingestCallback(text: "tourniquet applied", isFinal: false, errorReason: nil,
+            runID: run.runID, at: t1, speechStart: 1, speechDuration: 3)
+        let result = run.ingestCallback(text: "pulse weak", isFinal: true, errorReason: "interrupted",
+            runID: run.runID, at: t2)
+        XCTAssertEqual(result?.transcript, "tourniquet applied pulse weak")
+        XCTAssertEqual(result?.termination, .failed)
+        XCTAssertEqual(result?.isComplete, false)
+    }
+
+    func testStaleTimedUtteranceCannotChangeCurrentRun() {
+        var run = startedRun()
+        _ = run.ingestCallback(text: "current patient", isFinal: false, errorReason: nil,
+            runID: run.runID, at: t1, speechStart: 1, speechDuration: 3)
+        XCTAssertNil(run.ingestCallback(text: "other patient", isFinal: true, errorReason: nil,
+            runID: UUID(), at: t2, speechStart: 5, speechDuration: 3))
+        XCTAssertEqual(run.latestHypothesis, "current patient")
+        XCTAssertEqual(run.cancel(runID: run.runID, at: t3)?.transcript, "current patient")
+    }
 
     // Fixed synthetic clock values so timing evidence is assertable.
     private let t0 = Date(timeIntervalSince1970: 1_000)
