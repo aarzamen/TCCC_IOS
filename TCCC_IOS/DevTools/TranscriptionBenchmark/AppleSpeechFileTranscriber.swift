@@ -8,116 +8,147 @@ import Speech
 /// transcription; buffer requests (the live-mic path) silently drop
 /// faster-than-real-time file feeds and yield no results. The true live
 /// buffer pipeline is exercised separately by the acoustic replay procedure.
+///
+/// Every callback, timeout, and cancellation decision flows through one
+/// run-scoped `SpeechFileRunState`, so stale events from a finished run can
+/// never complete or contaminate a newer one. Terminal outcomes — recognizer
+/// finalization, timeout, error, caller cancellation — all return a
+/// `Completion` describing the retained evidence; only setup failures throw.
 actor AppleSpeechFileTranscriber {
-    struct Output: Sendable {
-        let finals: [String]
-        let firstPartialLatencySec: Double?
-        let wallTimeSec: Double
-    }
-
     enum BenchError: Error, LocalizedError {
         case recognizerUnavailable
         case onDeviceUnavailable
-        case recognitionFailed(String)
-        case timedOut
+        case overlappingRun
         var errorDescription: String? {
             switch self {
             case .recognizerUnavailable: "SFSpeechRecognizer unavailable"
             case .onDeviceUnavailable: "On-device recognition unsupported here"
-            case .recognitionFailed(let r): "Recognition failed: \(r)"
-            case .timedOut: "Recognition timed out"
+            case .overlappingRun: "A transcription run is already in flight"
             }
         }
     }
 
     private let recognizer: SFSpeechRecognizer?
-    private var continuation: CheckedContinuation<Output, Error>?
+    private var run: SpeechFileRunState?
+    private var continuation: CheckedContinuation<SpeechFileRunState.Completion, Error>?
     private var task: SFSpeechRecognitionTask?
     private var timeoutTask: Task<Void, Never>?
-    private var bestFinal = ""
-    private var firstPartialAt: Date?
-    private var started = Date()
+    private struct Callback: Sendable {
+        let text: String?
+        let isFinal: Bool
+        let reason: String?
+        let timestamp: Date
+    }
+    private var callbackTask: Task<Void, Never>?
+    private var callbackContinuation: AsyncStream<Callback>.Continuation?
 
     /// Hard cap so a recognizer that never delivers `isFinal` can't leak the
-    /// continuation. If partials arrived, return them; otherwise fail.
+    /// continuation. The timed-out completion retains any partial text but
+    /// is explicitly marked incomplete.
     private let timeout: TimeInterval = 180
 
     init(locale: Locale = Locale(identifier: "en-US")) {
         self.recognizer = SFSpeechRecognizer(locale: locale)
     }
 
-    func transcribe(fileURL: URL) async throws -> Output {
+    func transcribe(fileURL: URL) async throws -> SpeechFileRunState.Completion {
         guard let recognizer, recognizer.isAvailable else { throw BenchError.recognizerUnavailable }
         guard recognizer.supportsOnDeviceRecognition else { throw BenchError.onDeviceUnavailable }
-        started = Date()
-        bestFinal = ""
-        firstPartialAt = nil
+
+        let started: SpeechFileRunState
+        switch SpeechFileRunState.begin(replacing: run, at: Date()) {
+        case .started(let fresh): started = fresh
+        case .rejectedActiveRun: throw BenchError.overlappingRun
+        }
+        run = started
+        let runID = started.runID
+
+        // Caller already cancelled: report an explicit cancelled completion
+        // without starting recognition.
+        if Task.isCancelled, let completion = apply({ $0.cancel(runID: runID, at: Date()) }) {
+            return completion
+        }
 
         let request = SpeechRequestFactory.makeURLRequest(url: fileURL)
-        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Output, Error>) in
-            self.continuation = cont
-            // SFSpeechRecognitionResult is not Sendable — extract Sendable
-            // values (String/Bool) inside the @Sendable callback before hopping
-            // back onto the actor.
-            self.task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-                guard let self else { return }
-                if let result {
-                    let text = result.bestTranscription.formattedString
-                    let isFinal = result.isFinal
-                    Task { await self.ingest(text: text, isFinal: isFinal) }
-                } else if let error {
-                    let reason = error.localizedDescription
-                    Task { await self.fail(reason: reason) }
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<SpeechFileRunState.Completion, Error>) in
+                self.continuation = cont
+                // SFSpeechRecognitionResult is not Sendable — extract Sendable
+                // values (String/Bool) inside the @Sendable callback before
+                // hopping back onto the actor. A single callback may carry a
+                // result, an error, or both; the run state decides.
+                let (callbacks, callbackContinuation) = AsyncStream<Callback>.makeStream()
+                self.callbackContinuation = callbackContinuation
+                self.callbackTask = Task { [weak self] in
+                    for await callback in callbacks {
+                        guard !Task.isCancelled else { break }
+                        await self?.handleCallback(text: callback.text, isFinal: callback.isFinal,
+                            errorReason: callback.reason, runID: runID, at: callback.timestamp)
+                    }
+                }
+                self.task = recognizer.recognitionTask(with: request) { result, error in
+                    guard result != nil || error != nil else { return }
+                    callbackContinuation.yield(Callback(text: result?.bestTranscription.formattedString,
+                        isFinal: result?.isFinal ?? false, reason: error?.localizedDescription,
+                        timestamp: Date()))
+                }
+                self.timeoutTask = Task { [weak self, timeout] in
+                    do {
+                        try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    } catch {
+                        return  // cancelled timer exits — it must never fire a timeout
+                    }
+                    guard !Task.isCancelled else { return }
+                    await self?.handleTimeout(runID: runID)
                 }
             }
-            self.timeoutTask = Task { [weak self, timeout] in
-                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                await self?.fireTimeout()
-            }
+        } onCancel: {
+            // Caller Task cancellation routes through the same run-scoped
+            // state as every other terminal event.
+            Task { [weak self] in await self?.handleCancel(runID: runID) }
         }
     }
 
-    private func ingest(text: String, isFinal: Bool) {
-        if firstPartialAt == nil { firstPartialAt = Date() }
-        if !text.isEmpty { bestFinal = text }
-        if isFinal { finish(.success(makeOutput())) }
-    }
-
-    private func fail(reason: String) {
-        // If partials already arrived, treat a late error as end-of-audio and
-        // keep what we have; otherwise surface the failure.
-        if bestFinal.isEmpty {
-            finish(.failure(BenchError.recognitionFailed(reason)))
-        } else {
-            finish(.success(makeOutput()))
+    private func handleCallback(text: String?, isFinal: Bool, errorReason: String?, runID: UUID, at timestamp: Date) {
+        if let completion = apply({
+            $0.ingestCallback(text: text, isFinal: isFinal, errorReason: errorReason, runID: runID, at: timestamp)
+        }) {
+            finish(completion)
         }
     }
 
-    private func fireTimeout() {
-        if bestFinal.isEmpty {
-            finish(.failure(BenchError.timedOut))
-        } else {
-            finish(.success(makeOutput()))
+    private func handleTimeout(runID: UUID) {
+        if let completion = apply({ $0.fireTimeout(runID: runID, at: Date()) }) {
+            finish(completion)
         }
     }
 
-    private func makeOutput() -> Output {
-        Output(
-            finals: bestFinal.isEmpty ? [] : [bestFinal],
-            firstPartialLatencySec: firstPartialAt.map { $0.timeIntervalSince(started) },
-            wallTimeSec: Date().timeIntervalSince(started)
-        )
+    private func handleCancel(runID: UUID) {
+        if let completion = apply({ $0.cancel(runID: runID, at: Date()) }) {
+            finish(completion)
+        }
     }
 
-    /// Resume the continuation exactly once and tear down.
-    private func finish(_ result: Result<Output, Error>) {
+    /// Route an event through the current run's state; stale or
+    /// post-completion events come back nil and mutate nothing.
+    private func apply(
+        _ event: (inout SpeechFileRunState) -> SpeechFileRunState.Completion?
+    ) -> SpeechFileRunState.Completion? {
+        guard var current = run else { return nil }
+        let completion = event(&current)
+        run = current
+        return completion
+    }
+
+    /// Resume the continuation exactly once and tear down this run's
+    /// recognizer task and timer.
+    private func finish(_ completion: SpeechFileRunState.Completion) {
         guard let cont = continuation else { return }
         continuation = nil
         timeoutTask?.cancel(); timeoutTask = nil
         task?.cancel(); task = nil
-        switch result {
-        case .success(let output): cont.resume(returning: output)
-        case .failure(let error): cont.resume(throwing: error)
-        }
+        callbackContinuation?.finish(); callbackContinuation = nil
+        callbackTask?.cancel(); callbackTask = nil
+        cont.resume(returning: completion)
     }
 }

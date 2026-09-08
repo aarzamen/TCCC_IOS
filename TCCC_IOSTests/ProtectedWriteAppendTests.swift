@@ -23,11 +23,15 @@ final class ProtectedWriteAppendTests: XCTestCase {
         let file = dir.appendingPathComponent("events.jsonl")
         try ProtectedWrite.appendLine("x", to: file)
         let values = try file.resourceValues(forKeys: [.fileProtectionKey])
-        // On the simulator this may report nil/none — assert it is NOT explicitly unprotected.
-        // Device validation (B7) confirms .complete. Here we assert the call path set a value
-        // when the platform supports it.
-        if let p = values.fileProtection {
-            XCTAssertEqual(p, .complete)
+#if targetEnvironment(simulator)
+        // The macOS-backed simulator can return a default URL protection value
+        // while omitting the actual file-protection attribute. It cannot prove
+        // iOS encryption behavior; run the strict assertion on physical iOS.
+        let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+        if attributes[.protectionKey] == nil {
+            throw XCTSkip("Simulator does not expose the file protection class; requires physical iOS")
         }
+#endif
+        XCTAssertEqual(try XCTUnwrap(values.fileProtection), .complete)
     }
 }

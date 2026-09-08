@@ -56,7 +56,25 @@ actor SpeechRecognizer: TranscriptStream {
     private var task: SFSpeechRecognitionTask?
     private var continuation: AsyncStream<RecognitionUpdate>.Continuation?
     private var isRecognizing: Bool = false
-    private var tailDeadline: Date?
+    private var capture: CaptureRequestState?
+    private var tailTask: Task<Void, Never>?
+    private var drainTask: Task<Void, Never>?
+    private var queuedAudio: [AVAudioPCMBuffer] = []
+    private var queuedFrames = 0
+    private var latestText = ""
+    private var requestStartedAt: TimeInterval = 0
+    private struct Callback: Sendable { let text: String?; let final: Bool; let issue: String? }
+    private var resultConsumer: Task<Void, Never>?
+    private var resultContinuation: AsyncStream<Callback>.Continuation?
+    private var audioConsumer: Task<Void, Never>?
+    private var audioContinuation: AsyncStream<CapturedPCM>.Continuation?
+    private var tapGeneration = UUID()
+    private var captureStartedAt = Date.distantFuture
+
+    /// Each tap buffer is copied once and then owned by the serial consumer.
+    private struct CapturedPCM: @unchecked Sendable {
+        let buffer: AVAudioPCMBuffer
+    }
 
     // MARK: - Audio file capture
 
@@ -131,15 +149,25 @@ actor SpeechRecognizer: TranscriptStream {
         self.inputFormat = format
 
         let weakLevels = self.levels
+        let (audioStream, audioContinuation) = AsyncStream<CapturedPCM>.makeStream(bufferingPolicy: .bufferingOldest(128))
+        self.audioContinuation = audioContinuation
+        let generation = UUID()
+        tapGeneration = generation
+        audioConsumer = Task { [weak self] in
+            for await frame in audioStream {
+                guard !Task.isCancelled else { break }
+                await self?.ingestBuffer(frame.buffer, generation: generation)
+            }
+        }
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            // Copy out of AVAudioEngine's reusable buffer pool.
             guard let copy = Self.copyBuffer(buffer) else { return }
             let rms = Self.computeRMS(buffer)
             if let weakLevels {
                 Task { @MainActor in weakLevels.ingest(rms) }
             }
-            Task { [weak self] in
-                await self?.ingestBuffer(copy)
+            if case .dropped = audioContinuation.yield(CapturedPCM(buffer: copy)) {
+                let droppedAt = Date()
+                Task { await self?.audioOverrun(generation: generation, at: droppedAt) }
             }
         }
 
@@ -148,6 +176,8 @@ actor SpeechRecognizer: TranscriptStream {
             try engine.start()
         } catch {
             inputNode.removeTap(onBus: 0)
+            audioContinuation.finish()
+            audioConsumer?.cancel()
             throw TranscriptStreamError.engineFailed(error.localizedDescription)
         }
         isPrimed = true
@@ -155,7 +185,10 @@ actor SpeechRecognizer: TranscriptStream {
 
     /// Stop the audio engine + tap. Tears down any in-flight recognizer.
     func unprime() async {
-        if isRecognizing { await teardownRecognizer() }
+        if isRecognizing { finishCapture(.cancelled, issue: "Capture interrupted") }
+        audioContinuation?.finish(); audioContinuation = nil
+        audioConsumer?.cancel(); audioConsumer = nil
+        tapGeneration = UUID()
         guard isPrimed else { return }
         if engine.isRunning { engine.stop() }
         engine.inputNode.removeTap(onBus: 0)
@@ -175,9 +208,7 @@ actor SpeechRecognizer: TranscriptStream {
     /// live audio streams in. If `audioURL` is provided, captured PCM is written
     /// to that file for export — pre-roll included.
     func start(audioURL: URL? = nil) async throws -> AsyncStream<RecognitionUpdate> {
-        if !isPrimed {
-            try await prime()
-        }
+        if !isPrimed { try await prime() }
         guard !isRecognizing else { throw TranscriptStreamError.alreadyRunning }
         guard let recognizer, recognizer.isAvailable else {
             throw TranscriptStreamError.recognizerUnavailable
@@ -185,178 +216,190 @@ actor SpeechRecognizer: TranscriptStream {
         guard recognizer.supportsOnDeviceRecognition else {
             throw TranscriptStreamError.onDeviceUnavailable
         }
-
-        let req = SpeechRequestFactory.makeBufferRequest()
-        self.request = req
-
-        // Open audio file for writing if URL provided.
-        // Pre-create the file with NSFileProtectionComplete so the streamed
-        // AVAudioFile writes inherit Data Protection. CLAUDE.md hard
-        // constraint #3 — casualty audio at rest must be AES-256.
+        lastRecordingURL = nil
         if let audioURL, let format = inputFormat {
             do {
                 try ProtectedWrite.createEmpty(at: audioURL)
-                // AAC encode-on-write. AVFoundation handles PCM -> AAC
-                // internally for .m4a output. Mirrors the Parakeet path so
-                // both ASR backends produce the same voice-quality 32 kbps
-                // / 16 kHz mono m4a (~25 MB/hr) regardless of which is
-                // active. Shared constant lives in `AudioCaptureConfig`.
-                let file = try AVAudioFile(
-                    forWriting: audioURL,
+                audioFile = try AVAudioFile(forWriting: audioURL,
                     settings: AudioCaptureConfig.aacOutputSettings,
-                    commonFormat: format.commonFormat,
-                    interleaved: format.isInterleaved
-                )
-                self.audioFile = file
-                self.lastRecordingURL = audioURL
+                    commonFormat: format.commonFormat, interleaved: format.isInterleaved)
+                lastRecordingURL = audioURL
             } catch {
-                // Non-fatal — recognition still works, just no audio export.
-                self.audioFile = nil
+                audioFile = nil
+                throw TranscriptStreamError.engineFailed("Cannot save audio: \(error.localizedDescription)")
             }
         }
-
-        // Drain pre-roll: feed the last 30s of buffered audio into both the
-        // recognizer and the audio file.
-        for buf in ringBuffer {
-            req.append(buf)
-            try? audioFile?.write(from: buf)
-        }
-
         let (stream, continuation) = AsyncStream<RecognitionUpdate>.makeStream()
         self.continuation = continuation
-        self.tailDeadline = nil
-        self.isRecognizing = true
-
-        self.task = recognizer.recognitionTask(with: req) { [weak self] result, error in
-            guard let self else { return }
-            if let result {
-                let text = result.bestTranscription.formattedString
-                let isFinal = result.isFinal
-                Task { await self.emit(text: text, isFinal: isFinal) }
-                if isFinal {
-                    Task { await self.handleFinalResult() }
-                }
-            } else if error != nil {
-                Task { await self.teardownRecognizer() }
-            }
+        capture = CaptureRequestState()
+        captureStartedAt = Date()
+        queuedAudio.removeAll(); queuedFrames = 0
+        isRecognizing = true
+        beginRequest()
+        for buffer in ringBuffer {
+            request?.append(buffer)
+            writeAudio(buffer)
         }
-
         return stream
     }
 
-    /// Mark the end of recording. Schedules a `tailDuration`-second tail —
-    /// the recognizer keeps consuming live audio until the tail elapses, then
-    /// finalises. Engine stays primed so a subsequent `start()` is instant.
     func stop() async {
-        guard isRecognizing else { return }
-        if tailDeadline == nil {
-            tailDeadline = Date().addingTimeInterval(tailDuration)
+        guard let capture, !capture.closed, tailTask == nil else { return }
+        let captureID = capture.captureID
+        tailTask = Task { [weak self, tailDuration] in
+            do { try await Task.sleep(for: .seconds(tailDuration)) } catch { return }
+            await self?.endTail(captureID: captureID)
         }
     }
 
-    /// Immediate tear-down without tail — error path / app backgrounded.
     func stopImmediate() async {
-        await teardownRecognizer()
+        finishCapture(.cancelled, issue: "Capture interrupted; unfinished speech retained for review")
     }
 
-    /// Force the current recognition request to finalise and start a fresh
-    /// one. The UI calls this after committing a debounced partial — so the
-    /// next stream of partials starts from a clean context, not redundantly
-    /// repeating the already-committed prefix.
-    func forceFinalize() async {
-        guard isRecognizing else { return }
-        guard tailDeadline == nil else { return }
-        // End the current request — the existing task callback will fire
-        // isFinal=true, which in turn calls handleFinalResult, which starts a
-        // new request automatically.
+    /// A debounce/periodic boundary requests a final result; incoming frames
+    /// wait for the successor rather than being appended to an ended request.
+    func forceFinalize() async { endRequest() }
+
+    private func endRequest() {
+        guard capture?.endRequest() == true, let capture else { return }
         request?.endAudio()
+        let requestID = capture.requestID
+        drainTask?.cancel()
+        drainTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(5)) } catch { return }
+            await self?.drainTimedOut(requestID: requestID)
+        }
     }
 
-    // MARK: - Tap-callback path
+    private func endTail(captureID: UUID) {
+        guard capture?.captureID == captureID, capture?.closed == false else { return }
+        capture?.endTail()
+        endRequest()
+    }
 
-    private func ingestBuffer(_ buffer: AVAudioPCMBuffer) {
-        // Apply variable dynamic gain BEFORE storing/streaming so the
-        // ring buffer, level meter, and ASR all see the post-gain
-        // signal.
+    private func drainTimedOut(requestID: UUID) {
+        guard capture?.accepts(requestID) == true else { return }
+        finishCapture(.timedOut, issue: "Recognition finalization timed out; audio retained")
+    }
+
+    private func ingestBuffer(_ buffer: AVAudioPCMBuffer, generation: UUID) {
+        guard generation == tapGeneration else { return }
         let gain = gainProvider()
-        if gain != 1.0 {
-            Self.applyGain(buffer, gain: gain)
-        }
-
-        // Always: maintain the ring buffer.
+        if gain != 1.0 { Self.applyGain(buffer, gain: gain) }
         ringBuffer.append(buffer)
         ringBufferFrames += Int(buffer.frameLength)
-        let sampleRate = buffer.format.sampleRate
-        let maxFrames = Int(leadDuration * sampleRate)
+        let maxFrames = Int(leadDuration * buffer.format.sampleRate)
         while ringBufferFrames > maxFrames, !ringBuffer.isEmpty {
-            let oldest = ringBuffer.removeFirst()
-            ringBufferFrames -= Int(oldest.frameLength)
+            ringBufferFrames -= Int(ringBuffer.removeFirst().frameLength)
         }
-
-        guard isRecognizing else { return }
-
-        request?.append(buffer)
-        try? audioFile?.write(from: buffer)
-
-        // Check tail deadline.
-        if let deadline = tailDeadline, Date() >= deadline {
-            Task { await self.teardownRecognizer() }
+        guard isRecognizing, let capture, !capture.tailExpired else { return }
+        writeAudio(buffer)
+        if capture.awaitingFinal {
+            queuedAudio.append(buffer)
+            queuedFrames += Int(buffer.frameLength)
+            if queuedFrames > Int(10 * buffer.format.sampleRate) {
+                finishCapture(.failed, issue: "Recognition fell behind; saved audio needs review")
+            }
+        } else {
+            request?.append(buffer)
         }
     }
 
-    // MARK: - Recognition internals
-
-    private func emit(text: String, isFinal: Bool) {
-        continuation?.yield(RecognitionUpdate(text: text, isFinal: isFinal, timestamp: Date()))
+    private func audioOverrun(generation: UUID, at date: Date) {
+        guard generation == tapGeneration, date >= captureStartedAt else { return }
+        finishCapture(.failed, issue: "Audio capture could not keep up; recording is incomplete")
     }
 
-    private func handleFinalResult() async {
-        // If we're tearing down (tail mode), let the recognizer die.
-        guard isRecognizing else { return }
-        guard tailDeadline == nil else {
-            await teardownRecognizer()
-            return
+    private func writeAudio(_ buffer: AVAudioPCMBuffer) {
+        guard let file = audioFile else { return }
+        do { try file.write(from: buffer) }
+        catch {
+            audioFile = nil
+            lastRecordingURL = nil
+            continuation?.yield(RecognitionUpdate(text: "", isFinal: false, timestamp: Date(),
+                captureID: capture?.captureID, requestID: capture?.requestID,
+                issue: "Audio save failed: \(error.localizedDescription)", audioUnavailable: true))
         }
+    }
 
-        // Continuous narration: start a fresh recognition pass.
-        request?.endAudio()
-        task = nil
-        request = nil
-
+    private func beginRequest() {
+        guard let capture, !capture.closed, let recognizer else { return }
+        latestText = ""
+        requestStartedAt = ProcessInfo.processInfo.systemUptime
+        let requestID = capture.requestID
         let req = SpeechRequestFactory.makeBufferRequest()
-        self.request = req
-
-        guard let recognizer else { return }
-        self.task = recognizer.recognitionTask(with: req) { [weak self] result, error in
-            guard let self else { return }
-            if let result {
-                let text = result.bestTranscription.formattedString
-                let isFinal = result.isFinal
-                Task { await self.emit(text: text, isFinal: isFinal) }
-                if isFinal {
-                    Task { await self.handleFinalResult() }
-                }
-            } else if error != nil {
-                Task { await self.teardownRecognizer() }
+        request = req
+        resultContinuation?.finish()
+        resultConsumer?.cancel()
+        let (callbacks, callbackContinuation) = AsyncStream<Callback>.makeStream()
+        resultContinuation = callbackContinuation
+        resultConsumer = Task { [weak self] in
+            for await callback in callbacks {
+                guard !Task.isCancelled else { break }
+                await self?.handleResult(text: callback.text, final: callback.final,
+                    issue: callback.issue, requestID: requestID)
             }
         }
+        task = recognizer.recognitionTask(with: req) { result, error in
+            callbackContinuation.yield(Callback(text: result?.bestTranscription.formattedString,
+                final: result?.isFinal ?? false, issue: error?.localizedDescription))
+        }
     }
 
-    private func teardownRecognizer() async {
-        guard isRecognizing else { return }
-        isRecognizing = false
-        tailDeadline = nil
-        request?.endAudio()
-        task = nil
-        request = nil
-        let closedURL = lastRecordingURL
-        audioFile = nil
-        // Re-mark complete protection after closing the streamed file.
-        if let closedURL {
-            try? ProtectedWrite.markProtected(at: closedURL)
+    private func handleResult(text: String?, final: Bool, issue: String?, requestID: UUID) {
+        guard capture?.accepts(requestID) == true else { return }
+        if let text, !text.isEmpty { latestText = text }
+        if let issue {
+            finishCapture(.failed, issue: "Recognition incomplete: \(issue)")
+            return
         }
-        continuation?.finish()
-        continuation = nil
+        if final {
+            emit(.finalized)
+            drainTask?.cancel(); drainTask = nil
+            request?.endAudio()
+            task = nil; request = nil
+            guard capture?.finalized(requestID, hasBufferedAudio: !queuedAudio.isEmpty) == true else {
+                finishCapture(nil)
+                return
+            }
+            beginRequest()
+            for buffer in queuedAudio { request?.append(buffer) }
+            queuedAudio.removeAll(); queuedFrames = 0
+            if capture?.tailExpired == true { endRequest() }
+        } else {
+            continuation?.yield(RecognitionUpdate(text: latestText, isFinal: false, timestamp: Date(),
+                captureID: capture?.captureID, requestID: requestID, requestStartedAt: requestStartedAt))
+        }
+    }
+
+    private func emit(_ termination: CaptureTermination, issue: String? = nil) {
+        continuation?.yield(RecognitionUpdate(text: latestText, isFinal: termination == .finalized,
+            timestamp: Date(), captureID: capture?.captureID, requestID: capture?.requestID,
+            termination: termination, issue: issue, requestStartedAt: requestStartedAt))
+    }
+
+    private func finishCapture(_ termination: CaptureTermination?, issue: String? = nil) {
+        guard isRecognizing else { return }
+        if let termination { emit(termination, issue: issue) }
+        capture?.close()
+        isRecognizing = false
+        tailTask?.cancel(); tailTask = nil
+        drainTask?.cancel(); drainTask = nil
+        request?.endAudio()
+        task?.cancel(); task = nil; request = nil
+        resultContinuation?.finish(); resultContinuation = nil
+        resultConsumer?.cancel(); resultConsumer = nil
+        queuedAudio.removeAll(); queuedFrames = 0
+        audioFile = nil
+        if let url = lastRecordingURL {
+            do { try ProtectedWrite.markProtected(at: url) }
+            catch {
+                lastRecordingURL = nil
+                continuation?.yield(RecognitionUpdate(text: "", isFinal: false, timestamp: Date(),
+                    issue: "Audio protection failed: \(error.localizedDescription)", audioUnavailable: true))
+            }
+        }
+        continuation?.finish(); continuation = nil
     }
 
     // MARK: - Helpers

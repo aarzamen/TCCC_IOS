@@ -268,6 +268,30 @@ public actor PatientStateEngine {
     // MARK: - Operator event recording (A4 dual-write)
 
     private var opCount = 0
+    private var lastOperatorDecisionUptime: TimeInterval = 0
+
+    public func operatorRevision() -> Int { opCount }
+
+    /// A completed capture segment is extracted once. If an operator decision
+    /// landed while it was being recognized, retain the words for review instead
+    /// of allowing the delayed result to supersede that decision.
+    public func processCaptureTranscript(_ text: String, operatorRevision: Int,
+        requestStartedAt: TimeInterval? = nil, timestamp: Date = Date()) -> Bool {
+        let decisionAfterRequest = requestStartedAt.map { lastOperatorDecisionUptime >= $0 } ?? false
+        guard opCount == operatorRevision, !decisionAfterRequest else {
+            recordCaptureEvidence("REVIEW REQUIRED · " + text, timestamp: timestamp)
+            return false
+        }
+        processTranscript(text, timestamp: timestamp)
+        return true
+    }
+
+    /// Incomplete capture is durable evidence, never a clinical-state mutation.
+    public func recordCaptureEvidence(_ text: String, timestamp: Date = Date()) {
+        log.append(.asrSegment(.init(id: "capture-" + UUID().uuidString,
+            patientId: currentPatientID, timestampUnix: timestamp.timeIntervalSince1970,
+            text: text, backend: "appleSpeech", isFinal: false)))
+    }
 
     /// Record + apply an operator-accepted fact: append the `operatorAcceptedFact`
     /// event, then apply the write IN PLACE to the materialized `patients` (BLOCK A —
@@ -276,6 +300,7 @@ public actor PatientStateEngine {
     public func recordOperatorAcceptedFact(write: PatientStateFieldWrite, factId: String?,
         domain: String, field: String, rawValue: String?, to patientId: String,
         timestamp: Date = Date()) {
+        lastOperatorDecisionUptime = ProcessInfo.processInfo.systemUptime
         let unix = timestamp.timeIntervalSince1970
         ensurePatientExists(patientId, timestamp: unix)
         opCount += 1
@@ -293,6 +318,7 @@ public actor PatientStateEngine {
     /// Record an operator rejection (audit only — never mutates state).
     public func recordOperatorRejectedFact(factId: String?, domain: String, field: String,
         rawValue: String?, to patientId: String, timestamp: Date = Date()) {
+        lastOperatorDecisionUptime = ProcessInfo.processInfo.systemUptime
         opCount += 1
         log.append(.operatorRejectedFact(.init(
             id: "op-\(opCount)", patientId: patientId, timestampUnix: timestamp.timeIntervalSince1970,
