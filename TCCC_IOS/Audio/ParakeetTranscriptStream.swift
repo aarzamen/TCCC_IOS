@@ -103,19 +103,8 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// Sample rate the recognizer + AAC encoder expects.
     private static let targetSampleRate: Double = 16_000
 
-    /// 16 kHz mono float32, non-interleaved. Matches Parakeet's input
-    /// format and the AAC encode settings.
-    private static let targetFormat: AVAudioFormat = AVAudioFormat(
-        commonFormat: .pcmFormatFloat32,
-        sampleRate: targetSampleRate,
-        channels: 1,
-        interleaved: false
-    )!
-
-    /// Lazy converter from hardware format to `targetFormat`. Created in
-    /// `prime()` once we know the actual input format. Reused across all
-    /// tap buffers — converter holds no per-buffer state we care about.
-    private var resampleConverter: AVAudioConverter?
+    /// Persistent streaming conversion; per-buffer exhaustion is not EOF.
+    private var resampleConverter: ParakeetPCMResampler?
 
     // MARK: - Pre-roll ring buffer (last ~30s of PCM, same shape as SpeechRecognizer)
 
@@ -280,7 +269,7 @@ actor ParakeetTranscriptStream: TranscriptStream {
         // Build the hardware -> 16 kHz mono converter. Parakeet expects
         // 16 kHz; the AAC file is also written at 16 kHz; both consume the
         // same converted buffer.
-        if let converter = AVAudioConverter(from: format, to: Self.targetFormat) {
+        if let converter = ParakeetPCMResampler(inputFormat: format) {
             self.resampleConverter = converter
             DiagnosticsLogger.shared.log(
                 "prime · converter built \(format.sampleRate)Hz ch=\(format.channelCount) -> 16000Hz ch=1",
@@ -342,38 +331,13 @@ actor ParakeetTranscriptStream: TranscriptStream {
         startStatsTimer()
     }
 
-    /// Convert a hardware-format PCM buffer to 16 kHz mono float32 using
-    /// the prebuilt `resampleConverter`. Returns nil on converter error or
-    /// if the converter isn't initialised.
     private func resampleToTarget(_ input: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
         guard let converter = resampleConverter else { return nil }
-
-        // Output buffer capacity: at most ratio * input frames + a little
-        // slack. Going from 48k -> 16k that's frames/3.
-        let ratio = Self.targetSampleRate / converter.inputFormat.sampleRate
-        let outFrameCapacity = AVAudioFrameCount(
-            ceil(Double(input.frameLength) * ratio) + 16
-        )
-        guard let output = AVAudioPCMBuffer(
-            pcmFormat: Self.targetFormat,
-            frameCapacity: outFrameCapacity
-        ) else { return nil }
-
-        var consumed = false
-        var conversionError: NSError?
-        let status = converter.convert(to: output, error: &conversionError) { _, outStatus in
-            if consumed {
-                outStatus.pointee = .endOfStream
-                return nil
-            }
-            consumed = true
-            outStatus.pointee = .haveData
-            return input
-        }
-        if status == .error || conversionError != nil {
+        do { return try converter.convert(input) }
+        catch {
+            DiagnosticsLogger.shared.log("audio conversion failed: \(error.localizedDescription)", category: "asr")
             return nil
         }
-        return output
     }
 
     nonisolated private static func thermalLabel() -> String {
