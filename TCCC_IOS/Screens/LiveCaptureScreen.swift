@@ -11,6 +11,10 @@ struct LiveCaptureScreen: View {
     /// directory in Settings before `start()` will succeed.
     @State private var recognizer: (any TranscriptStream)?
     @State private var streamingTask: Task<Void, Never>?
+    @State private var activeGeneration: UUID?
+    @State private var isTailing = false
+    @State private var isChangingEncounter = false
+    @State private var resumeAfterInterruption = false
     @State private var partialCommitTask: Task<Void, Never>?
     /// Watchdog that force-commits the in-flight partial during CONTINUOUS speech,
     /// when the silence debounce never fires (no `silenceDebounce` gap) and on-device
@@ -164,9 +168,12 @@ struct LiveCaptureScreen: View {
         .onChange(of: state.pendingInterruptionPause) { _, newValue in
             guard newValue else { return }
             state.pendingInterruptionPause = false
-            let pending = state.partialTranscript
-            if !pending.isEmpty { state.commitProvisional(pending) }   // flush in-flight first
-            state.promoteProvisional()                                  // then settle, like STOP
+            resumeAfterInterruption = state.isRecording
+            if !(recognizer is SpeechRecognizer) {
+                let pending = state.partialTranscript
+                if !pending.isEmpty { state.commitProvisional(pending) }
+                state.promoteProvisional()
+            }
             periodicCommitTask?.cancel()
             partialCommitTask?.cancel()
             Task { await recognizer?.stopImmediate() }
@@ -176,11 +183,27 @@ struct LiveCaptureScreen: View {
             state.pendingInterruptionResume = false
             // If the operator hadn't tapped STOP before the interruption,
             // re-prime the recognizer and restart the streaming task.
-            if state.isRecording {
+            if resumeAfterInterruption {
+                resumeAfterInterruption = false
                 Task {
+                    await streamingTask?.value
+                    await recognizer?.unprime()
                     try? await recognizer?.prime()
                     await beginRecordingAfterInterruption()
                 }
+            }
+        }
+        .onChange(of: state.captureGeneration) { _, generation in
+            guard generation != activeGeneration else { return }
+            isChangingEncounter = true
+            periodicCommitTask?.cancel(); partialCommitTask?.cancel()
+            resumeAfterInterruption = false
+            Task {
+                await recognizer?.stopImmediate()
+                await recognizer?.unprime() // old casualty speech must not become new pre-roll
+                guard state.captureGeneration == generation else { return }
+                isTailing = false
+                isChangingEncounter = false
             }
         }
     }
@@ -399,12 +422,13 @@ struct LiveCaptureScreen: View {
     private var bigButtonsRow: some View {
         HStack(spacing: 6) {
             BigButton(
-                state.isRecording ? "Pause" : "Record",
+                isTailing ? "Finishing" : (state.isRecording ? "Pause" : "Record"),
                 systemImage: state.isRecording ? "pause.fill" : "mic.fill",
                 style: .standard
             ) {
                 Task { await toggleRecording() }
             }
+            .disabled(isTailing || isChangingEncounter)
 
             BigButton("Mark", systemImage: "bookmark.fill", style: .accent) {
                 state.appendSystem("MARK · \(currentTimestamp())")
@@ -476,29 +500,18 @@ struct LiveCaptureScreen: View {
 
     private func toggleRecording() async {
         if state.isRecording {
-            // Tail mode: recognizer keeps consuming for 10s before tearing
-            // down. Flip the UI flag immediately so the user gets feedback,
-            // but DON'T cancel the streaming task — final transcript lines
-            // arrive during the tail and we want them appended.
-            //
-            // Commit any in-flight partial as provisional, then promote it before the
-            // tail starts. forceFinalize resets the recogniser context; the subsequent
-            // echo is refined in place by applyFinalEcho. Must run before stop().
-            let pending = state.partialTranscript
-            if !pending.isEmpty {
-                state.commitProvisional(pending)
-                lastCommitAt = Date()
+            if !(recognizer is SpeechRecognizer) {
+                let pending = state.partialTranscript
+                if !pending.isEmpty { state.commitProvisional(pending) }
+                state.promoteProvisional()
             }
-            state.promoteProvisional()   // promote-first (loss-safe), closes ordering race
-            periodicCommitTask?.cancel()
-            partialCommitTask?.cancel()
-            await recognizer?.forceFinalize()
-            await recognizer?.stop()
+            isTailing = true
             state.isRecording = false
-            elapsedTickerTask?.cancel()
-            state.appendSystem("RECORDING TAIL · 10s capture continuing")
+            await recognizer?.stop()
+            state.appendSystem("RECORDING TAIL · 30s capture continuing")
             return
         }
+        guard !isTailing, !isChangingEncounter else { return }
 
         guard let recognizer else { return }
         state.clearError()
@@ -515,28 +528,8 @@ struct LiveCaptureScreen: View {
             let stream = try await recognizer.start(audioURL: url)
             state.isRecording = true
             state.sessionStart = Date()
-            state.lastRecordingURL = url
-            startElapsedTicker()
-            streamingTask?.cancel()
-            partialCommitTask?.cancel()
-            startPeriodicCommit()
-            streamingTask = Task { @MainActor in
-                for await update in stream {
-                    if Task.isCancelled { break }
-                    if update.isFinal {
-                        partialCommitTask?.cancel()
-                        state.applyFinalEcho(update.text, timestamp: update.timestamp)
-                        lastCommitAt = Date()
-                    } else {
-                        state.partialTranscript = update.text
-                        scheduleSilenceCommit()
-                    }
-                }
-                partialCommitTask?.cancel()
-                periodicCommitTask?.cancel()
-                state.isRecording = false
-                state.partialTranscript = ""
-            }
+            await consume(stream, requestedURL: url)
+
         } catch {
             state.recognitionError = error.localizedDescription
             state.isRecording = false
@@ -557,31 +550,56 @@ struct LiveCaptureScreen: View {
         do {
             let url = state.newAudioCaptureURL()
             let stream = try await recognizer.start(audioURL: url)
-            state.lastRecordingURL = url
-            startElapsedTicker()
-            streamingTask?.cancel()
-            partialCommitTask?.cancel()
-            startPeriodicCommit()
-            streamingTask = Task { @MainActor in
-                for await update in stream {
-                    if Task.isCancelled { break }
-                    if update.isFinal {
-                        partialCommitTask?.cancel()
-                        state.applyFinalEcho(update.text, timestamp: update.timestamp)
-                        lastCommitAt = Date()
-                    } else {
-                        state.partialTranscript = update.text
-                        scheduleSilenceCommit()
-                    }
-                }
-                partialCommitTask?.cancel()
-                periodicCommitTask?.cancel()
-                state.isRecording = false
-                state.partialTranscript = ""
-            }
+            state.isRecording = true
+            await consume(stream, requestedURL: url)
+
         } catch {
             state.recognitionError = error.localizedDescription
             state.isRecording = false
+        }
+    }
+
+    @MainActor
+    private func consume(_ stream: AsyncStream<RecognitionUpdate>, requestedURL: URL) async {
+        streamingTask?.cancel()
+        partialCommitTask?.cancel()
+        let generation = state.beginCapture()
+        activeGeneration = generation
+        isTailing = false
+        let apple = recognizer as? SpeechRecognizer
+        state.lastRecordingURL = if let apple { await apple.lastRecordingURL } else { requestedURL }
+        startElapsedTicker()
+        startPeriodicCommit()
+        streamingTask = Task { @MainActor in
+            for await update in stream {
+                guard !Task.isCancelled, generation == state.captureGeneration else { break }
+                if apple != nil {
+                    await state.receiveAppleCapture(update, generation: generation)
+                    if update.termination != nil {
+                        partialCommitTask?.cancel()
+                        lastCommitAt = Date()
+                    } else if !update.text.isEmpty {
+                        scheduleSilenceCommit()
+                    }
+                } else if update.isFinal {
+                    partialCommitTask?.cancel()
+                    state.applyFinalEcho(update.text, timestamp: update.timestamp)
+                    lastCommitAt = Date()
+                } else {
+                    state.partialTranscript = update.text
+                    scheduleSilenceCommit()
+                }
+            }
+            guard activeGeneration == generation else { return }
+            partialCommitTask?.cancel(); periodicCommitTask?.cancel(); elapsedTickerTask?.cancel()
+            if generation == state.captureGeneration {
+                state.isRecording = false
+                state.partialTranscript = ""
+                if let apple { state.lastRecordingURL = await apple.lastRecordingURL }
+            }
+            isTailing = false
+            streamingTask = nil
+            activeGeneration = nil
         }
     }
 
@@ -596,7 +614,7 @@ struct LiveCaptureScreen: View {
             if Task.isCancelled { return }
             guard let textToCommit = PartialCommitGate.committableText(
                 scheduled: pendingAtSchedule, latest: state.partialTranscript) else { return }
-            state.commitProvisional(textToCommit)
+            if !(recognizer is SpeechRecognizer) { state.commitProvisional(textToCommit) }
             lastCommitAt = Date()
             await recognizer?.forceFinalize()
         }
@@ -629,7 +647,7 @@ struct LiveCaptureScreen: View {
     @MainActor
     private func commitPartial(_ text: String) async {
         partialCommitTask?.cancel()
-        state.commitProvisional(text)
+        if !(recognizer is SpeechRecognizer) { state.commitProvisional(text) }
         lastCommitAt = Date()
         await recognizer?.forceFinalize()
     }

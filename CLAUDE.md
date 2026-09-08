@@ -93,7 +93,12 @@ simulator.
   in-progress encounter after a crash. New Casualty / End Care **archive**
   (never delete); WIPE (hold 3 s) **purges** the tree and re-arms a fresh
   casualty. TCCCKit stays in-memory-pure; all I/O is app-layer.
-- **Provisional-replace ASR commit pipeline.** Loss-safe and identity-scoped:
+- **Apple capture:** partials are visible previews; finalized request IDs enter
+  extraction once. Incomplete segments persist as audit-only evidence. A decision
+  made after request-open blocks automatic extraction of that delayed result.
+  STOP keeps 30 seconds of tail and allows up to 5 seconds for request finalization;
+  queued frames go to the successor request. Encounter changes clear pre-roll.
+- **Other-backend provisional-replace pipeline.** Compatibility behavior:
   a committed line is *provisional* until a 2.0 s settle window closes; a
   refined recognizer echo replaces it in place and the engine supersedes that
   chunk via log-tail truncate-and-reapply (refined words win, originally-heard
@@ -223,7 +228,7 @@ Priority order; each item is roughly its own session.
    instead of the current vector **fallback** layout (bundle a clean form
    image + a coordinate field-map); (b) source the **identity** fields
    (name/service#/unit/allergies/sex/branch) from a real roster/intake — they
-   are mock app-state today, so the mapped §A header is placeholder.
+   remain blank until supplied; unknown allergies must never imply NKDA.
 2. **§C grid tap-to-edit** — cells are read-only; add inline editors (BP pad,
    AVPU selector, Pain stepper, numeric pads, time picker) + "Add Reading".
 3. **Multi-casualty UI** — engine returns a patient dict; surface a casualty

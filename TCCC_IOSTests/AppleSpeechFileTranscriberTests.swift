@@ -203,4 +203,166 @@ final class AppleSpeechFileTranscriberTests: XCTestCase {
         XCTAssertEqual(run.latestHypothesis, "pulse 118")
         XCTAssertNil(run.completion, "A partial alone must not complete the run")
     }
+
+    // MARK: - Unified callback entry: a callback may carry result, error, or both
+
+    func testCallbackWithResultAndErrorRetainsTextButReportsFailure() throws {
+        var run = startedRun()
+        XCTAssertNil(run.ingestHypothesis("needle decompression", isFinal: false, runID: run.runID, at: t1))
+        let completion = try XCTUnwrap(run.ingestCallback(
+            text: "needle decompression left chest", isFinal: true,
+            errorReason: "recognition service interrupted", runID: run.runID, at: t2))
+
+        XCTAssertEqual(completion.termination, .failed)
+        XCTAssertEqual(completion.transcript, "needle decompression left chest",
+                       "Text delivered alongside an error is evidence and must be retained")
+        XCTAssertEqual(completion.isComplete, false,
+                       "A final flag delivered alongside an error must not claim finalization")
+        XCTAssertEqual(completion.failureReason, "recognition service interrupted")
+        XCTAssertEqual(completion.firstHypothesisAt, t1)
+        XCTAssertEqual(completion.lastHypothesisAt, t2)
+        XCTAssertEqual(completion.callbackCount, 2)
+    }
+
+    func testCallbackRoutesResultOnlyAndErrorOnlyLikeThePrimitives() throws {
+        var finalizedRun = startedRun()
+        let finalized = try XCTUnwrap(finalizedRun.ingestCallback(
+            text: "patient stable", isFinal: true, errorReason: nil,
+            runID: finalizedRun.runID, at: t1))
+        XCTAssertEqual(finalized.termination, .finalized)
+        XCTAssertEqual(finalized.transcript, "patient stable")
+        XCTAssertEqual(finalized.isComplete, true)
+
+        var failedRun = startedRun()
+        let failed = try XCTUnwrap(failedRun.ingestCallback(
+            text: nil, isFinal: false, errorReason: "no speech detected",
+            runID: failedRun.runID, at: t1))
+        XCTAssertEqual(failed.termination, .failed)
+        XCTAssertEqual(failed.transcript, "")
+        XCTAssertEqual(failed.callbackCount, 1, "An error callback is still a recognizer callback")
+        XCTAssertNil(failed.firstHypothesisAt, "An error without text is not hypothesis evidence")
+    }
+
+    func testCallbackWithNeitherResultNorErrorIsInert() {
+        var run = startedRun()
+        XCTAssertNil(run.ingestCallback(text: nil, isFinal: false, errorReason: nil,
+                                        runID: run.runID, at: t1))
+        XCTAssertEqual(run.callbackCount, 0)
+        XCTAssertNil(run.completion)
+    }
+
+    func testStaleCombinedCallbackCannotTouchNewRun() {
+        var oldRun = startedRun()
+        XCTAssertNotNil(oldRun.cancel(runID: oldRun.runID, at: t1))
+        guard case .started(var newRun) = SpeechFileRunState.begin(replacing: oldRun, at: t2) else {
+            XCTFail("A finished run must not block a new begin"); return
+        }
+        XCTAssertNil(newRun.ingestCallback(
+            text: "stale text", isFinal: true, errorReason: "stale error",
+            runID: oldRun.runID, at: t3))
+        XCTAssertEqual(newRun.latestHypothesis, "")
+        XCTAssertEqual(newRun.callbackCount, 0)
+        XCTAssertNil(newRun.completion)
+    }
+
+    // MARK: - JSON artifact contract (production result type + production encoder)
+
+    private func jsonObject(for result: BenchmarkRunResult) throws -> [String: Any] {
+        let data = try BenchmarkRunResult.encoder.encode(result)
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    func testTimedOutUnscoredRunEncodesEvidenceAndExplicitUnavailability() throws {
+        var run = startedRun()
+        XCTAssertNil(run.ingestHypothesis("massive hemorrhage right leg", isFinal: false,
+                                          runID: run.runID, at: t1))
+        let completion = try XCTUnwrap(run.fireTimeout(runID: run.runID, at: t3))
+
+        let result = BenchmarkRunResult(
+            backend: "appleSpeech", mode: "file", fixture: "narration_long.m4a",
+            startedAt: "2026-09-08T00:00:00Z", completion: completion, scoring: nil,
+            scoringStatus: "unavailable — no bundled reference (narration_long.txt)",
+            warnings: ["run terminated by timedOut — retained transcript is partial evidence, not recognizer finalization"],
+            availableMemoryBeforeMB: nil, availableMemoryAfterMB: nil)
+        let json = try jsonObject(for: result)
+
+        XCTAssertEqual(json["schemaVersion"] as? Int, 2)
+        XCTAssertEqual(json["termination"] as? String, "timedOut")
+        XCTAssertEqual(json["recognizerFinalized"] as? Bool, false)
+        XCTAssertEqual(json["hypothesis"] as? String, "massive hemorrhage right leg",
+                       "Partial evidence must be persisted even when scoring cannot run")
+        XCTAssertEqual(json["callbackCount"] as? Int, 1)
+        XCTAssertEqual(json["firstPartialLatencySec"] as? Double, 1)
+        XCTAssertEqual(json["lastHypothesisLatencySec"] as? Double, 1)
+        XCTAssertEqual(json["wallTimeSec"] as? Double, 3)
+        XCTAssertEqual(json["scoringStatus"] as? String,
+                       "unavailable — no bundled reference (narration_long.txt)")
+        XCTAssertEqual(json["warnings"] as? [String],
+                       ["run terminated by timedOut — retained transcript is partial evidence, not recognizer finalization"])
+        XCTAssertNil(json["wer"], "No score may be invented for an unscored run")
+        XCTAssertNil(json["werPercent"])
+        XCTAssertNil(json["keywordRecallPercent"])
+        XCTAssertNil(json["extractionPassed"])
+    }
+
+    func testNotStartedRunStillProducesArtifact() throws {
+        let result = BenchmarkRunResult.notStarted(
+            backend: "appleSpeech", mode: "file", fixture: "clip.m4a",
+            startedAt: "2026-09-08T00:00:00Z",
+            failureReason: "SFSpeechRecognizer unavailable",
+            availableMemoryBeforeMB: nil, availableMemoryAfterMB: nil)
+        let json = try jsonObject(for: result)
+
+        XCTAssertEqual(json["termination"] as? String, "notStarted")
+        XCTAssertEqual(json["recognizerFinalized"] as? Bool, false)
+        XCTAssertEqual(json["hypothesis"] as? String, "")
+        XCTAssertEqual(json["callbackCount"] as? Int, 0)
+        XCTAssertEqual(json["failureReason"] as? String, "SFSpeechRecognizer unavailable")
+        XCTAssertEqual(json["scoringStatus"] as? String, "unavailable — transcription did not start")
+        XCTAssertNil(json["wer"])
+        XCTAssertNil(json["firstPartialLatencySec"])
+    }
+
+    // MARK: - Human-readable summary contract (production formatter)
+
+    func testSummaryLineForUnscoredIncompleteRun() throws {
+        var run = startedRun()
+        XCTAssertNil(run.ingestHypothesis("airway patent breathing labored", isFinal: false,
+                                          runID: run.runID, at: t1))
+        let completion = try XCTUnwrap(run.ingestError(
+            reason: "service interrupted", runID: run.runID, at: t2))
+
+        let result = BenchmarkRunResult(
+            backend: "appleSpeech", mode: "file", fixture: "clip.m4a",
+            startedAt: "2026-09-08T00:00:00Z", completion: completion, scoring: nil,
+            scoringStatus: "unavailable — no bundled reference (clip.txt)",
+            warnings: [], availableMemoryBeforeMB: nil, availableMemoryAfterMB: nil)
+        let line = BenchmarkSummaryFormatter.line(slug: "clip", result: result)
+
+        XCTAssertTrue(line.hasPrefix("clip: failed INCOMPLETE"),
+                      "Incomplete termination must be visible in the summary: \(line)")
+        XCTAssertTrue(line.contains("scoring unavailable — no bundled reference (clip.txt)"))
+        XCTAssertTrue(line.contains("retained 4 hypothesis words"))
+        XCTAssertTrue(line.contains("callbacks 2"))
+        XCTAssertTrue(line.contains("reason: service interrupted"))
+        XCTAssertFalse(line.contains("WER"), "No WER may be shown when scoring is unavailable")
+    }
+
+    func testSummaryLineForFinalizedRunMarksTerminationWithoutIncompleteFlag() throws {
+        var run = startedRun()
+        let completion = try XCTUnwrap(run.ingestHypothesis(
+            "patient stable", isFinal: true, runID: run.runID, at: t2))
+
+        let result = BenchmarkRunResult(
+            backend: "appleSpeech", mode: "file", fixture: "clip.m4a",
+            startedAt: "2026-09-08T00:00:00Z", completion: completion, scoring: nil,
+            scoringStatus: "unavailable — no bundled reference (clip.txt)",
+            warnings: [], availableMemoryBeforeMB: nil, availableMemoryAfterMB: nil)
+        let line = BenchmarkSummaryFormatter.line(slug: "clip", result: result)
+
+        XCTAssertTrue(line.hasPrefix("clip: finalized"), "Termination kind must lead the line: \(line)")
+        XCTAssertFalse(line.contains("INCOMPLETE"),
+                       "Recognizer finalization is not flagged incomplete — coverage caveats live in the summary header")
+        XCTAssertTrue(line.contains("callbacks 1"))
+    }
 }

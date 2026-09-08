@@ -20,6 +20,15 @@ Repository publication covers project material. Keep patient data, personal reco
 
 ## Priority and architecture
 
+Sprint direction (2026-09-08): target a technically worthwhile, presentable iOS
+demonstration for the NMRTU Navy research/development medical technology team
+in roughly one to two weeks. This is a solo-development project; Codex handles
+GitHub housekeeping without turning routine Git choices into user tasks.
+Deliver coherent feature slices. Use focused regression checks and one
+integration review, expanding validation only for actual failures or material
+unresolved risks. Reuse existing preservation and evidence; do not repeat
+inventories, backups or approval ceremonies by default. Favor working progress.
+
 The active first sprint is capture reliability plus removal of fabricated export values, including the persistence repairs needed for trustworthy capture. Establish regression evidence, implement the fix, independently review the change, verify it, and carry it through integration.
 
 Preserve on-device runtime, complete file protection, event-sourced clinical state, operator review authority and truthful unknown values. Model/backend expansion and optional hardware experiments follow a reliable capture-to-documentation path. The iPhone remains a primary development target; the pocket Constellation experiment is out of scope.

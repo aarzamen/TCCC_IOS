@@ -19,19 +19,20 @@ enum ProtectedWrite {
     /// Create a placeholder file with complete protection so subsequent
     /// streamed writes (`AVAudioFile`, `FileHandle.write`) inherit the
     /// protection class. The protection attribute is set on creation; the
-    /// `setResourceValue` call is a belt-and-braces idempotent re-mark in
+    /// file-attribute setter is an idempotent re-mark in
     /// case the file already existed.
     static func createEmpty(at url: URL) throws {
         let attrs: [FileAttributeKey: Any] = [.protectionKey: FileProtectionType.complete]
         FileManager.default.createFile(atPath: url.path, contents: nil, attributes: attrs)
-        try (url as NSURL).setResourceValue(URLFileProtection.complete, forKey: .fileProtectionKey)
+        try markProtected(at: url)
     }
 
     /// Mark an already-existing file complete-protected (idempotent).
     /// Safe to call after closing a streamed-write file to reassert the
     /// protection class.
     static func markProtected(at url: URL) throws {
-        try (url as NSURL).setResourceValue(URLFileProtection.complete, forKey: .fileProtectionKey)
+        try FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path)
     }
 
     /// Append one line (+ newline) to a file, creating the parent dir and file with

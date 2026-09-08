@@ -234,8 +234,14 @@ final class AppState {
                 guard let self else { return }
                 let event = src.mask
                 if event.contains(.critical) {
-                    self.appendSystem("MEMORY · critical pressure · committing partial")
-                    if !self.partialTranscript.isEmpty {
+                    if self.asrBackend == .appleSpeech {
+                        self.appendSystem("MEMORY · capture stopped; unfinished speech retained for review")
+                        Task { @MainActor in
+                            await self.endCaptureForLifecycle(preservePartial: true)
+                            await self.persistNewEvents()
+                        }
+                    } else if !self.partialTranscript.isEmpty {
+                        self.appendSystem("MEMORY · critical pressure · committing partial")
                         self.appendFinal(self.partialTranscript)
                         self.partialTranscript = ""
                     }
@@ -572,14 +578,89 @@ final class AppState {
         dateF.dateFormat = "yyyyMMdd-HHmmss"
         let stamp = dateF.string(from: Date())
         let safeId = casualtyId.replacingOccurrences(of: " ", with: "_")
-        return dir.appendingPathComponent("encounter-\(safeId)-\(stamp).m4a")
+        return dir.appendingPathComponent("encounter-\(safeId)-\(stamp)-\(UUID().uuidString).m4a")
     }
 
-    // Casualty header (currently mock — would come from a roster lookup in production)
-    var casualtyName: String = "DOE, J."
-    var casualtyUnit: String = "2/75 RGR"
-    var casualtyServiceNumberMasked: String = "••• 4471"
-    var casualtyAllergies: String = "NKDA"
+    // Unknown identity stays blank until supplied by the operator/intake.
+    var casualtyName: String = ""
+    var casualtyUnit: String = ""
+    var casualtyServiceNumberMasked: String = ""
+    var casualtyAllergies: String = ""
+
+    private(set) var captureGeneration = UUID()
+    private var completedCaptureRequests: Set<UUID> = []
+    private var captureOperatorRevisions: [UUID: Int] = [:]
+
+    @discardableResult func beginCapture() -> UUID {
+        captureGeneration = UUID()
+        completedCaptureRequests.removeAll()
+        captureOperatorRevisions.removeAll()
+        return captureGeneration
+    }
+
+    /// Serialized by the stream consumer. Apple partials are display-only;
+    /// completed requests enter the engine once and cannot revise another line.
+    func receiveAppleCapture(_ update: RecognitionUpdate, generation: UUID) async {
+        guard generation == captureGeneration else { return }
+        if update.audioUnavailable { lastRecordingURL = nil }
+        if let issue = update.issue { recognitionError = issue }
+        guard let requestID = update.requestID,
+              !completedCaptureRequests.contains(requestID) else { return }
+        let eng = engine
+        if captureOperatorRevisions[requestID] == nil {
+            let revision = await eng.operatorRevision()
+            guard generation == captureGeneration else { return }
+            captureOperatorRevisions[requestID] = revision
+        }
+        guard let termination = update.termination else {
+            partialTranscript = update.text
+            return
+        }
+        completedCaptureRequests.insert(requestID)
+        let revision = captureOperatorRevisions.removeValue(forKey: requestID) ?? 0
+        let text = update.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        partialTranscript = ""
+        guard !text.isEmpty else { return }
+        if termination == .finalized {
+            let accepted = await eng.processCaptureTranscript(text,
+                operatorRevision: revision, requestStartedAt: update.requestStartedAt,
+                timestamp: update.timestamp)
+            guard generation == captureGeneration else { return }
+            if accepted {
+                transcript.append(TranscriptLine(speaker: .medic, text: text, timestamp: update.timestamp))
+                appendTranscriptEvidence(text, timestamp: update.timestamp)
+                if let command = detectVoiceCommand(in: text) { armVoiceCommand(command) }
+                await refreshPatientSnapshot()
+            } else {
+                appendSystem("REVIEW REQUIRED · " + text)
+                recognitionError = "A decision changed during recognition. Review the retained transcript."
+                await persistNewEvents()
+            }
+        } else {
+            let evidence = "CAPTURE INCOMPLETE (\(termination.rawValue)) · " + text
+            await eng.recordCaptureEvidence(evidence, timestamp: update.timestamp)
+            guard generation == captureGeneration else { return }
+            appendSystem(evidence)
+            await persistNewEvents()
+        }
+    }
+
+    private func endCaptureForLifecycle(preservePartial: Bool) async {
+        let pending = partialTranscript
+        beginCapture() // invalidates old callback and consumer ownership
+        isRecording = false
+        partialTranscript = ""
+        if preservePartial, !pending.isEmpty {
+            await engine.recordCaptureEvidence("CAPTURE INCOMPLETE (encounter ended) · " + pending)
+        }
+    }
+
+    private func clearCasualtyIdentity() {
+        casualtyName = ""
+        casualtyUnit = ""
+        casualtyServiceNumberMasked = ""
+        casualtyAllergies = ""
+    }
 
     /// Base directory for casualty persistence. Injectable for tests; defaults to Documents.
     var documentsURL: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
@@ -800,6 +881,12 @@ final class AppState {
                 casualtyId = id
                 await engine.restore(log)
                 persistedCursor = log.events.count
+                for event in log.events {
+                    if case .asrSegment(let segment) = event, segment.id.hasPrefix("capture-") {
+                        transcript.append(TranscriptLine(speaker: .system, text: segment.text,
+                            timestamp: Date(timeIntervalSince1970: segment.timestampUnix)))
+                    }
+                }
                 // Restore the persisted §C grid BEFORE the snapshot refresh so
                 // the rolling buffer (and the DD1380 export) survives recovery;
                 // the refresh then appends the current reading (deduped).
@@ -1002,6 +1089,8 @@ final class AppState {
     var autoExportOnWiredHandoffEnabled: Bool = false
 
     func wipeSession() async {
+        await endCaptureForLifecycle(preservePartial: false)
+        clearCasualtyIdentity()
         if encounterStore != nil {
             do {
                 try await encounterStore?.purgeAll()
@@ -1064,6 +1153,8 @@ final class AppState {
     /// RF discipline settings. Archives the prior casualty's record to disk
     /// before resetting so no encounter data is lost.
     func newPatient() async {
+        await endCaptureForLifecycle(preservePartial: true)
+        clearCasualtyIdentity()
         let now = Date().timeIntervalSince1970
         await engine.recordLifecycle(.archived)
         await persistNewEvents()                                  // flush marker to OLD file
@@ -1093,6 +1184,8 @@ final class AppState {
     /// counter — the medic taps NEW CASUALTY in Settings when they have a
     /// new patient assigned).
     func endCurrentCare() async {
+        await endCaptureForLifecycle(preservePartial: true)
+        clearCasualtyIdentity()
         let now = Date().timeIntervalSince1970
         await engine.recordLifecycle(.encounterEnded)
         await persistNewEvents()

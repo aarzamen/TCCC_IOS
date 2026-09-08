@@ -14,7 +14,9 @@ A new real encounter contains no invented casualty name, unit, service number, b
 
 Benchmark runs distinguish recognizer finalization, incomplete timeout/error/cancellation, and absence of text. Preserve partial evidence without labelling it complete. A finalized recognizer result is not proof that every spoken word was captured. Record callback/result timing and finalization evidence sufficient to compare the file and live paths. Never concatenate cumulative partials as if they were independent utterances.
 
-Live Apple Speech callbacks are scoped to the active capture/request generation. Old callbacks cannot close or contaminate a newer recording. Final-text delivery and rollover occur in one ordered path. Audio arriving after a request is ended must not silently go into a dead request. Normal stop must retain the configured tail and final callback opportunity; abort remains prompt and terminal. Errors and incomplete termination must be observable. Keep the provisional-replace transcript pipeline and patient log semantics intact.
+Live Apple Speech callbacks are scoped to the active capture/request generation. Old callbacks cannot close or contaminate a newer recording. Final-text delivery and rollover occur in one ordered path. Audio arriving after a request is ended must not silently go into a dead request. Normal stop must retain the configured tail and final callback opportunity; abort remains prompt and terminal. Errors and incomplete termination must be observable.
+
+Sprint simplification (2026-09-08): Apple partials remain visible previews; each finalized request is extracted exactly once. Incomplete segments are retained as audit-only evidence. If an operator decision occurs during recognition, its delayed result requires review instead of extraction. This removes mutable clinical tails from the Apple path, avoids a broad persistence redesign, and adds finalization latency before facts appear. Preserve the existing provisional-replace behavior for other backends and the deterministic patient log semantics.
 
 ## Validation
 

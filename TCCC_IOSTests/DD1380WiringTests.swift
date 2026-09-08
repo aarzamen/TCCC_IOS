@@ -129,6 +129,17 @@ final class DD1380WiringTests: XCTestCase {
     }
 
     // Masked-service-number → last-4 extraction.
+    func testEndCareClearsCasualtyIdentity() async {
+        let state = AppState()
+        state.casualtyName = "SMITH, A."
+        state.casualtyUnit = "TEST UNIT"
+        state.casualtyServiceNumberMasked = "1234"
+        state.casualtyAllergies = "PENICILLIN"
+        await state.endCurrentCare()
+        XCTAssertEqual([state.casualtyName, state.casualtyUnit,
+                        state.casualtyServiceNumberMasked, state.casualtyAllergies], ["", "", "", ""])
+    }
+
     func testLast4DigitsExtraction() {
         XCTAssertEqual(AppState.last4Digits(from: "••• 4471"), "4471")
         XCTAssertEqual(AppState.last4Digits(from: "123456789"), "6789")
