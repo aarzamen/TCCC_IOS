@@ -76,6 +76,12 @@ public struct PAWSExtractor: ExtractorPass {
     private let ceftriaxoneRegex: NSRegularExpression
     private let moxiRegex: NSRegularExpression
     private let woundCareRegex: NSRegularExpression
+    private static let packingPattern = #"\b(?:packed|packing)\s+(?:(?:[\p{L}-]+)\s+){0,4}wound\b|\bwound\s+(?:(?:is|was|has\s+been)\s+)?packed\b"#
+    private let packingRegex = try! NSRegularExpression(
+        pattern: PAWSExtractor.packingPattern, options: [.caseInsensitive])
+    private let packingMaterialRegex = try! NSRegularExpression(
+        pattern: "(?:\(PAWSExtractor.packingPattern))" + #"\s+(?:with|using)\s+(?:(combat)\s+)?gauze\b"#,
+        options: [.caseInsensitive])
     private let plasmaRegex: NSRegularExpression
 
     public init() {
@@ -126,7 +132,7 @@ public struct PAWSExtractor: ExtractorPass {
 
         // Wound care (irrigation, packing, dressing care).
         let woundCarePattern =
-            "irrigate|irrigation|pack(?:ed|ing)?\\s*(?:the\\s*)?wound|wound\\s*care"
+            #"\birrigat(?:ed|ing)\b|\b(?:performed|completed)\s+irrigation\b|\birrigation\s+(?:(?:is|was)\s+)?(?:performed|completed|done)\b|\b(?:performed|provided|providing|continued|continuing|completed)\s+wound\s+care\b|\bwound\s+care\s+(?:(?:is|was)\s+)?(?:performed|provided|completed|done)\b"#
 
         // 2026 §8 plasma for isolated TBI: "1-2 units of plasma" given when
         // there is no hemorrhage. Recognized as a circulation-adjacent
@@ -177,7 +183,9 @@ public struct PAWSExtractor: ExtractorPass {
         _ state: PatientState, context: ExtractionContext
     ) -> PatientState {
         if context.isNegated {
-            return state
+            // Wound evidence is scoped to its own clause; other PAWS behavior
+            // retains the existing guard until independently revised.
+            return extractWoundCare(state, context: context)
         }
 
         let sentence = context.sentence
@@ -248,18 +256,7 @@ public struct PAWSExtractor: ExtractorPass {
             )
         }
 
-        // ---- Wound care (state.py:925–929) ------------------------------
-        if hasMatch(sentence, regex: woundCareRegex) && updated.paws.wounds == nil {
-            let descriptor = "Wound care performed"
-            updated.paws.wounds = descriptor
-            updated.interventions.append(
-                Intervention(
-                    timestamp: context.timestamp,
-                    kind: .woundCare,
-                    description: descriptor
-                )
-            )
-        }
+        updated = extractWoundCare(updated, context: context)
 
         // ---- 2026 §8 plasma for isolated TBI ----------------------------
         // Recorded as a generic .medication intervention. The descriptor
@@ -279,6 +276,27 @@ public struct PAWSExtractor: ExtractorPass {
             }
         }
 
+        return updated
+    }
+
+    private func extractWoundCare(_ state: PatientState, context: ExtractionContext) -> PatientState {
+        var updated = state
+        for clause in InterventionEvidence.affirmedClauses(in: context.sentence) {
+            let packing = hasMatch(clause, regex: packingRegex)
+            guard packing || hasMatch(clause, regex: woundCareRegex) else { continue }
+            let description: String
+            if let material = packingMaterialRegex.firstMatch(in: clause, range: NSRange(clause.startIndex..., in: clause)) {
+                description = material.range(at: 1).location != NSNotFound
+                    ? "Wound packed with combat gauze" : "Wound packed with gauze"
+            } else {
+                description = "Wound care performed"
+            }
+            if updated.paws.wounds == nil { updated.paws.wounds = "Wound care performed" }
+            if !updated.interventions.contains(where: { $0.kind == .woundCare && $0.description == description }) {
+                updated.interventions.append(Intervention(timestamp: context.timestamp, kind: .woundCare,
+                    description: description))
+            }
+        }
         return updated
     }
 

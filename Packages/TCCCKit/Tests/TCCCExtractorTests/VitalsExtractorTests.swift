@@ -193,12 +193,12 @@ final class VitalsExtractorTests: XCTestCase {
         XCTAssertEqual(s.vitals.rr, 18)
     }
 
-    func testRRDoesNotOverrideExistingValue() {
-        // Mirror state.py:817–820 — RR is only set if not already present.
+    func testRRUpdatesExistingValue() {
+        // Later affirmed RR replaces stale readings, consistent with other vitals.
         var seed = emptyState()
         seed.vitals = Vitals(rr: 14)
         let s = extractor.apply(seed, context: ctx("RR 30"))
-        XCTAssertEqual(s.vitals.rr, 14, "Existing RR should not be overwritten")
+        XCTAssertEqual(s.vitals.rr, 30, "Later affirmed RR must update the reading")
     }
 
     // MARK: - Combined / scenario-derived sentences

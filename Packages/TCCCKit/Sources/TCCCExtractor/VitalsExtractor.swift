@@ -1,6 +1,6 @@
 // VitalsExtractor
 //
-// Faithful Swift port of `_extract_vitals` from
+// Swift port of `_extract_vitals` from
 // /Users/ama/TCCC_FEB_2026/src/state.py (lines 799–820), plus the four
 // numeric vital-sign regex patterns defined at lines 442–448:
 //
@@ -14,28 +14,13 @@
 // This pass operates on `context.sentence`, which the engine has already
 // normalised via `SpokenNumberNormalizer` — so spoken forms like
 // "heart rate one ten" arrive here as "heart rate 110" and the digit-only
-// regex above is sufficient.
+// regexes are sufficient.
 //
-// Two principled extensions over the Python source:
-//
-//   1. `BloodPressure.palpated` — the Python prototype stores BP as a string
-//      ("90/60"); the Swift `BloodPressure` struct adds a `palpated: Bool`
-//      flag, populated from a trailing "P" / "/P" / "palp" / "palpated"
-//      token (e.g. "BP 80/40 P", "BP 90/P palpated"). Python doesn't model
-//      this, so there's no behavioural divergence — Python silently loses
-//      the suffix; Swift records it.
-//
-//   2. `context.isNegated` — when the engine flags a sentence as negated
-//      (e.g. "no measurable BP", "no pulse"), this extractor refuses to
-//      record any vital sign. Python's `_extract_vitals` lacks this guard
-//      because vitals weren't part of the negation regression in P2; the
-//      design brief asks all extractors to honour the flag uniformly.
-//
-// GCS is intentionally NOT extracted here — the Python prototype routes
-// GCS through `_extract_head_hypothermia` (Lane A's `HeadHypothermiaExtractor`),
-// not `_extract_vitals`.
-//
-// Foundation only — no SwiftUI, UIKit, Combine, or external deps.
+// Narration is anchored to explicit vital names and allowed connectives.
+// Latest affirmed, in-range readings replace earlier readings, including RR.
+// Negation stays within a clause; questions and goals are not observations.
+// RespirationExtractor shares the same RR parser to avoid a second path that
+// bypasses these evidence checks. GCS remains in HeadHypothermiaExtractor.
 
 import Foundation
 import TCCCDomain
@@ -43,41 +28,69 @@ import TCCCDomain
 public struct VitalsExtractor: ExtractorPass {
 
     // MARK: - Compiled regex patterns
-    //
-    // Patterns mirror the Python `vitals_patterns` dict at state.py:443–448,
-    // with `bp` extended to capture an optional palpated marker.
 
     private let hrRegex: NSRegularExpression
     private let bpRegex: NSRegularExpression
     private let spo2Regex: NSRegularExpression
     private let rrRegex: NSRegularExpression
 
+    // MARK: - Field-local affirmation vocabulary
+
+    /// The stated number is denied, not observed ("HR is not 120",
+    /// "no heart rate 120"). "nor" is inherently negative on its own.
+    private static let negationCues: Set<String> = [
+        "no", "not", "nor", "without", "denies", "denied", "negative",
+        "absent", "cannot", "can't", "unable", "never", "lost",
+    ]
+
+    /// The stated number is a goal / plan / condition, not an observation
+    /// ("target heart rate 100", "if HR 100", "aim for oxygen saturation 97").
+    private static let goalCues: Set<String> = [
+        "target", "targeting", "goal", "goals", "aim", "aiming", "if",
+        "unless", "would", "could", "may", "might", "keep", "keeping", "maintain", "maintaining", "should",
+        "want", "wants", "titrate", "until", "plan", "planned", "planning",
+    ]
+
+    /// Coordinating words that close the preceding clause's negation scope.
+    /// "or" is deliberately absent so denial carries across it.
+    private static let scopeClosers: Set<String> = ["but", "then"]
+
     public init() {
-        // Filler verbs accepted between a vital-sign keyword and the numeric
-        // value. Expanded beyond the Python source ("is" / "of") so natural
-        // medic phrasings like "BP was 120/80" or "heart rate around 110" or
-        // "sat reading 96" all match. Permissive on this axis can't add false
-        // positives — the keyword anchor still has to be present.
-        let filler = "(?:(?:is|was|of|at|around|reading|came)\\s*)?"
+        // Connective words accepted between a vital-sign keyword and its
+        // number. A whitelist (rather than "any word") so negation and goal
+        // words can never be skipped over on the way to a number.
+        let gapWord =
+            "(?:is|are|was|were|of|at|about|around|approximately|roughly|" +
+            "now|currently|still|down|up|to|reading|read|came|come|in|" +
+            "looks?|looking|holding|steady|fast|slow|shallow|labored|" +
+            "laboured|weak|strong|thready|regular|irregular|rapid)"
+        let gap = "(?:[\\s,]+\(gapWord)\\b)*[\\s,]*"
 
         // Heart rate. Group 1 = numeric value.
         let hrPattern =
-            "(?:heart\\s*rate|hr|pulse)\\s*\(filler)(\\d+)"
+            "\\b(?:heart\\s*rate|pulse\\s*rate|hr|pulse)\(gap)(\\d+)"
 
         // Blood pressure. Group 1 = systolic, group 2 = diastolic, group 3 =
         // optional palpated marker.
         let bpPattern =
-            "(?:blood\\s*pressure|bp)\\s*\(filler)" +
+            "\\b(?:blood\\s*pressure|bp)\(gap)" +
             "(\\d+)\\s*(?:over|/)\\s*(\\d+)" +
             "(?:\\s*(?:/\\s*)?(p(?:alp(?:ated)?)?))?\\b"
 
-        // SpO2 / pulse-ox / sat. Group 1 = numeric value (0–100).
+        // SpO2 / pulse-ox / (oxygen) sat(uration). Group 1 = numeric value.
+        // Bare "sat" retains the narrow legacy gap: "patient sat up at 3"
+        // describes posture, not an oxygen measurement.
+        let satGap = #"\s*(?:(?:is|was|of|at|around|reading|came)\s*)?"#
         let spo2Pattern =
-            "(?:pulse\\s*ox|spo2|sat|o2\\s*sat)\\s*\(filler)(\\d+)\\s*%?"
+            "(?:\\b(?:pulse\\s*ox(?:imetry)?|spo2|" +
+            "o2\\s*sat(?:uration)?s?|oxygen\\s*sat(?:uration)?s?|" +
+            "saturations?|sats)\(gap)|\\bsat\(satGap))" +
+            "(\\d+)\\s*(?:%|percent)?"
 
-        // Respiratory rate. Group 1 = numeric value.
+        // Respiratory rate / respirations. Group 1 = numeric value.
         let rrPattern =
-            "(?:respiratory\\s*rate|rr)\\s*(?:\(filler)|looks?\\s*(?:about\\s*)?)?(\\d+)"
+            "\\b(?:respiratory\\s*rate|resp\\s*rate|respirations?|rr)" +
+            "\(gap)(\\d+)"
 
         // Force-unwraps are safe: these are static literals validated by the
         // test suite. A failure here is a programmer error.
@@ -96,27 +109,25 @@ public struct VitalsExtractor: ExtractorPass {
     public func apply(
         _ state: PatientState, context: ExtractionContext
     ) -> PatientState {
-        // Honour the engine-supplied negation flag — refuse to record vitals
-        // when the sentence is tagged negated. (See file-header note 2.)
-        if context.isNegated {
-            return state
-        }
-
+        // Negation is handled per candidate match rather than by refusing
+        // the whole sentence, so an
+        // unrelated "No allergies" cannot swallow "heart rate is 110".
         let sentence = context.sentence
 
-        // Parse each vital. nil means "no match in this sentence".
-        let newHR = matchHeartRate(in: sentence)
-        let newBP = matchBloodPressure(in: sentence)
-        let newSpO2 = matchSpO2(in: sentence)
-        let newRR = matchRespiratoryRate(in: sentence)
+        // Parse each vital. nil means "no affirmed in-range match".
+        let newHR = lastAffirmedInt(
+            in: sentence, regex: hrRegex, validRange: Vitals.hrRange)
+        let newBP = lastAffirmedBP(in: sentence)
+        let newSpO2 = lastAffirmedInt(
+            in: sentence, regex: spo2Regex, validRange: Vitals.spo2Range)
+        let newRR = respiratoryRate(in: sentence)
 
-        // Mirror Python: RR is only recorded if not already set. (state.py:817)
-        let rrToWrite: Int? = state.vitals.rr ?? newRR
+        let rrToWrite = newRR ?? state.vitals.rr
 
         // No-op short-circuit: if no field changed, return state unchanged so
         // the engine can detect no-progress passes cheaply.
         if newHR == nil && newBP == nil && newSpO2 == nil &&
-            (newRR == nil || state.vitals.rr != nil) {
+            rrToWrite == state.vitals.rr {
             return state
         }
 
@@ -136,65 +147,87 @@ public struct VitalsExtractor: ExtractorPass {
 
     // MARK: - Per-vital matchers
 
-    private func matchHeartRate(in text: String) -> Int? {
-        return firstIntCapture(text, regex: hrRegex, group: 1)
-    }
-
-    private func matchBloodPressure(in text: String) -> BloodPressure? {
-        let nsText = text as NSString
-        let fullRange = NSRange(location: 0, length: nsText.length)
-        guard let m = bpRegex.firstMatch(
-            in: text, options: [], range: fullRange) else {
-            return nil
-        }
-        guard m.numberOfRanges >= 3 else { return nil }
-        let sysRange = m.range(at: 1)
-        let diaRange = m.range(at: 2)
-        guard sysRange.location != NSNotFound,
-              diaRange.location != NSNotFound,
-              let sys = Int(nsText.substring(with: sysRange)),
-              let dia = Int(nsText.substring(with: diaRange)) else {
-            return nil
-        }
-
-        // Group 3 is the optional palpated marker.
-        var palpated = false
-        if m.numberOfRanges >= 4 {
-            let palpRange = m.range(at: 3)
-            if palpRange.location != NSNotFound {
-                let token = nsText.substring(with: palpRange).lowercased()
-                // Any non-empty match for the optional group means palpated.
-                palpated = !token.isEmpty
-            }
-        }
-
-        return BloodPressure(systolic: sys, diastolic: dia, palpated: palpated)
-    }
-
-    private func matchSpO2(in text: String) -> Int? {
-        return firstIntCapture(text, regex: spo2Regex, group: 1)
-    }
-
-    private func matchRespiratoryRate(in text: String) -> Int? {
-        return firstIntCapture(text, regex: rrRegex, group: 1)
-    }
-
-    // MARK: - Helpers
-
-    /// Run `regex` against `text`, return the integer value of capture group
-    /// `group` from the first match (or nil if no match / not parseable).
-    private func firstIntCapture(
-        _ text: String, regex: NSRegularExpression, group: Int
+    /// Latest affirmed, in-range integer match for `regex` in `text`
+    /// (capture group 1). Out-of-range candidates are skipped so a junk
+    /// reading never displaces an earlier valid one.
+    private func lastAffirmedInt(
+        in text: String,
+        regex: NSRegularExpression,
+        validRange: ClosedRange<Int>
     ) -> Int? {
         let nsText = text as NSString
         let fullRange = NSRange(location: 0, length: nsText.length)
-        guard let m = regex.firstMatch(
-            in: text, options: [], range: fullRange) else {
-            return nil
+        var result: Int? = nil
+        for m in regex.matches(in: text, options: [], range: fullRange) {
+            guard m.numberOfRanges > 1 else { continue }
+            let r = m.range(at: 1)
+            guard r.location != NSNotFound,
+                  let value = Int(nsText.substring(with: r)),
+                  validRange.contains(value),
+                  isAffirmed(keywordStart: m.range.location, in: nsText)
+            else { continue }
+            result = value
         }
-        guard m.numberOfRanges > group else { return nil }
-        let r = m.range(at: group)
-        guard r.location != NSNotFound else { return nil }
-        return Int(nsText.substring(with: r))
+        return result
+    }
+
+    /// Latest affirmed blood-pressure match, with the legacy palpated
+    /// suffix behaviour preserved.
+    private func lastAffirmedBP(in text: String) -> BloodPressure? {
+        let nsText = text as NSString
+        let fullRange = NSRange(location: 0, length: nsText.length)
+        var result: BloodPressure? = nil
+        for m in bpRegex.matches(in: text, options: [], range: fullRange) {
+            guard m.numberOfRanges >= 3 else { continue }
+            let sysRange = m.range(at: 1)
+            let diaRange = m.range(at: 2)
+            guard sysRange.location != NSNotFound,
+                  diaRange.location != NSNotFound,
+                  let sys = Int(nsText.substring(with: sysRange)),
+                  let dia = Int(nsText.substring(with: diaRange)),
+                  isAffirmed(keywordStart: m.range.location, in: nsText)
+            else { continue }
+
+            // Group 3 is the optional palpated marker.
+            var palpated = false
+            if m.numberOfRanges >= 4 {
+                let palpRange = m.range(at: 3)
+                if palpRange.location != NSNotFound {
+                    palpated = !nsText.substring(with: palpRange).isEmpty
+                }
+            }
+            result = BloodPressure(
+                systolic: sys, diastolic: dia, palpated: palpated)
+        }
+        return result
+    }
+
+    // MARK: - Field-local affirmation
+
+    /// Negation does not expire after an arbitrary word count or "and/or".
+    /// Commas and explicit clause transitions delimit unrelated denials.
+    /// Goals/questions conservatively govern the sentence, even across a colon
+    /// or comma. Mixed plans and observations may therefore need separate lines.
+    private func isAffirmed(keywordStart: Int, in nsText: NSString) -> Bool {
+        let text = nsText as String
+        guard !text.contains("?") else { return false }
+        let words = text.lowercased().split(whereSeparator: { !$0.isLetter && $0 != "'" })
+        guard !words.contains(where: { Self.goalCues.contains(String($0)) }) else { return false }
+        let prefix = nsText.substring(to: keywordStart)
+        let tokens = prefix.replacingOccurrences(of: "’", with: "'").split(whereSeparator: { $0.isWhitespace })
+        for raw in tokens.reversed() {
+            let token = String(raw)
+            if let last = token.last, ",;.!?".contains(last) { break }
+            let word = token.lowercased().trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+            if Self.negationCues.contains(word) { return false }
+            if Self.scopeClosers.contains(word) { break }
+        }
+        return true
+    }
+
+    /// Shared with the respiration pass so numeric RR and derived status use
+    /// exactly the same observation and range checks as the vital-sign pass.
+    func respiratoryRate(in text: String) -> Int? {
+        lastAffirmedInt(in: text, regex: rrRegex, validRange: Vitals.rrRange)
     }
 }
