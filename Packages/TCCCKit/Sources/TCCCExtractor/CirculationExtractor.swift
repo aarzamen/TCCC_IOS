@@ -45,6 +45,9 @@ public struct CirculationExtractor: ExtractorPass {
     private let ivRegex: NSRegularExpression
     private let ioRegex: NSRegularExpression
     private let calciumRegex: NSRegularExpression
+    private let txaAdministrationRegex = try! NSRegularExpression(
+        pattern: #"\b(?:gave|given|giving|administered|administering|infused|infusing|pushed|pushing)\s+(?:(?:him|her|them|the\s+patient)\s+)?(?:(?:\d+(?:\.\d+)?|one|two)\s*(?:g|grams?|mg|milligrams?)\s+(?:of\s+)?)?(?:(?:iv|io)\s+)?(?:tranexamic\s+acid|txa)\b|\b(?:tranexamic\s+acid|txa)(?:\s+\d+(?:\.\d+)?\s*(?:g|grams?|mg|milligrams?))?(?:\s+(?:iv|io))?\s+(?:(?:was|is|has\s+been)\s+)?(?:given|administered|infused|pushed)\b"#,
+        options: [.caseInsensitive])
 
     public init() {
         // (re.compile(r"radial\s*pulse\s*(is\s*)?(present|strong|weak|absent|palpable)", re.I),
@@ -231,6 +234,16 @@ public struct CirculationExtractor: ExtractorPass {
             }
         }
 
+        // Drug identity alone is not evidence of administration. Keep this
+        // local to its affirmative clause so "no allergies, TXA given" works.
+        for clause in InterventionEvidence.affirmedClauses(in: text) {
+            let range = NSRange(clause.startIndex..., in: clause)
+            if txaAdministrationRegex.firstMatch(in: clause, range: range) != nil,
+               !s.interventions.contains(where: { $0.kind == .medication && $0.description == "Tranexamic acid (TXA) administered" }) {
+                s.interventions.append(Intervention(timestamp: context.timestamp, kind: .medication,
+                    description: "Tranexamic acid (TXA) administered"))
+            }
+        }
         return s
     }
 }

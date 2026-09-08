@@ -134,7 +134,7 @@ final class PAWSExtractorTests: XCTestCase {
     func testIrrigateRecognised() {
         let s = extractor.apply(
             emptyState(),
-            context: ctx("Going to irrigate this with saline and dress it."))
+            context: ctx("Irrigating this with saline and dressing it."))
         XCTAssertEqual(s.paws.wounds, "Wound care performed")
         XCTAssertEqual(s.interventions.first?.kind, .woundCare)
     }

@@ -175,11 +175,22 @@ empty-state (transcript empty).
 
 ## Project state & history
 
+- **Extraction reliability, 2026-09-08:** package 830 tests, 0 failures;
+  app simulator 170 tests, 3 expected skips, 0 failures. Exact authored
+  reference improves 3/8 → 8/8; unchanged saved ASR text 2/8 → 6/8.
+  Fresh iPhone 17 Pro / iOS 26.2 benchmark also passes 6/8, with matched
+  WER 20.74% and five deletions. The remaining checks fail on actual
+  tourniquet/tranexamic-acid ASR errors. New rules retain current vitals,
+  explicit TXA and gauze packing while rejecting tested non-observations.
+  This is an eight-field regression, not a general demo-readiness claim.
+  Next: medical-term speech recognition and live-microphone validation.
+  See `docs/superpowers/plans/2026-09-08-extraction-reliability.md`.
+
 - **Speech coverage fix, 2026-09-08:** 170 app tests, 3 skips, 0 failures.
   Timed utterances survive callback resets; shared requests preserve punctuation.
   Matched synthetic device WER improves 91.33% → 20.74%, deletions 289 → 5.
-  Extraction remains 2/8; natural phrasing/negation and medical-word accuracy
-  are the next priority. See `docs/superpowers/plans/2026-09-08-speech-coverage.md`.
+  At that checkpoint extraction remained 2/8; the extraction sprint above
+  addresses phrasing/negation. Medical-word speech accuracy remains open. See `docs/superpowers/plans/2026-09-08-speech-coverage.md`.
 
 - **Capture reliability sprint, 2026-09-08:** package 793/0; simulator 152
   executed, 3 skipped, 0 failures. Two physical iPhone 17 Pro / iOS 26.2

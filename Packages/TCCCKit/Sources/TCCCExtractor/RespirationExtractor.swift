@@ -52,7 +52,7 @@ public struct RespirationExtractor: ExtractorPass {
     private let pneumothoraxRegex: NSRegularExpression
     private let chestSealRegex: NSRegularExpression
     private let needleDecompressionRegex: NSRegularExpression
-    private let rateRegex: NSRegularExpression
+    private let vitalsExtractor = VitalsExtractor()
     private let negation: NegationDetector
 
     public init() {
@@ -106,10 +106,6 @@ public struct RespirationExtractor: ExtractorPass {
         )
         self.needleDecompressionRegex = try! NSRegularExpression(
             pattern: "needle\\s*decompression|needle\\s*d",
-            options: [.caseInsensitive]
-        )
-        self.rateRegex = try! NSRegularExpression(
-            pattern: "respiratory\\s*rate\\s*(?:is\\s*|looks?\\s*(?:about\\s*)?)?(\\d+)",
             options: [.caseInsensitive]
         )
         self.negation = NegationDetector()
@@ -185,30 +181,21 @@ public struct RespirationExtractor: ExtractorPass {
         }
 
         // 4. Respiratory rate — set vitals.rr and infer status when not yet
-        //    determined (or when only the speculative pneumothorax was set).
-        if let match = rateRegex.firstMatch(in: text, options: [], range: fullRange),
-           match.numberOfRanges >= 2 {
-            let rrRange = match.range(at: 1)
-            if rrRange.location != NSNotFound,
-               let rr = Int(nsText.substring(with: rrRange)) {
-                // Vitals struct silently drops out-of-range values — set via init.
-                var v = s.vitals
-                if let valid = Vitals(rr: rr).rr {
-                    v.rr = valid
-                    s.vitals = v
-                }
-
-                // Set respiration status from rate when none yet, or when only
-                // the speculative pneumothorax was previously inferred.
-                let currentStatus = s.march.respirationStatus
-                if currentStatus == nil || currentStatus == "possible pneumothorax" {
-                    if (12...20).contains(rr) {
-                        s.march.respirationStatus = "normal"
-                    } else if rr > 20 {
-                        s.march.respirationStatus = "tachypneic"
-                    } else if rr < 12 {
-                        s.march.respirationStatus = "bradypneic"
-                    }
+        //    determined, previously rate-derived, or speculative pneumothorax.
+        if let rr = vitalsExtractor.respiratoryRate(in: text) {
+            s.vitals.rr = rr // Shared parser has already validated the value.
+            let currentStatus = s.march.respirationStatus
+            // Refresh labels derived from an earlier rate; retain independent
+            // observations such as "labored" under the existing precedence.
+            let rateDerivedStatuses = ["normal", "tachypneic", "bradypneic"]
+            if currentStatus == nil || currentStatus == "possible pneumothorax"
+                || rateDerivedStatuses.contains(currentStatus ?? "") {
+                if (12...20).contains(rr) {
+                    s.march.respirationStatus = "normal"
+                } else if rr > 20 {
+                    s.march.respirationStatus = "tachypneic"
+                } else {
+                    s.march.respirationStatus = "bradypneic"
                 }
             }
         }
