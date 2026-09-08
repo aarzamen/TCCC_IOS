@@ -38,6 +38,10 @@ actor AppleSpeechFileTranscriber {
         let isFinal: Bool
         let reason: String?
         let timestamp: Date
+        let speechStart: TimeInterval?
+        let speechDuration: TimeInterval?
+        let segmentStart: TimeInterval?
+        let segmentEnd: TimeInterval?
     }
     private var callbackTask: Task<Void, Never>?
     private var callbackContinuation: AsyncStream<Callback>.Continuation?
@@ -82,15 +86,17 @@ actor AppleSpeechFileTranscriber {
                 self.callbackTask = Task { [weak self] in
                     for await callback in callbacks {
                         guard !Task.isCancelled else { break }
-                        await self?.handleCallback(text: callback.text, isFinal: callback.isFinal,
-                            errorReason: callback.reason, runID: runID, at: callback.timestamp)
+                        await self?.handleCallback(callback, runID: runID)
                     }
                 }
                 self.task = recognizer.recognitionTask(with: request) { result, error in
                     guard result != nil || error != nil else { return }
                     callbackContinuation.yield(Callback(text: result?.bestTranscription.formattedString,
                         isFinal: result?.isFinal ?? false, reason: error?.localizedDescription,
-                        timestamp: Date()))
+                        timestamp: Date(), speechStart: result?.speechRecognitionMetadata?.speechStartTimestamp,
+                        speechDuration: result?.speechRecognitionMetadata?.speechDuration,
+                        segmentStart: result?.bestTranscription.segments.first?.timestamp,
+                        segmentEnd: result?.bestTranscription.segments.last.map { $0.timestamp + $0.duration }))
                 }
                 self.timeoutTask = Task { [weak self, timeout] in
                     do {
@@ -109,9 +115,12 @@ actor AppleSpeechFileTranscriber {
         }
     }
 
-    private func handleCallback(text: String?, isFinal: Bool, errorReason: String?, runID: UUID, at timestamp: Date) {
+    private func handleCallback(_ callback: Callback, runID: UUID) {
         if let completion = apply({
-            $0.ingestCallback(text: text, isFinal: isFinal, errorReason: errorReason, runID: runID, at: timestamp)
+            $0.ingestCallback(text: callback.text, isFinal: callback.isFinal, errorReason: callback.reason,
+                runID: runID, at: callback.timestamp, speechStart: callback.speechStart,
+                speechDuration: callback.speechDuration, segmentStart: callback.segmentStart,
+                segmentEnd: callback.segmentEnd)
         }) {
             finish(completion)
         }

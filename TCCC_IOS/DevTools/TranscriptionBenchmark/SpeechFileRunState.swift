@@ -7,7 +7,7 @@ import Foundation
 ///
 /// - exactly one completion per run; later events are inert;
 /// - events carrying a stale run ID cannot touch a newer run;
-/// - cumulative hypotheses replace, never concatenate;
+/// - cumulative hypotheses replace within each utterance; timed utterances accumulate;
 /// - timeout/error/cancellation retain partial text but are never reported
 ///   as recognizer finalization;
 /// - a callback carrying both a result and an error keeps the text as
@@ -26,7 +26,7 @@ struct SpeechFileRunState: Sendable {
     /// empty ones, so the benchmark can persist a truthful artifact.
     struct Completion: Sendable, Equatable {
         let termination: Termination
-        /// Latest cumulative hypothesis at termination; may be empty.
+        /// Assembled request transcript at termination; may be empty.
         let transcript: String
         /// True only for `.finalized` — recognizer finalization evidence,
         /// never proof of whole-file coverage.
@@ -49,6 +49,7 @@ struct SpeechFileRunState: Sendable {
     let startedAt: Date
     private(set) var callbackCount = 0
     private(set) var latestHypothesis = ""
+    private var assembler = SpeechUtteranceAssembler()
     private(set) var firstHypothesisAt: Date?
     private(set) var lastHypothesisAt: Date?
     private(set) var completion: Completion?
@@ -72,15 +73,18 @@ struct SpeechFileRunState: Sendable {
     /// text as evidence but reports the failure — a final flag cannot
     /// silently override an error delivered with it.
     mutating func ingestCallback(
-        text: String?, isFinal: Bool, errorReason: String?, runID: UUID, at now: Date
+        text: String?, isFinal: Bool, errorReason: String?, runID: UUID, at now: Date,
+        speechStart: TimeInterval? = nil, speechDuration: TimeInterval? = nil,
+        segmentStart: TimeInterval? = nil, segmentEnd: TimeInterval? = nil
     ) -> Completion? {
-        guard accepts(runID) else { return nil }
+        guard accepts(runID), text != nil || isFinal || errorReason != nil else { return nil }
+        note(text: text, at: now, speechStart: speechStart, speechDuration: speechDuration,
+            segmentStart: segmentStart, segmentEnd: segmentEnd)
         if let errorReason {
-            note(text: text, at: now)
             return complete(.failed, failureReason: errorReason, at: now)
         }
-        guard let text else { return nil }
-        return ingestHypothesis(text, isFinal: isFinal, runID: runID, at: now)
+        // Apple may finish with an empty/nil result after the last timed utterance.
+        return isFinal ? complete(.finalized, failureReason: nil, at: now) : nil
     }
 
     mutating func ingestHypothesis(
@@ -111,14 +115,17 @@ struct SpeechFileRunState: Sendable {
         eventRunID == runID && completion == nil
     }
 
-    private mutating func note(text: String?, at now: Date) {
+    private mutating func note(text: String?, at now: Date,
+        speechStart: TimeInterval? = nil, speechDuration: TimeInterval? = nil,
+        segmentStart: TimeInterval? = nil, segmentEnd: TimeInterval? = nil) {
         callbackCount += 1
         if text != nil {
             if firstHypothesisAt == nil { firstHypothesisAt = now }
             lastHypothesisAt = now
         }
-        // Cumulative hypotheses replace; an empty late one erases nothing.
-        if let text, !text.isEmpty { latestHypothesis = text }
+        assembler.ingest(text: text, speechStart: speechStart, speechDuration: speechDuration,
+            segmentStart: segmentStart, segmentEnd: segmentEnd)
+        latestHypothesis = assembler.transcript
     }
 
     private mutating func complete(

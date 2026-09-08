@@ -56,6 +56,7 @@
 		396F09F3B72F3C438824C5DF /* DD1380WiringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7179B301947780E5A09583F /* DD1380WiringTests.swift */; };
 		3AFD0BF4799175DAD7A77305 /* GraniteReportCritiqueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE5BC27729D5C0A981AAAC9D /* GraniteReportCritiqueTests.swift */; };
 		3C8A634F583AE4D7661DCD69 /* AppleCaptureLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E680A74CB426D300859C9E7C /* AppleCaptureLifecycleTests.swift */; };
+		3CCA1290005562B18A147E75 /* SpeechUtteranceAssemblerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5880A1DBC9BB96454DC624AA /* SpeechUtteranceAssemblerTests.swift */; };
 		413E2267D1F0EBE40FBA130A /* NineLineForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0894014601F9571B1B376A /* NineLineForm.swift */; };
 		4169B64DEB953F29C6C52FA2 /* valdez_alley.json in Resources */ = {isa = PBXBuildFile; fileRef = 4392B4C87DC6E1A6DE985B51 /* valdez_alley.json */; };
 		424652A98CD7C9860C59FCF0 /* SmallVital.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274E6A86610FEAD04C57413F /* SmallVital.swift */; };
@@ -93,6 +94,7 @@
 		5E335E98466F27FE4BB04476 /* TCCCExtractor in Frameworks */ = {isa = PBXBuildFile; productRef = A15CAC0CB421F5287463F2D1 /* TCCCExtractor */; };
 		5F831CD02E231B867E55884F /* EvidenceLinkageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F46C00BD2F2DD93A7F5807C /* EvidenceLinkageTests.swift */; };
 		600E655D057BE15E389CC357 /* MLXBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129984C4E0F1CB5E8FF56A58 /* MLXBackend.swift */; };
+		60EFD3537074F7C562CF1A8B /* SpeechUtteranceAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3268DD35C3C23982C057B376 /* SpeechUtteranceAssembler.swift */; };
 		61490C4F3F48390EE2EA2AC0 /* TranscriptLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5279A4A90D8BE4BEC038F0A8 /* TranscriptLine.swift */; };
 		6369F90A6238D66A43DD242E /* ConfirmationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C6B5DD035E601B88468377 /* ConfirmationAction.swift */; };
 		6546679F0D7E35CE43050B5E /* PartialCommitGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D37273491850ABBB93D41AB /* PartialCommitGate.swift */; };
@@ -237,6 +239,7 @@
 		2DE3724F2D2E53604D4AA8E1 /* BenchStateMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchStateMapper.swift; sourceTree = "<group>"; };
 		2FBE6D7852D92258C933FEF8 /* ThemeOptCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeOptCard.swift; sourceTree = "<group>"; };
 		2FBF5305914733F1DD379359 /* TCCCLLM */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCLLM; path = Packages/TCCCLLM; sourceTree = SOURCE_ROOT; };
+		3268DD35C3C23982C057B376 /* SpeechUtteranceAssembler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechUtteranceAssembler.swift; sourceTree = "<group>"; };
 		33F22514A911F9EEFD2C8C51 /* SenderComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SenderComposeView.swift; sourceTree = "<group>"; };
 		36ADDBDF7BE8903D0609E7AB /* GraniteReviewOverlayWiringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteReviewOverlayWiringTests.swift; sourceTree = "<group>"; };
 		36B14D02B33CC2F5C91E8003 /* BackOfCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackOfCardView.swift; sourceTree = "<group>"; };
@@ -264,6 +267,7 @@
 		56776AA19BDE9BE265F682AD /* VitalsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VitalsScreen.swift; sourceTree = "<group>"; };
 		57F59E6CBC6F3FA2FDDB02D2 /* GraniteApplyPathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteApplyPathTests.swift; sourceTree = "<group>"; };
 		587404AC0A87B848DF7E9B6E /* Field.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Field.swift; sourceTree = "<group>"; };
+		5880A1DBC9BB96454DC624AA /* SpeechUtteranceAssemblerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechUtteranceAssemblerTests.swift; sourceTree = "<group>"; };
 		58FA5C688962CB88681ABB4E /* EncounterStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncounterStoreTests.swift; sourceTree = "<group>"; };
 		5959AC638D222EE02AB9E658 /* GraniteReportCritique.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteReportCritique.swift; sourceTree = "<group>"; };
 		5C2CCE67936451614B668080 /* FooterHints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FooterHints.swift; sourceTree = "<group>"; };
@@ -618,6 +622,7 @@
 				742A5F531208D6CFD94F99E1 /* ParakeetTranscriptStream.swift */,
 				760440A05970E300FA8EE623 /* SpeechRecognizer.swift */,
 				042F395A84EFE852791FEDAD /* SpeechRequestFactory.swift */,
+				3268DD35C3C23982C057B376 /* SpeechUtteranceAssembler.swift */,
 				003685598739D0A338246D81 /* TranscriptSegmentLedger.swift */,
 				9EF4359B55FA4EEAF1485551 /* TranscriptStream.swift */,
 			);
@@ -735,6 +740,7 @@
 				47CDB74184A95D2E625877CD /* ProtectedWriteAppendTests.swift */,
 				A49090212AB69726772539F6 /* ProvisionalLifecycleTests.swift */,
 				1F76F457BB1EEDD6EBE7079D /* SectionCPersistenceTests.swift */,
+				5880A1DBC9BB96454DC624AA /* SpeechUtteranceAssemblerTests.swift */,
 				77172C1FDE135370A2934BB7 /* TranscriptSegmentLedgerTests.swift */,
 			);
 			path = TCCC_IOSTests;
@@ -997,6 +1003,7 @@
 				E62E320478EFD2E7AB810E40 /* SpeechFileRunState.swift in Sources */,
 				59B76D40E7C2FC6C97543EFD /* SpeechRecognizer.swift in Sources */,
 				CDDE8153E0C8426363D93AF0 /* SpeechRequestFactory.swift in Sources */,
+				60EFD3537074F7C562CF1A8B /* SpeechUtteranceAssembler.swift in Sources */,
 				945BFD4353589934B27B6B86 /* SplashView.swift in Sources */,
 				03E2E966AFCFB4A4EBB0399F /* StatusStrip.swift in Sources */,
 				588D0FF07310F89B70C93707 /* SumLineView.swift in Sources */,
@@ -1064,6 +1071,7 @@
 				0490ADDD42468A85CD061DD9 /* ProtectedWriteAppendTests.swift in Sources */,
 				149CD2D0E586C6EFDFB3C113 /* ProvisionalLifecycleTests.swift in Sources */,
 				45762D02E4C6357B0D3FE208 /* SectionCPersistenceTests.swift in Sources */,
+				3CCA1290005562B18A147E75 /* SpeechUtteranceAssemblerTests.swift in Sources */,
 				02CC048641A4480724BA6208 /* TranscriptSegmentLedgerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

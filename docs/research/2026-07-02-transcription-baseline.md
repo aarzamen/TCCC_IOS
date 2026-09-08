@@ -1,5 +1,7 @@
 # Transcription Baseline — Apple SFSpeechRecognizer (current default lane)
 
+> **Correction, 2026-09-08:** The historical measurements below are retained, but the attribution to recognizer long-form loss was incorrect. A protected physical-device callback trace shows Apple delivers eight timed utterances; our replace-only assembler drops all but the last. The recording also contains an extra scenario absent from the bundled reference, so its whole-file WER is not a matched accuracy measurement. See [speech coverage delivery](../superpowers/plans/2026-09-08-speech-coverage.md) for the fix and controlled comparison. These results alone do not justify a backend replacement.
+
 **Date:** 2026-07-02
 **Build:** `c0be70d` on `feat/phase01-stamp-bench` (build-identity stamp shipped this sprint)
 **Device:** iPhone 17 Pro, iOS 26.2 (on-device recognition; `requiresOnDeviceRecognition = true`)

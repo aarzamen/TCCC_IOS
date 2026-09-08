@@ -62,8 +62,17 @@ actor SpeechRecognizer: TranscriptStream {
     private var queuedAudio: [AVAudioPCMBuffer] = []
     private var queuedFrames = 0
     private var latestText = ""
+    private var utterances = SpeechUtteranceAssembler()
     private var requestStartedAt: TimeInterval = 0
-    private struct Callback: Sendable { let text: String?; let final: Bool; let issue: String? }
+    private struct Callback: Sendable {
+        let text: String?
+        let final: Bool
+        let issue: String?
+        let speechStart: TimeInterval?
+        let speechDuration: TimeInterval?
+        let segmentStart: TimeInterval?
+        let segmentEnd: TimeInterval?
+    }
     private var resultConsumer: Task<Void, Never>?
     private var resultContinuation: AsyncStream<Callback>.Continuation?
     private var audioConsumer: Task<Void, Never>?
@@ -167,7 +176,7 @@ actor SpeechRecognizer: TranscriptStream {
             }
             if case .dropped = audioContinuation.yield(CapturedPCM(buffer: copy)) {
                 let droppedAt = Date()
-                Task { await self?.audioOverrun(generation: generation, at: droppedAt) }
+                Task { [weak self] in await self?.audioOverrun(generation: generation, at: droppedAt) }
             }
         }
 
@@ -325,6 +334,7 @@ actor SpeechRecognizer: TranscriptStream {
     private func beginRequest() {
         guard let capture, !capture.closed, let recognizer else { return }
         latestText = ""
+        utterances = SpeechUtteranceAssembler()
         requestStartedAt = ProcessInfo.processInfo.systemUptime
         let requestID = capture.requestID
         let req = SpeechRequestFactory.makeBufferRequest()
@@ -336,24 +346,30 @@ actor SpeechRecognizer: TranscriptStream {
         resultConsumer = Task { [weak self] in
             for await callback in callbacks {
                 guard !Task.isCancelled else { break }
-                await self?.handleResult(text: callback.text, final: callback.final,
-                    issue: callback.issue, requestID: requestID)
+                await self?.handleResult(callback, requestID: requestID)
             }
         }
         task = recognizer.recognitionTask(with: req) { result, error in
             callbackContinuation.yield(Callback(text: result?.bestTranscription.formattedString,
-                final: result?.isFinal ?? false, issue: error?.localizedDescription))
+                final: result?.isFinal ?? false, issue: error?.localizedDescription,
+                speechStart: result?.speechRecognitionMetadata?.speechStartTimestamp,
+                speechDuration: result?.speechRecognitionMetadata?.speechDuration,
+                segmentStart: result?.bestTranscription.segments.first?.timestamp,
+                segmentEnd: result?.bestTranscription.segments.last.map { $0.timestamp + $0.duration }))
         }
     }
 
-    private func handleResult(text: String?, final: Bool, issue: String?, requestID: UUID) {
+    private func handleResult(_ callback: Callback, requestID: UUID) {
         guard capture?.accepts(requestID) == true else { return }
-        if let text, !text.isEmpty { latestText = text }
-        if let issue {
+        utterances.ingest(text: callback.text, speechStart: callback.speechStart,
+            speechDuration: callback.speechDuration, segmentStart: callback.segmentStart,
+            segmentEnd: callback.segmentEnd)
+        latestText = utterances.transcript
+        if let issue = callback.issue {
             finishCapture(.failed, issue: "Recognition incomplete: \(issue)")
             return
         }
-        if final {
+        if callback.final {
             emit(.finalized)
             drainTask?.cancel(); drainTask = nil
             request?.endAudio()
