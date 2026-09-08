@@ -1,5 +1,17 @@
 # TCCC.ai iOS
 
+## Current project leadership
+
+Read [PROJECT_POLICY.md](PROJECT_POLICY.md). GPT-6 in the lead Codex conversation
+owns priorities, planning, architecture, implementation decisions, verification
+and delivery. Native Claude works on bounded assignments under that lead.
+Codex may implement directly or choose another worker; Claude login is not a
+development gate. The user authorizes routine commits, pushes, merges to main
+and repository publication. Earlier read-only and approval-only recovery rules
+are superseded by the 2026-09-08 policy.
+
+Active priority: capture reliability plus removal of fabricated export values.
+
 Native SwiftUI port of the `TCCC_FEB_2026` Python prototype. Combat-medic
 documentation app for field use: iPhone, landscape, chest-mounted, fully
 offline. Voice intake → on-device ASR → deterministic state extraction
@@ -157,9 +169,14 @@ empty-state (transcript empty).
 
 ## Project state & history
 
-- **`main` @ `e02927b`, pushed — `origin/main` == local.**
-- **TCCCKit 793/0, app 116/0 (2 model-gated skips).** 5 screens run end-to-end
-  on the iPhone 17 Pro. Build-identity stamp shows in Settings → System.
+- **Baseline checked 2026-09-07 at `5edde13`.** TCCCKit: 793 tests pass.
+  App: 103 pass, 11 fail, 2 skip (116 total). One failed microphone-authorization
+  test passes after simulator permission is granted; ten persistence failures
+  remain at this baseline. These are dated results, not a current green gate.
+  Check Git and rerun relevant validation for subsequent changes.
+- Historical device runs exercised all five screens on the iPhone 17 Pro.
+  Build identity is shown in Settings → System; historical runs do not verify
+  the current sprint's capture or acoustic accuracy.
 - A launch-arg transcription benchmark exists: `--transcription-benchmark`
   (pass it after `--` with devicectl: `… launch … com.aarzamen.TCCCai --
   --transcription-benchmark`; without the `--` separator devicectl silently

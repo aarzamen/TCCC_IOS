@@ -1,5 +1,18 @@
 # TCCC.ai iOS
 
+## Current authority and priority
+
+Read [PROJECT_POLICY.md](PROJECT_POLICY.md) first. As authorized on 2026-09-08,
+GPT-6 in the lead Codex conversation owns engineering direction and delivery,
+including implementation, verification, commits, pushes, merges and repository
+publication. Native Claude Code is an optional scoped worker. The completed
+read-only recovery phase and earlier native-Claude-only implementation rule are
+retired. First priority: capture reliability and truthful export values.
+
+The historical roadmap and test counts below are dated reference material.
+Use current code, test results and the active sprint plan for present state;
+CLAUDE.md contains the newer architecture summary.
+
 Native SwiftUI port of the TCCC_FEB_2026 Python prototype. Combat-medic documentation app for field use: iPhone, landscape, chest-mounted, fully offline.
 
 ## Source materials
