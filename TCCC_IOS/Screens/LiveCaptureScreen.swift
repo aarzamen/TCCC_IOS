@@ -26,6 +26,13 @@ struct LiveCaptureScreen: View {
     @State private var elapsedDisplay: String = "00:00:00"
     @State private var elapsedTickerTask: Task<Void, Never>?
 
+    /// Apple and Parakeet identify finalized requests explicitly. Their partials
+    /// stay previews; only successful completion enters extraction. Granite keeps
+    /// the existing provisional replacement path until it supplies that contract.
+    private var usesRequestScopedCapture: Bool {
+        recognizer is SpeechRecognizer || recognizer is ParakeetTranscriptStream
+    }
+
     /// Auto-scroll-to-latest gating. Flips off when the operator drags the
     /// transcript content downward (scrolling up through history); the
     /// floating "LATEST" chip re-engages it. Per long-form recording plan
@@ -169,7 +176,7 @@ struct LiveCaptureScreen: View {
             guard newValue else { return }
             state.pendingInterruptionPause = false
             resumeAfterInterruption = state.isRecording
-            if !(recognizer is SpeechRecognizer) {
+            if !usesRequestScopedCapture {
                 let pending = state.partialTranscript
                 if !pending.isEmpty { state.commitProvisional(pending) }
                 state.promoteProvisional()
@@ -500,7 +507,7 @@ struct LiveCaptureScreen: View {
 
     private func toggleRecording() async {
         if state.isRecording {
-            if !(recognizer is SpeechRecognizer) {
+            if !usesRequestScopedCapture {
                 let pending = state.partialTranscript
                 if !pending.isEmpty { state.commitProvisional(pending) }
                 state.promoteProvisional()
@@ -567,13 +574,16 @@ struct LiveCaptureScreen: View {
         activeGeneration = generation
         isTailing = false
         let apple = recognizer as? SpeechRecognizer
+        let requestScoped = usesRequestScopedCapture
         state.lastRecordingURL = if let apple { await apple.lastRecordingURL } else { requestedURL }
         startElapsedTicker()
         startPeriodicCommit()
         streamingTask = Task { @MainActor in
             for await update in stream {
                 guard !Task.isCancelled, generation == state.captureGeneration else { break }
-                if apple != nil {
+                if requestScoped {
+                    // Shared request identity, finalization, failure evidence,
+                    // and operator-decision checks; retained legacy method name.
                     await state.receiveAppleCapture(update, generation: generation)
                     if update.termination != nil {
                         partialCommitTask?.cancel()
@@ -603,9 +613,9 @@ struct LiveCaptureScreen: View {
         }
     }
 
-    /// Restart the silence-debounce timer. If partial text stays stable for
-    /// `silenceDebounce` seconds, treat it as a finalised line. This handles
-    /// natural pauses; `startPeriodicCommit` handles unbroken narration.
+    /// Restart the silence-debounce timer. Stable previews request a recognition
+    /// boundary for Apple/Parakeet; extraction waits for successful finalization.
+    /// Granite retains its provisional commit before requesting a boundary.
     private func scheduleSilenceCommit() {
         partialCommitTask?.cancel()
         let pendingAtSchedule = state.partialTranscript
@@ -614,7 +624,7 @@ struct LiveCaptureScreen: View {
             if Task.isCancelled { return }
             guard let textToCommit = PartialCommitGate.committableText(
                 scheduled: pendingAtSchedule, latest: state.partialTranscript) else { return }
-            if !(recognizer is SpeechRecognizer) { state.commitProvisional(textToCommit) }
+            if !usesRequestScopedCapture { state.commitProvisional(textToCommit) }
             lastCommitAt = Date()
             await recognizer?.forceFinalize()
         }
@@ -641,13 +651,13 @@ struct LiveCaptureScreen: View {
         }
     }
 
-    /// Watchdog commit path: commits text as provisional (on screen immediately),
-    /// stamps the commit clock, then resets the recogniser context. The subsequent
-    /// isFinal echo from forceFinalize revises the provisional in place via applyFinalEcho.
+    /// Request a boundary during continuous speech. Request-scoped backends must
+    /// drain and emit a terminal update before extraction. Granite retains the
+    /// provisional commit and subsequent final-echo replacement behavior.
     @MainActor
     private func commitPartial(_ text: String) async {
         partialCommitTask?.cancel()
-        if !(recognizer is SpeechRecognizer) { state.commitProvisional(text) }
+        if !usesRequestScopedCapture { state.commitProvisional(text) }
         lastCommitAt = Date()
         await recognizer?.forceFinalize()
     }
