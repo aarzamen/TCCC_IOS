@@ -16,8 +16,7 @@ import os
 /// gated behind operator consent in the Settings UI). Once the bundle
 /// is on disk, this code never makes a URLSession call.
 ///
-/// **Model:** parakeet-tdt-0.6b-v2 (English-only, CC-BY-4.0 from
-/// NVIDIA, repackaged as CoreML by FluidInference). Streaming variant
+/// **Model:** Parakeet EOU 120M, through FluidAudio 0.14.4. Streaming variant
 /// uses end-of-utterance detection so the medic gets natural sentence
 /// boundaries without a manual "end of utterance" tap.
 ///
@@ -81,6 +80,17 @@ actor ParakeetTranscriptStream: TranscriptStream {
     private weak var levels: AudioLevels?
     private var inputFormat: AVAudioFormat?
     private var isPrimed: Bool = false
+    private struct TimedPCM: @unchecked Sendable {
+        let buffer: AVAudioPCMBuffer
+        let capturedAt: TimeInterval
+    }
+    private enum CapturedPCM: @unchecked Sendable {
+        case audio(TimedPCM)
+        case barrier(CheckedContinuation<Void, Never>)
+    }
+    private var audioContinuation: AsyncStream<CapturedPCM>.Continuation?
+    private var audioConsumer: Task<Void, Never>?
+    private var tapGeneration = UUID()
 
     // MARK: - Resampling (hardware-rate -> 16 kHz mono)
     //
@@ -93,23 +103,12 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// Sample rate the recognizer + AAC encoder expects.
     private static let targetSampleRate: Double = 16_000
 
-    /// 16 kHz mono float32, non-interleaved. Matches Parakeet's input
-    /// format and the AAC encode settings.
-    private static let targetFormat: AVAudioFormat = AVAudioFormat(
-        commonFormat: .pcmFormatFloat32,
-        sampleRate: targetSampleRate,
-        channels: 1,
-        interleaved: false
-    )!
-
-    /// Lazy converter from hardware format to `targetFormat`. Created in
-    /// `prime()` once we know the actual input format. Reused across all
-    /// tap buffers — converter holds no per-buffer state we care about.
-    private var resampleConverter: AVAudioConverter?
+    /// Persistent streaming conversion; per-buffer exhaustion is not EOF.
+    private var resampleConverter: ParakeetPCMResampler?
 
     // MARK: - Pre-roll ring buffer (last ~30s of PCM, same shape as SpeechRecognizer)
 
-    private var ringBuffer: [AVAudioPCMBuffer] = []
+    private var ringBuffer: [TimedPCM] = []
     private var ringBufferFrames: Int = 0
 
     // MARK: - Recognition
@@ -120,23 +119,12 @@ actor ParakeetTranscriptStream: TranscriptStream {
     private var isRecognizing: Bool = false
     private var tailDeadline: Date?
 
-    /// Latest accumulated transcript — Parakeet emits incremental
-    /// partials and EOU-bounded finals. We track both so the
-    /// `RecognitionUpdate` stream mirrors what `SpeechRecognizer` would
-    /// produce.
-    private var currentPartial: String = ""
-
-    /// Defensive upper bound on partial-string length. If the streaming
-    /// recognizer fails to emit an EOU final (silence-detection
-    /// regression, mic glitch), the accumulating partial would grow
-    /// unbounded over a 30-90 min recording. Force-finalize at this
-    /// ceiling so memory + UI cost stay bounded.
-    ///
-    /// Raised 2000 -> 8000 after device feedback that fast continuous
-    /// speech (a YouTube monologue, no 2 s pauses) was getting truncated
-    /// at the ceiling boundary. 8000 chars ≈ 1500 spoken words ≈ 7-8 min
-    /// of continuous fast speech — plenty of headroom while still bounded.
-    private let partialStringCeiling = 8000
+    private var processor: ParakeetAudioProcessor?
+    private var isStarting = false
+    private var isFinishing = false
+    private var captureID = UUID()
+    private var tailTask: Task<Void, Never>?
+    private var teardownTask: Task<Void, Never>?
 
     // MARK: - Audio file capture
 
@@ -209,12 +197,6 @@ actor ParakeetTranscriptStream: TranscriptStream {
             chunkSize: chunkSize,
             eouDebounceMs: eouDebounceMs
         )
-        await mgr.setPartialCallback { [weak self] partial in
-            Task { await self?.emitPartial(partial) }
-        }
-        await mgr.setEouCallback { [weak self] finalText in
-            Task { await self?.emitFinal(finalText) }
-        }
         if let dir = modelDirectory {
             try await mgr.loadModels(from: dir)
         } else {
@@ -287,7 +269,7 @@ actor ParakeetTranscriptStream: TranscriptStream {
         // Build the hardware -> 16 kHz mono converter. Parakeet expects
         // 16 kHz; the AAC file is also written at 16 kHz; both consume the
         // same converted buffer.
-        if let converter = AVAudioConverter(from: format, to: Self.targetFormat) {
+        if let converter = ParakeetPCMResampler(inputFormat: format) {
             self.resampleConverter = converter
             DiagnosticsLogger.shared.log(
                 "prime · converter built \(format.sampleRate)Hz ch=\(format.channelCount) -> 16000Hz ch=1",
@@ -295,27 +277,42 @@ actor ParakeetTranscriptStream: TranscriptStream {
             )
         } else {
             DiagnosticsLogger.shared.log(
-                "prime · converter init FAILED — falling back to passthrough (capture quality will degrade)",
+                "prime · converter init FAILED — recognition will report incomplete audio",
                 category: "lifecycle"
             )
         }
 
         let weakLevels = self.levels
         let arrivalCounter = self.bufferCounter
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            let rms = Self.computeRMS(buffer)
-            // Diagnostics: lock-free counter so the audio render thread
-            // never blocks on file I/O or actor isolation.
-            arrivalCounter.record(frames: Int(buffer.frameLength), rms: rms)
-            if let weakLevels {
-                Task { @MainActor in weakLevels.ingest(rms) }
+        let (audioStream, audioContinuation) = AsyncStream<CapturedPCM>.makeStream(bufferingPolicy: .bufferingOldest(128))
+        self.audioContinuation = audioContinuation
+        let generation = UUID()
+        tapGeneration = generation
+        audioConsumer = Task { [weak self] in
+            for await frame in audioStream {
+                guard !Task.isCancelled else { break }
+                switch frame {
+                case .audio(let captured):
+                    await self?.ingestBuffer(captured, generation: generation)
+                case .barrier(let completion):
+                    await self?.endAudioAdmission(generation: generation)
+                    completion.resume()
+                }
             }
-            // Hand the raw buffer (still hardware format) to the actor.
-            // Resampling happens inside ingestBuffer so it runs on the
-            // actor's queue, not the render thread.
-            guard let copy = Self.copyBuffer(buffer) else { return }
-            Task { [weak self] in
-                await self?.ingestBuffer(copy)
+        }
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            // Date the earliest sample before copying or queueing can delay it.
+            let capturedAt = ProcessInfo.processInfo.systemUptime
+                - Double(buffer.frameLength) / buffer.format.sampleRate
+            let rms = Self.computeRMS(buffer)
+            arrivalCounter.record(frames: Int(buffer.frameLength), rms: rms)
+            if let weakLevels { Task { @MainActor in weakLevels.ingest(rms) } }
+            guard let copy = Self.copyBuffer(buffer) else {
+                Task { [weak self] in await self?.audioOverrun(generation: generation) }
+                return
+            }
+            if case .dropped = audioContinuation.yield(.audio(TimedPCM(buffer: copy, capturedAt: capturedAt))) {
+                Task { [weak self] in await self?.audioOverrun(generation: generation) }
             }
         }
 
@@ -324,6 +321,8 @@ actor ParakeetTranscriptStream: TranscriptStream {
             try engine.start()
         } catch {
             inputNode.removeTap(onBus: 0)
+            audioContinuation.finish()
+            audioConsumer?.cancel()
             DiagnosticsLogger.shared.log("prime · engine.start FAILED: \(error.localizedDescription)", category: "lifecycle")
             throw TranscriptStreamError.engineFailed(error.localizedDescription)
         }
@@ -332,38 +331,13 @@ actor ParakeetTranscriptStream: TranscriptStream {
         startStatsTimer()
     }
 
-    /// Convert a hardware-format PCM buffer to 16 kHz mono float32 using
-    /// the prebuilt `resampleConverter`. Returns nil on converter error or
-    /// if the converter isn't initialised.
     private func resampleToTarget(_ input: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
         guard let converter = resampleConverter else { return nil }
-
-        // Output buffer capacity: at most ratio * input frames + a little
-        // slack. Going from 48k -> 16k that's frames/3.
-        let ratio = Self.targetSampleRate / converter.inputFormat.sampleRate
-        let outFrameCapacity = AVAudioFrameCount(
-            ceil(Double(input.frameLength) * ratio) + 16
-        )
-        guard let output = AVAudioPCMBuffer(
-            pcmFormat: Self.targetFormat,
-            frameCapacity: outFrameCapacity
-        ) else { return nil }
-
-        var consumed = false
-        var conversionError: NSError?
-        let status = converter.convert(to: output, error: &conversionError) { _, outStatus in
-            if consumed {
-                outStatus.pointee = .endOfStream
-                return nil
-            }
-            consumed = true
-            outStatus.pointee = .haveData
-            return input
-        }
-        if status == .error || conversionError != nil {
+        do { return try converter.convert(input) }
+        catch {
+            DiagnosticsLogger.shared.log("audio conversion failed: \(error.localizedDescription)", category: "asr")
             return nil
         }
-        return output
     }
 
     nonisolated private static func thermalLabel() -> String {
@@ -377,7 +351,12 @@ actor ParakeetTranscriptStream: TranscriptStream {
     }
 
     func unprime() async {
-        if isRecognizing { await teardownRecognizer() }
+        if isStarting { captureID = UUID() } // cancels a start suspended in model loading
+        await teardownRecognizer()
+        audioContinuation?.finish(); audioContinuation = nil
+        audioConsumer?.cancel(); audioConsumer = nil
+        tapGeneration = UUID()
+        stopStatsTimer()
         guard isPrimed else { return }
         DiagnosticsLogger.shared.log(
             "unprime · thermal=\(Self.thermalLabel()) memMB=\(os_proc_available_memory() / (1024 * 1024)) ticks=\(heartbeatTick)",
@@ -399,83 +378,78 @@ actor ParakeetTranscriptStream: TranscriptStream {
     // MARK: - Recognition lifecycle
 
     func start(audioURL: URL? = nil) async throws -> AsyncStream<RecognitionUpdate> {
-        if !isPrimed {
-            try await prime()
-        }
-        guard !isRecognizing else {
+        guard !isRecognizing, !isStarting, !isFinishing else {
             throw TranscriptStreamError.alreadyRunning
         }
-        DiagnosticsLogger.shared.log(
-            "start · audioURL=\(audioURL?.lastPathComponent ?? "nil")",
-            category: "lifecycle"
-        )
-
-        // Auto-load models if not already loaded. Uses provided
-        // modelDirectory if set; otherwise FluidAudio downloads from
-        // Hugging Face into Application Support cache.
+        isStarting = true
+        defer { isStarting = false }
+        let id = UUID()
+        captureID = id
+        if !isPrimed { try await prime() }
         try await ensureModelsLoaded()
-
-        // Open audio file for writing if URL provided.
-        // Pre-create the file with NSFileProtectionComplete so the streamed
-        // AVAudioFile writes inherit Data Protection. CLAUDE.md hard
-        // constraint #3 — casualty audio at rest must be AES-256.
-        if let audioURL, let format = inputFormat {
-            do {
-                try ProtectedWrite.createEmpty(at: audioURL)
-                // AAC encode-on-write. AVFoundation handles PCM -> AAC internally for
-                // .m4a output. If a future iOS release introduces frame-boundary errors
-                // at AAC's 1024-sample input boundary vs our 4096-sample tap buffer,
-                // fall back to an explicit AVAudioConverter with an inputBlock loop.
-                let file = try AVAudioFile(
-                    forWriting: audioURL,
-                    settings: AudioCaptureConfig.aacOutputSettings,
-                    commonFormat: .pcmFormatFloat32,
-                    interleaved: false
-                )
-                self.audioFile = file
-                self.lastRecordingURL = audioURL
-            } catch {
-                self.audioFile = nil
-            }
+        guard captureID == id, let manager else {
+            throw TranscriptStreamError.backendUnavailable("Capture cancelled during startup")
         }
 
         let (stream, continuation) = AsyncStream<RecognitionUpdate>.makeStream()
         self.continuation = continuation
         self.tailDeadline = nil
-        self.isRecognizing = true
-        self.currentPartial = ""
-
-        // Drain pre-roll AFTER the continuation is wired so any callbacks that
-        // fire during/after drain land somewhere instead of being dropped.
-        if let manager {
-            for buf in ringBuffer {
-                try? await manager.appendAudio(buf)
-                try? audioFile?.write(from: buf)
+        lastRecordingURL = nil
+        var recordingIssue: String?
+        if let audioURL {
+            do {
+                try ProtectedWrite.createEmpty(at: audioURL)
+                audioFile = try AVAudioFile(forWriting: audioURL,
+                    settings: AudioCaptureConfig.aacOutputSettings,
+                    commonFormat: .pcmFormatFloat32, interleaved: false)
+                lastRecordingURL = audioURL
+            } catch {
+                audioFile = nil
+                recordingIssue = "Audio recording unavailable: \(error.localizedDescription)"
             }
         }
-
+        let processor = ParakeetAudioProcessor(decoder: FluidParakeetDecoder(manager: manager),
+            captureID: id, onUpdate: { update in continuation.yield(update) }, onFinish: {})
+        self.processor = processor
+        if let recordingIssue {
+            continuation.yield(RecognitionUpdate(text: "", isFinal: false, timestamp: Date(),
+                captureID: id, issue: recordingIssue, audioUnavailable: true))
+        }
+        // No suspension between the pre-roll snapshot and live admission.
+        // Preserve the audio acquisition time for operator-decision checks.
+        for captured in ringBuffer {
+            enqueueForRecognition(captured.buffer, capturedAt: captured.capturedAt)
+            writeRecording(captured.buffer)
+        }
+        isRecognizing = true
+        startStatsTimer()
         return stream
     }
 
     func stop() async {
-        guard isRecognizing else { return }
-        DiagnosticsLogger.shared.log(
-            "stop · tail-scheduled · ticks=\(heartbeatTick) partialLen=\(currentPartial.count)",
-            category: "lifecycle"
-        )
-        if tailDeadline == nil {
-            tailDeadline = Date().addingTimeInterval(tailDuration)
+        guard isRecognizing, !isFinishing, tailDeadline == nil else { return }
+        tailDeadline = Date().addingTimeInterval(tailDuration)
+        let id = captureID
+        tailTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(30)) } catch { return }
+            await self?.endTail(captureID: id)
         }
-        stopStatsTimer()
+    }
+
+    private func endTail(captureID: UUID) async {
+        guard self.captureID == captureID else { return }
+        await teardownRecognizer()
     }
 
     func stopImmediate() async {
-        DiagnosticsLogger.shared.log(
-            "stopImmediate · ticks=\(heartbeatTick) partialLen=\(currentPartial.count)",
-            category: "lifecycle"
-        )
+        if isStarting { captureID = UUID() }
         await teardownRecognizer()
         stopStatsTimer()
+    }
+
+    func forceFinalize() async {
+        guard isRecognizing, !isFinishing else { return }
+        processor?.requestBoundary()
     }
 
     // MARK: - Stats timer (long-form observability)
@@ -509,22 +483,21 @@ actor ParakeetTranscriptStream: TranscriptStream {
         heartbeatTick += 1
         let snap = bufferCounter.drain()
         DiagnosticsLogger.shared.log(
-            "buf · sec=\(heartbeatTick) bufs=\(snap.count) frames=\(snap.totalFrames) lastRMS=\(String(format: "%.4f", snap.lastRMS)) partialLen=\(currentPartial.count)",
+            "buf · sec=\(heartbeatTick) bufs=\(snap.count) frames=\(snap.totalFrames) lastRMS=\(String(format: "%.4f", snap.lastRMS))",
             category: "buffer"
         )
         if heartbeatTick % 60 == 0 {
             let availableBytes = os_proc_available_memory()
             let availableMB = availableBytes / (1024 * 1024)
             DiagnosticsLogger.shared.log(
-                "minute · thermal=\(Self.thermalLabel()) memMB=\(availableMB) partialLen=\(currentPartial.count) isRecognizing=\(isRecognizing)",
+                "minute · thermal=\(Self.thermalLabel()) memMB=\(availableMB) isRecognizing=\(isRecognizing)",
                 category: "minute"
             )
             os_log(
-                "longform stats: available_mem=%lldMB partial_len=%d isRecognizing=%{bool}d",
+                "longform stats: available_mem=%lldMB isRecognizing=%{bool}d",
                 log: Self.statsLog,
                 type: .default,
                 availableMB,
-                currentPartial.count,
                 isRecognizing
             )
         }
@@ -532,19 +505,14 @@ actor ParakeetTranscriptStream: TranscriptStream {
 
     // MARK: - Tap-callback path
 
-    private func ingestBuffer(_ buffer: AVAudioPCMBuffer) {
-        // Resample hardware-format buffer (e.g. 48 kHz mono) to 16 kHz
-        // mono float32. Both FluidAudio (Parakeet expects 16 kHz) and the
-        // AAC encoder consume the resampled buffer. If the converter is
-        // unavailable for any reason, fall back to passthrough so we
-        // don't silently lose audio entirely — but this case should not
-        // happen in practice.
-        let working: AVAudioPCMBuffer
-        if let resampled = resampleToTarget(buffer) {
-            working = resampled
-        } else {
-            working = buffer
+    private func ingestBuffer(_ captured: TimedPCM, generation: UUID) {
+        guard generation == tapGeneration else { return }
+        guard let working = resampleToTarget(captured.buffer) else {
+            processor?.fail("Audio conversion failed; transcription is incomplete")
+            return
         }
+        // A converter can legitimately buffer its initial input before emitting PCM.
+        guard working.frameLength > 0 else { return }
 
         // Apply variable dynamic gain BEFORE storing/streaming so the
         // ring buffer, level meter, and ASR all see the post-gain
@@ -556,28 +524,48 @@ actor ParakeetTranscriptStream: TranscriptStream {
         }
 
         // Always: maintain the ring buffer (now in target format).
-        ringBuffer.append(working)
+        ringBuffer.append(TimedPCM(buffer: working, capturedAt: captured.capturedAt))
         ringBufferFrames += Int(working.frameLength)
         let sampleRate = working.format.sampleRate
         let maxFrames = Int(leadDuration * sampleRate)
         while ringBufferFrames > maxFrames, !ringBuffer.isEmpty {
             let oldest = ringBuffer.removeFirst()
-            ringBufferFrames -= Int(oldest.frameLength)
+            ringBufferFrames -= Int(oldest.buffer.frameLength)
         }
 
         guard isRecognizing else { return }
 
-        // Append to FluidAudio manager + audio file. Both expect 16 kHz
-        // mono float32 (Parakeet's training rate; AAC settings declare
-        // 16 kHz mono).
-        if let manager {
-            Task { try? await manager.appendAudio(working) }
-        }
-        try? audioFile?.write(from: working)
+        enqueueForRecognition(working, capturedAt: captured.capturedAt)
+        writeRecording(working)
+    }
 
-        // Tail deadline check.
-        if let deadline = tailDeadline, Date() >= deadline {
-            Task { await self.teardownRecognizer() }
+    private func audioOverrun(generation: UUID) {
+        guard generation == tapGeneration else { return }
+        processor?.fail("Audio input queue overrun; transcription is incomplete")
+        if isRecognizing {
+            continuation?.yield(RecognitionUpdate(text: "", isFinal: false, timestamp: Date(),
+                captureID: captureID, issue: "Audio input queue overrun; recording may have gaps"))
+        }
+    }
+
+    private func enqueueForRecognition(_ buffer: AVAudioPCMBuffer, capturedAt: TimeInterval) {
+        guard buffer.format.sampleRate == Self.targetSampleRate,
+              buffer.format.channelCount == 1, let data = buffer.floatChannelData else {
+            processor?.fail("Unsupported audio format; transcription is incomplete")
+            return
+        }
+        let samples = Array(UnsafeBufferPointer(start: data[0], count: Int(buffer.frameLength)))
+        _ = processor?.enqueue(samples, capturedAt: capturedAt)
+    }
+
+    private func writeRecording(_ buffer: AVAudioPCMBuffer) {
+        do { try audioFile?.write(from: buffer) }
+        catch {
+            audioFile = nil
+            lastRecordingURL = nil
+            continuation?.yield(RecognitionUpdate(text: "", isFinal: false, timestamp: Date(),
+                captureID: captureID, issue: "Audio recording failed: \(error.localizedDescription)",
+                audioUnavailable: true))
         }
     }
 
@@ -605,125 +593,65 @@ actor ParakeetTranscriptStream: TranscriptStream {
         }
     }
 
-    // MARK: - Emission helpers
-
-    /// Called from FluidAudio's partial-transcript callback. Forwards
-    /// the partial text into the AsyncStream so the UI can show it as
-    /// "ghost text" before EOU.
-    private func emitPartial(_ partial: String) {
-        DiagnosticsLogger.shared.log(
-            "partial · len=\(partial.count) tail=\"\(String(partial.suffix(40)))\"",
-            category: "asr"
-        )
-
-        // Implicit-EOU detection. If Parakeet's new partial is not a
-        // continuation of `currentPartial` (i.e., neither a forward
-        // extension nor a small backward revision), treat that as an
-        // utterance boundary and commit the prior partial as a final
-        // line BEFORE adopting the new one. Without this, fast continuous
-        // speech where Parakeet's internal silence threshold never fires
-        // EOU produces visible bubble-overwriting: the partial visually
-        // replaces itself instead of growing into a new finalised line.
-        //
-        // Bug report 2026-05-07 documented this as MEDIC 01:40 bubbles
-        // wiping their content as new utterances came in. Ground truth
-        // showed 4 distinct utterances; only ~1 was being committed.
-        let isContinuation = partial.hasPrefix(currentPartial)
-        let isShortRevision = currentPartial.hasPrefix(partial)
-        let priorIsSubstantial = currentPartial.count > 20
-        if !currentPartial.isEmpty,
-           !isContinuation,
-           !isShortRevision,
-           priorIsSubstantial {
-            DiagnosticsLogger.shared.log(
-                "partial · IMPLICIT-EOU committing prior (len=\(currentPartial.count)) before new utterance",
-                category: "asr"
-            )
-            let priorPartial = currentPartial
-            currentPartial = ""
-            emitFinal(priorPartial)
-        }
-
-        currentPartial = partial
-        // Defensive ceiling: if the partial grows beyond
-        // `partialStringCeiling` chars without an EOU final, force-finalize
-        // it now to avoid unbounded growth over long recordings.
-        if partial.count > partialStringCeiling {
-            DiagnosticsLogger.shared.log(
-                "partial · CEILING len=\(partial.count) > \(partialStringCeiling) · force-final",
-                category: "asr"
-            )
-            emitFinal(partial)
-            currentPartial = ""
-            return
-        }
-        continuation?.yield(
-            RecognitionUpdate(text: partial, isFinal: false, timestamp: Date()))
-    }
-
-    /// Called from FluidAudio's EOU callback when end-of-utterance is
-    /// detected. Emits a final update to the stream and resets the
-    /// partial accumulator.
-    ///
-    /// Defensive cumulative-vs-fragment merge:
-    /// FluidAudio's EOU callback returns the latest *utterance* recognized
-    /// by Parakeet, which under fast continuous speech (no 2 s silence to
-    /// trigger earlier EOU) can be just the last sub-utterance fragment
-    /// — e.g. two words — while our cumulative `currentPartial` holds the
-    /// full running text we've been showing in the UI for the past minute.
-    /// If the cumulative is meaningfully longer than `finalText`, prefer
-    /// it: losing 58 seconds of accurate transcription to keep two words
-    /// is the wrong trade. Worst case if FluidAudio's `finalText` *is*
-    /// already the cumulative: we commit `currentPartial` which is the
-    /// same thing modulo trailing punctuation. No data loss either way.
-    private func emitFinal(_ finalText: String) {
-        let textToCommit: String
-        let usedPartial: Bool
-        if currentPartial.count > finalText.count + 20 {
-            textToCommit = currentPartial
-            usedPartial = true
-        } else {
-            textToCommit = finalText
-            usedPartial = false
-        }
-        DiagnosticsLogger.shared.log(
-            "final · finalLen=\(finalText.count) partialLen=\(currentPartial.count) committedLen=\(textToCommit.count) usedPartial=\(usedPartial) text=\"\(String(textToCommit.prefix(60)))\"",
-            category: "asr"
-        )
-        continuation?.yield(
-            RecognitionUpdate(text: textToCommit, isFinal: true, timestamp: Date()))
-        currentPartial = ""
-    }
-
     // MARK: - Teardown
 
-    private func teardownRecognizer() async {
-        guard isRecognizing else { return }
+    private func endAudioAdmission(generation: UUID) {
+        guard generation == tapGeneration else { return }
         isRecognizing = false
-        tailDeadline = nil
+    }
 
-        // Flush any remaining audio + tail through the manager.
-        if let manager {
-            do {
-                let finalText = try await manager.finish()
-                if !finalText.isEmpty {
-                    emitFinal(finalText)
+    /// The marker follows every microphone buffer accepted before the cutoff.
+    /// Retrying a full queue preserves the control marker without dropping audio.
+    private func drainAudioIngress() async {
+        guard let audioContinuation else {
+            isRecognizing = false
+            return
+        }
+        await withCheckedContinuation { completion in
+            Task {
+                while true {
+                    switch audioContinuation.yield(.barrier(completion)) {
+                    case .enqueued:
+                        return
+                    case .dropped:
+                        await Task.yield()
+                    case .terminated:
+                        isRecognizing = false
+                        processor?.fail("Audio input ended before capture could drain")
+                        completion.resume()
+                        return
+                    @unknown default:
+                        isRecognizing = false
+                        processor?.fail("Audio input could not complete its capture boundary")
+                        completion.resume()
+                        return
+                    }
                 }
-            } catch {
-                // Don't crash on cleanup failures.
             }
         }
+    }
 
-        let closedURL = lastRecordingURL
-        audioFile = nil
-        // Re-mark complete protection after closing the streamed file.
-        // Idempotent; createEmpty already set it, but AVAudioFile may have
-        // unset/touched attributes during close.
-        if let closedURL {
-            try? ProtectedWrite.markProtected(at: closedURL)
+    private func teardownRecognizer() async {
+        if let teardownTask { await teardownTask.value; return }
+        guard isRecognizing else { return }
+        isFinishing = true
+        tailDeadline = nil
+        tailTask?.cancel(); tailTask = nil
+        let processor = self.processor
+        let task = Task<Void, Never> {
+            await drainAudioIngress()
+            if let processor { await processor.closeAndDrain() }
+            self.processor = nil
+            audioFile = nil
+            if let url = lastRecordingURL { try? ProtectedWrite.markProtected(at: url) }
+            continuation?.finish()
+            continuation = nil
+            teardownTask = nil
+            isFinishing = false
+            stopStatsTimer()
         }
-        continuation?.finish()
-        continuation = nil
+        teardownTask = task
+        await task.value
     }
 
     // MARK: - Helpers
@@ -765,4 +693,32 @@ actor ParakeetTranscriptStream: TranscriptStream {
         }
         return sqrtf(sum / Float(frameLength))
     }
+}
+
+
+/// The serial processor is the sole caller of this driver. Never call the
+/// reentrant FluidAudio manager concurrently while inference is suspended.
+actor FluidParakeetDecoder: ParakeetDecoding {
+    let manager: StreamingEouAsrManager
+    init(manager: StreamingEouAsrManager) { self.manager = manager }
+
+    func process(_ samples: [Float]) async throws -> ParakeetDecodeResult {
+        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+            sampleRate: 16_000, channels: 1, interleaved: false),
+            let buffer = AVAudioPCMBuffer(pcmFormat: format,
+                frameCapacity: AVAudioFrameCount(samples.count)),
+            let target = buffer.floatChannelData else {
+            throw TranscriptStreamError.backendUnavailable("Cannot allocate decoder audio buffer")
+        }
+        buffer.frameLength = AVAudioFrameCount(samples.count)
+        samples.withUnsafeBufferPointer { source in
+            if let base = source.baseAddress { target[0].update(from: base, count: source.count) }
+        }
+        _ = try await manager.process(audioBuffer: buffer)
+        return await ParakeetDecodeResult(text: manager.getPartialTranscript(),
+            endOfUtterance: manager.eouDetected)
+    }
+
+    func finish() async throws -> String { try await manager.finish() }
+    func reset() async { await manager.reset() }
 }
