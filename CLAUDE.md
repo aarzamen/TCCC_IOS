@@ -174,6 +174,13 @@ empty-state (transcript empty).
 
 ## Project state & history
 
+- **Capture reliability sprint, 2026-09-08:** package 793/0; simulator 152
+  executed, 3 skipped, 0 failures. Two physical iPhone 17 Pro / iOS 26.2
+  persistence tests pass, including strict complete-file-protection verification.
+  Simulator skips that property when its filesystem omits the protection
+  attribute; the other two skips require optional Granite model assets.
+  Live-microphone acoustic accuracy remains a separate validation step.
+
 - **Baseline checked 2026-09-07 at `5edde13`.** TCCCKit: 793 tests pass.
   App: 103 pass, 11 fail, 2 skip (116 total). One failed microphone-authorization
   test passes after simulator permission is granted; ten persistence failures
