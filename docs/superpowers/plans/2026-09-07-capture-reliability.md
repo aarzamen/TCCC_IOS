@@ -24,8 +24,10 @@ The simulator cannot establish the iOS file-protection class when its backing fi
 
 Existing device preservation was reused. No repeated backup or repository-recovery cycle was performed. Private recordings, device data, worker traces and detailed local test artifacts are not repository content.
 
+The physical-device file benchmark completed with schema v2: 761 callbacks, first hypothesis at 0.337 seconds, finalized at 8.907 seconds. It retained 49 hypothesis words against 323 reference words: 271 deletions, six substitutions, 85.76% word error rate, 23.08% keyword recall and 1/8 extraction assertions passed. This is a failed speech-coverage result despite successful recognizer finalization. Raw recordings and transcripts remain private. File recognition and live microphone capture are different paths; this result does not establish live accuracy in either direction.
+
 ## Remaining demonstration work
 
 Live-microphone acoustic accuracy, long uninterrupted narration, real-room noise and clinical extraction accuracy are not established by callback tests or a signed build. Use the authored scenario for a timed live recording, inspect retained text against the source, and measure missed/corrected facts before presenting acoustic performance claims.
 
-The next feature slice is operator correction and real casualty intake through the handoff: enter identity, review/correct documentation, export a usable DD1380, and recover the encounter after relaunch. Official-form overlay and practical tester distribution remain explicit follow-throughs. Keep optional backend and hardware expansion behind this demonstration path.
+The next priority is speech coverage: reproduce the missing-file-text behavior, preserve the complete utterance sequence and compare a timed live capture against the same authored scenario. Then complete operator correction and real casualty intake through the handoff: enter identity, review/correct documentation, export a usable DD1380, and recover the encounter after relaunch. Official-form overlay and practical tester distribution remain explicit follow-throughs. Keep optional backend and hardware expansion behind this demonstration path.
