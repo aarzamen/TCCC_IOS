@@ -677,7 +677,11 @@ final class AppState {
     // TCCC engine — full 10-pass dispatch per state.py:515–524.
     // var (not let) so newPatient() / wipeSession() can rebuild a fresh engine.
     var engine = PatientStateEngine.standard()
-    var primaryPatient: PatientState?
+    var primaryPatient: PatientState? {
+        didSet {
+            if oldValue != primaryPatient { clearHandoffDrafts() }
+        }
+    }
     var allPatients: [String: PatientState] = [:]
     var casualtyCounter: Int = 4
     var graniteReviewQueue: [GraniteReviewItem] = []
@@ -1126,8 +1130,7 @@ final class AppState {
         casualtyCounter = 4
         casualtyId = "C-04"
         lastRecordingURL = nil
-        encounterNarrative = nil
-        zmistNarrative = nil
+        clearHandoffDrafts()
         vitalsLog.removeAll()
         lastMedevacTransmitTime = nil
         graniteReviewQueue.removeAll()
@@ -1169,7 +1172,7 @@ final class AppState {
         transcript.removeAll(); transcriptLedger = TranscriptSegmentLedger(); partialTranscript = ""
         recognitionError = nil; primaryPatient = nil; allPatients.removeAll(); sessionStart = Date()
         engine = PatientStateEngine.standard()
-        lastRecordingURL = nil; encounterNarrative = nil; zmistNarrative = nil
+        lastRecordingURL = nil; clearHandoffDrafts()
         vitalsLog.removeAll(); lastMedevacTransmitTime = nil; graniteReviewQueue.removeAll(); lastConflictMessage = nil
         // --- open the new casualty on disk + flush its seed ---
         persistedCursor = 0
@@ -1199,7 +1202,7 @@ final class AppState {
         transcript.removeAll(where: { $0.speaker != .system || !$0.text.contains("CARE ENDED") })
         transcriptLedger = TranscriptSegmentLedger(); partialTranscript = ""
         primaryPatient = nil; allPatients.removeAll(); engine = PatientStateEngine.standard()
-        lastRecordingURL = nil; encounterNarrative = nil; zmistNarrative = nil
+        lastRecordingURL = nil; clearHandoffDrafts()
         vitalsLog.removeAll(); lastMedevacTransmitTime = nil; graniteReviewQueue.removeAll(); lastConflictMessage = nil
         // End Care leaves a clean slate but keeps persistence live for the next casualty
         // under the same id: re-open a fresh dir + flush the new engine's seed.
@@ -1210,13 +1213,13 @@ final class AppState {
 
     // MARK: - SLM-generated text (persists across screen switches)
 
-    /// 2–3 sentence prose summary of the encounter. Set by the Generate
-    /// Narrative button on Handoff. Cleared on lifecycle changes.
-    var encounterNarrative: String?
+    /// Optional drafts persist across screen switches, but never across a
+    /// changed assessment or casualty. Structured ZMIST is derived on demand.
+    var handoffDraftPresentation = HandoffDraftPresentation()
 
-    /// SLM-formatted ZMIST handoff block. Set by the Generate ZMIST button
-    /// on Handoff. Cleared on lifecycle changes.
-    var zmistNarrative: String?
+    /// Clearing stale text does not stop model inference. Keep its reservation
+    /// until the actual work returns, so another tap cannot overlap that work.
+    var activeHandoffDraftRequests: [HandoffDraftKind: UUID] = [:]
 
     // MARK: - Voice commands (Task S3-7)
 

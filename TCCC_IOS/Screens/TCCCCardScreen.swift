@@ -46,25 +46,27 @@ struct TCCCCardScreen: View {
                 BackOfCardView(state: state)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                HStack(spacing: Layout.gridGap) {
-                    casualtyPanel
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ScrollView(.vertical) {
+                    HStack(alignment: .top, spacing: Layout.gridGap) {
+                        casualtyPanel
+                            .frame(maxWidth: .infinity)
 
-                    marchPanel
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        marchPanel
+                            .frame(maxWidth: .infinity)
 
-                    VStack(spacing: Layout.gridGap) {
-                        if !state.pendingWarnings.isEmpty {
-                            WarningBanner(warnings: state.pendingWarnings)
+                        VStack(spacing: Layout.gridGap) {
+                            if !state.pendingWarnings.isEmpty {
+                                WarningBanner(warnings: state.pendingWarnings)
+                            }
+                            pawsPanel
+                                .frame(maxWidth: .infinity)
+                            medsPanel
+                                .frame(maxWidth: .infinity)
                         }
-                        pawsPanel
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        medsPanel
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(Layout.outerPadding)
                 }
-                .padding(Layout.outerPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
@@ -100,7 +102,12 @@ struct TCCCCardScreen: View {
             action: casualtyHeaderAction,
             padded: true
         ) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
+                BodyMap(patient: patient)
+                    .frame(maxWidth: .infinity)
+
+                Rectangle().fill(palette.line).frame(height: Layout.hairline)
+
                 LazyVGrid(
                     columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)],
                     spacing: 6
@@ -111,15 +118,6 @@ struct TCCCCardScreen: View {
                     Field(label: "Allrg", value: state.casualtyAllergies)
                 }
 
-                Rectangle()
-                    .fill(palette.line)
-                    .frame(height: Layout.hairline)
-
-                BodyMap(patient: patient)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 140, maxHeight: 160)
-
-                bodyMapLegend
             }
         }
     }
@@ -130,20 +128,6 @@ struct TCCCCardScreen: View {
         if let moi = patient.mechanismOfInjury { parts.append(moi.uppercased()) }
         if let cls = patient.classification { parts.append(cls.rawValue.uppercased()) }
         return parts.isEmpty ? "—" : parts.joined(separator: " · ")
-    }
-
-    private var bodyMapLegend: some View {
-        HStack(spacing: 14) {
-            HStack(spacing: 4) {
-                Circle().fill(palette.crit).frame(width: 6, height: 6)
-                Text("Wound").font(.system(size: 9, weight: .semibold)).tracking(1.4).textCase(.uppercase).foregroundStyle(palette.fg2)
-            }
-            HStack(spacing: 4) {
-                Rectangle().fill(palette.accent).frame(width: 10, height: 3)
-                Text("TQ").font(.system(size: 9, weight: .semibold)).tracking(1.4).textCase(.uppercase).foregroundStyle(palette.fg2)
-            }
-            Spacer(minLength: 0)
-        }
     }
 
     // MARK: - MARCH panel
@@ -308,7 +292,7 @@ struct TCCCCardScreen: View {
                 .tracking(1.6)
                 .foregroundStyle(palette.fg2)
                 .textCase(.uppercase)
-            Text("Tap MED GIVEN on Live Capture to log")
+            Text("Dictate the medication, dose, route and time; then review the transcript.")
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
                 .foregroundStyle(palette.fg3)
         }
@@ -323,4 +307,3 @@ struct TCCCCardScreen: View {
         return "DRAFT"
     }
 }
-

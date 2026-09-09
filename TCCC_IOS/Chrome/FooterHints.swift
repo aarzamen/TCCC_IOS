@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Footer chrome — always present at the bottom of every screen. Hosts:
-///   - swipe affordances (← prev screen / next screen →)
+///   - tappable page navigation (← prev screen / next screen →)
 ///   - lifecycle quick-tap buttons (NEW / END) that raise a `ConfirmationBanner`
 ///     at the top of the screen on tap
 ///   - WIPE: a compact hold-3s affordance, visually isolated in a crit-colored
@@ -55,32 +55,64 @@ struct FooterHints: View {
 
     // MARK: - Sides
 
+    private var canGoBack: Bool {
+        leadingLabel != nil && state.screen.rawValue > AppState.Screen.liveCapture.rawValue
+    }
+
+    private var canGoForward: Bool {
+        trailingLabel != nil && state.screen.rawValue < AppState.Screen.handoff.rawValue
+    }
+
     private var previousArrow: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "arrow.left")
-                .font(.system(size: 11, weight: .semibold))
-            if let leadingLabel {
-                Text(leadingLabel)
-                    .tccc(.labelSmall)
-                    .textCase(.uppercase)
+        Button {
+            withAnimation(.pageTransition) { state.previousScreen() }
+            Haptics.tap(.light)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.left")
+                    .font(.system(size: 11, weight: .semibold))
+                if let leadingLabel {
+                    Text(leadingLabel)
+                        .tccc(.labelSmall)
+                        .textCase(.uppercase)
+                }
             }
+            .frame(minWidth: Layout.minHitTarget, minHeight: Layout.minHitTarget)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .foregroundStyle(palette.fg2)
-        .opacity(leadingLabel == nil ? 0.0 : 1.0)
+        .disabled(!canGoBack)
+        .opacity(canGoBack ? 1 : 0)
+        .accessibilityHidden(!canGoBack)
+        .accessibilityLabel("Previous page: \(leadingLabel ?? "")")
+        .accessibilityIdentifier("footer.previousPage")
     }
 
     private var nextArrow: some View {
-        HStack(spacing: 6) {
-            if let trailingLabel {
-                Text(trailingLabel)
-                    .tccc(.labelSmall)
-                    .textCase(.uppercase)
+        Button {
+            withAnimation(.pageTransition) { state.nextScreen() }
+            Haptics.tap(.light)
+        } label: {
+            HStack(spacing: 6) {
+                if let trailingLabel {
+                    Text(trailingLabel)
+                        .tccc(.labelSmall)
+                        .textCase(.uppercase)
+                }
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .semibold))
             }
-            Image(systemName: "arrow.right")
-                .font(.system(size: 11, weight: .semibold))
+            .frame(minWidth: Layout.minHitTarget, minHeight: Layout.minHitTarget)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .foregroundStyle(palette.accent)
-        .opacity(trailingLabel == nil ? 0.0 : 1.0)
+        .disabled(!canGoForward)
+        .opacity(canGoForward ? 1 : 0)
+        .accessibilityHidden(!canGoForward)
+        .accessibilityLabel("Next page: \(trailingLabel ?? "")")
+        .accessibilityIdentifier("footer.nextPage")
     }
 
     // MARK: - Center action row

@@ -4,7 +4,8 @@
 // /Users/ama/TCCC_FEB_2026/src/state.py (lines 857–896), using the
 // `fracture_patterns` table at lines 459–469.
 //
-// Behaviour preserved verbatim from the Python source:
+// Detection behavior retained from the Python source, with the unsupported
+// fracture-to-hemorrhage inference removed:
 //
 //   1. The top-level "fracture" pattern gates whether the location patterns
 //      are even tried. If "fracture", "broken bone/leg/arm", or "fx" doesn't
@@ -16,11 +17,8 @@
 //      `femur fracture` — the parameterised one wins by being listed first.
 //   3. The descriptor is appended to `injuries` (capitalised) only if no
 //      existing injury already contains it (case-insensitive substring).
-//   4. Femur or thigh fractures additionally seed
-//      `march.hemorrhageLocation` ("right thigh (femur fracture)") since
-//      femur fractures carry significant internal-bleeding risk. If a
-//      hemorrhage location already exists and doesn't already mention
-//      "femur", append "(femur fracture)" to it.
+//   4. Fractures never populate or annotate `march.hemorrhageLocation`.
+//      A risk of internal bleeding is not an observed bleeding location.
 //   5. Splinting is detected with a separate top-level pattern (independent
 //      of the fracture pattern). The descriptor is "Traction splint (Sager)"
 //      for sager/traction splints, "SAM splint" for SAM, otherwise the
@@ -36,8 +34,8 @@ import Foundation
 import TCCCDomain
 
 /// Extracts fractures and splinting interventions. Updates `state.injuries`
-/// with the fracture descriptor, may seed `state.march.hemorrhageLocation`
-/// for femur/thigh fractures (internal-bleeding risk), and appends to
+/// with the fracture descriptor, preserves independently recorded hemorrhage,
+/// and appends to
 /// `state.interventions` when a splint is detected.
 public struct FractureExtractor: ExtractorPass {
 
@@ -142,19 +140,6 @@ public struct FractureExtractor: ExtractorPass {
                 // already contains the descriptor (case-insensitive substring).
                 if !s.injuries.contains(where: { $0.lowercased().contains(descLower) }) {
                     s.injuries.append(Self.capitalizeFirst(descriptor))
-                }
-
-                // 4. Femur/thigh: seed or annotate hemorrhage location.
-                if descLower.contains("femur") || descLower.contains("thigh") {
-                    if let existing = s.march.hemorrhageLocation {
-                        if !existing.lowercased().contains("femur") {
-                            s.march.hemorrhageLocation = "\(existing) (femur fracture)"
-                        }
-                    } else {
-                        // Python hard-codes "right thigh (femur fracture)" here
-                        // even when no side was detected. Mirror that quirk.
-                        s.march.hemorrhageLocation = "right thigh (femur fracture)"
-                    }
                 }
 
                 break

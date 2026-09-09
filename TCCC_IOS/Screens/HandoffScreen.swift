@@ -25,10 +25,6 @@ struct HandoffScreen: View {
     @State private var shareItems: [Any] = []
     @State private var shareSheetVisible: Bool = false
 
-    @State private var isGeneratingNarrative: Bool = false
-    @State private var isGeneratingZMIST: Bool = false
-    @State private var slmError: String?
-
     private let dd1380Export = DD1380PDFExportService()
 
     private var patient: PatientState? { state.primaryPatient }
@@ -97,14 +93,18 @@ struct HandoffScreen: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
+                        slmBlock(label: "ZMIST · Current assessment", body: state.structuredZMIST, mono: true)
+                        Rectangle()
+                            .fill(palette.line)
+                            .frame(height: Layout.hairline)
                         if let narrative = state.encounterNarrative, !narrative.isEmpty {
-                            slmBlock(label: "Narrative", body: narrative)
+                            slmBlock(label: "AI narrative · Review", body: narrative)
                             Rectangle()
                                 .fill(palette.line)
                                 .frame(height: Layout.hairline)
                         }
                         if let zmist = state.zmistNarrative, !zmist.isEmpty {
-                            slmBlock(label: "ZMIST", body: zmist, mono: true)
+                            slmBlock(label: "AI ZMIST rewrite · Review", body: zmist, mono: true)
                             Rectangle()
                                 .fill(palette.line)
                                 .frame(height: Layout.hairline)
@@ -160,57 +160,49 @@ struct HandoffScreen: View {
     }
 
     private var slmActionRow: some View {
-        HStack(spacing: 6) {
-            // Persistent SLM availability badge — supersedes the one-shot
-            // error pop. Per night-pass A5.
-            FMStatusBadge(state: state)
-            slmButton(
-                title: state.encounterNarrative == nil ? "Narrative" : "Regen",
-                icon: "wand.and.stars",
-                isLoading: isGeneratingNarrative,
-                action: handleGenerateNarrative
-            )
-            slmButton(
-                title: state.zmistNarrative == nil ? "ZMIST" : "Regen Z",
-                icon: "doc.text.fill",
-                isLoading: isGeneratingZMIST,
-                action: handleGenerateZMIST
-            )
-            if state.encounterNarrative != nil || state.zmistNarrative != nil {
-                Button {
-                    state.encounterNarrative = nil
-                    state.zmistNarrative = nil
-                    slmError = nil
-                } label: {
-                    HStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                FMStatusBadge(state: state)
+                slmButton(
+                    title: "AI Narrative",
+                    icon: "wand.and.stars",
+                    isLoading: state.isGeneratingHandoffDraft(.narrative),
+                    action: { handleGenerateDraft(.narrative) }
+                )
+                slmButton(
+                    title: "AI Rewrite",
+                    icon: "doc.text.fill",
+                    isLoading: state.isGeneratingHandoffDraft(.zmist),
+                    action: { handleGenerateDraft(.zmist) }
+                )
+                if state.encounterNarrative != nil || state.zmistNarrative != nil ||
+                    state.isGeneratingHandoffDraft(.narrative) || state.isGeneratingHandoffDraft(.zmist) {
+                    Button {
+                        state.clearHandoffDrafts()
+                    } label: {
                         Image(systemName: "xmark")
-                        Text("Clear")
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundStyle(palette.fg2)
+                            .frame(minWidth: Layout.minHitTarget, minHeight: Layout.minHitTarget)
+                            .overlay(
+                                Rectangle()
+                                    .strokeBorder(palette.line, lineWidth: Layout.hairline)
+                            )
                     }
-                    .font(.system(size: 10, weight: .heavy))
-                    .tracking(1.2)
-                    .textCase(.uppercase)
-                    .foregroundStyle(palette.fg2)
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 8)
-                    .overlay(
-                        Rectangle()
-                            .strokeBorder(palette.line, lineWidth: Layout.hairline)
-                    )
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear AI drafts")
+                    .accessibilityHint("Keeps the current assessment and structured ZMIST")
                 }
-                .buttonStyle(.plain)
+            }
+            if let error = state.handoffDraftError {
+                Text(error)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(palette.crit)
+                    .lineLimit(2)
             }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .overlay(alignment: .bottom) {
-            if let err = slmError {
-                Text(err)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(palette.crit)
-                    .lineLimit(2)
-                    .padding(.horizontal, 12)
-            }
-        }
     }
 
     private func slmButton(title: String, icon: String, isLoading: Bool, action: @escaping () -> Void) -> some View {
@@ -230,76 +222,27 @@ struct HandoffScreen: View {
             .foregroundStyle(palette.fg)
             .padding(.vertical, 6)
             .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: Layout.minHitTarget)
             .overlay(
                 Rectangle()
                     .strokeBorder(palette.accentDim, lineWidth: Layout.hairline)
             )
         }
         .buttonStyle(.plain)
-        .disabled(isLoading)
+        .disabled(isLoading || patient == nil)
     }
 
-    // MARK: - SLM action handlers
+    // MARK: - Optional model drafts
 
-    private func handleGenerateNarrative() {
-        let p = patient
-        let id = state.casualtyId
+    private func handleGenerateDraft(_ kind: HandoffDraftKind) {
+        guard let request = state.beginHandoffDraft(kind) else { return }
         Task { @MainActor in
-            slmError = nil
-            isGeneratingNarrative = true
-            defer { isGeneratingNarrative = false }
-
-            // Pull a current GPS fix before generating the handoff document.
-            await state.captureGPSFix(silent: true)
-
-            let backend = state.currentBackend
-            let availability = await backend.availability
-            guard availability == .available else {
-                slmError = availability.message(for: backend.displayName)
-                return
-            }
-
-            do {
-                let narrativeGenerator = EncounterNarrativeGenerator(backend: backend)
-                let text = try await narrativeGenerator.generate(for: p, casualtyId: id)
-                state.encounterNarrative = text
-            } catch {
-                slmError = error.localizedDescription
-            }
-        }
-    }
-
-    private func handleGenerateZMIST() {
-        let p = patient
-        let id = state.casualtyId
-        Task { @MainActor in
-            slmError = nil
-            isGeneratingZMIST = true
-            defer { isGeneratingZMIST = false }
-
-            // Pull a current GPS fix before generating the ZMIST handoff.
-            await state.captureGPSFix(silent: true)
-
-            let backend = state.currentBackend
-            let availability = await backend.availability
-            guard availability == .available else {
-                slmError = availability.message(for: backend.displayName)
-                return
-            }
-
-            do {
-                let zmistGenerator = ZMISTNarrativeGenerator(backend: backend)
-                let text = try await zmistGenerator.generate(for: p, casualtyId: id)
-                state.zmistNarrative = text
-            } catch {
-                slmError = error.localizedDescription
-            }
+            await state.generateHandoffDraft(request)
         }
     }
 
     private var summaryFooter: some View {
-        Text("AI-GENERATED · MEDIC TO VERIFY BEFORE TRANSMIT")
+        Text("VERIFY RECORDED FACTS BEFORE HANDOFF")
             .font(.system(size: 11, weight: .medium, design: .monospaced))
             .tracking(1.4)
             .foregroundStyle(palette.fg3)
@@ -349,32 +292,38 @@ struct HandoffScreen: View {
 
     private var exportColumn: some View {
         Panel("Export · Transmit", titleIcon: "square.and.arrow.up", padded: false) {
-            VStack(spacing: 0) {
-                exportCardsBlock
-                    .padding(.horizontal, 12)
-                    .padding(.top, 12)
+            GeometryReader { viewport in
+                ScrollView(.vertical) {
+                    VStack(spacing: 0) {
+                        exportCardsBlock
+                            .padding(.horizontal, 12)
+                            .padding(.top, 12)
 
-                Rectangle()
-                    .fill(palette.line)
-                    .frame(height: Layout.hairline)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 12)
+                        Rectangle()
+                            .fill(palette.line)
+                            .frame(height: Layout.hairline)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
 
-                destinationLabel
-                    .padding(.horizontal, 12)
-                destinationGrid
-                    .padding(.horizontal, 12)
-                    .padding(.top, 6)
+                        destinationLabel
+                            .padding(.horizontal, 12)
+                        destinationGrid
+                            .padding(.horizontal, 12)
+                            .padding(.top, 6)
 
-                Spacer(minLength: 8)
+                        transmitButtonBlock
+                            .padding(.horizontal, 12)
+                            .padding(.top, 8)
 
-                transmitButtonBlock
-                    .padding(.horizontal, 12)
-
-                transmitFooter
-                    .padding(.top, 6)
-                    .padding(.bottom, 12)
-                    .padding(.horizontal, 12)
+                        transmitFooter
+                            .padding(.top, 6)
+                            .padding(.bottom, 12)
+                            .padding(.horizontal, 12)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .frame(width: viewport.size.width, height: viewport.size.height, alignment: .topLeading)
+                .scrollBounceBehavior(.basedOnSize)
             }
         }
     }

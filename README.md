@@ -28,9 +28,9 @@ Verified on an iPhone 17 Pro (iOS 26.x) and in the iOS Simulator.
 |---|---|---|
 | 01 Live Capture | On-device ASR with live transcript; engine-extracted facts panel; 30 s pre-roll + 30 s tail; two "Load demo" buttons to seed the engine without speaking | Engine runs on committed lines, not partials |
 | 02 Vital Signs Log | DD 1380 Section C grid (4 timestamped columns × 7 rows) populated from engine snapshots; interventions panel | **Cells are read-only** — tap-to-edit is not built |
-| 03 TCCC Card | Anterior + posterior body diagram, MARCH (incl. Hypothermia §7 + TBI §8 sub-rows), PAWS, meds log, front/back card with §D–H scaffold | §D–H fields are best-effort from extracted state; not all are populated |
+| 03 TCCC Card | Front/back regional body diagram with patient laterality and explicit unknowns, MARCH (incl. Hypothermia §7 + TBI §8 sub-rows), PAWS, meds log, front/back card with §D–H scaffold | §D–H fields are best-effort from extracted state; not all are populated |
 | 04 MEDEVAC | Auto-populated 9-line (incl. in-house WGS-84→MGRS for Line 1), voice-readable transmit script | **"Transmit" produces a script and logs an event — there is no over-the-air transmission of any kind** |
-| 05 Handoff | Encounter summary, timeline, on-device LLM narrative + ZMIST, JSON / audio+transcript / CSV exports, offline QR, **DD-1380 PDF** (deterministic two-page export, protected at rest, shared via the sheet) | DD-1380 uses a **fallback layout, not the official DD Form 1380 template**; identity fields are still **mock app-state** |
+| 05 Handoff | Encounter summary, timeline, immediate structured ZMIST plus optional on-device model drafts, JSON / audio+transcript / CSV exports, offline QR, **DD-1380 PDF** (deterministic two-page export, protected at rest, shared via the sheet) | DD-1380 uses a **fallback layout, not the official DD Form 1380 template**; unentered identity fields stay blank |
 
 **Lifecycle & persistence (shipped, device-validated):** each casualty's
 encounter is an append-only event log written continuously to disk
@@ -43,25 +43,17 @@ locked-device-unreadability property has not been independently audited.)
 
 ## Transcript pipeline
 
-The streaming-ASR commit path is **loss-safe and identity-scoped**:
+Apple Speech and Parakeet show partial words as previews. Finalized capture
+segments enter extraction once, under their capture/request identity. Incomplete
+segments remain audit evidence instead of becoming clinical facts. STOP includes
+a 30-second tail; wait for finalization before reviewing the completed encounter.
+Parakeet drains ordered audio through conversion and decoding before completion.
+The experimental Granite path retains its provisional-replace compatibility flow.
 
-- Speech is committed to the on-screen transcript as soon as a short
-  silence settles (a "provisional" line), so nothing is lost to a
-  missing or late recognizer finalization.
-- When the recognizer revises its words (e.g. "high-end" → "high and
-  tight"), the **refined text replaces the provisional line in place**
-  and the extraction engine supersedes that chunk's derived facts —
-  refined words win in both the transcript and the structured record,
-  with the originally-heard text retained in the audit log.
-- There is no lexical de-duplication heuristic; replacement is scoped by
-  chunk identity, which eliminates the duplicate/fragment artifacts the
-  earlier approach produced.
-
-This is implemented as an event-sourced projection: `PatientState` is a
-deterministic fold over the event log, the engine is the sole writer of
-state, and the LLM never mutates state. The design and implementation
-notes live in `docs/superpowers/specs/` and `docs/superpowers/plans/`
-(`2026-06-28-asr-provisional-replace*`).
+`PatientState` is an event-sourced projection. The engine is its sole writer;
+a language model cannot mutate the clinical record. See the September capture,
+speech-coverage and Parakeet plans under `docs/superpowers/plans/` for verification
+and remaining speech-accuracy limits.
 
 ## Clinical alignment
 
@@ -74,15 +66,18 @@ or a MARCH/PAWS phase-status change. See `CLAUDE.md` for the audit log.
 
 ## Tests
 
-- **TCCCKit (pure logic): 768 unit tests, 0 failures** — run in isolation
+- **TCCCKit (pure logic): 836 tests, 0 failures** (2026-09-08) — run in isolation
   with `swift test`, no simulator needed. These mirror the Python
   prototype's assertions plus Swift-only coverage of the event-sourcing
   fold, projection equivalence, and the transcript pipeline.
-- **App target: 92 tests, 0 failures** — AppState lifecycle, persistence,
-  exports, and provisional-replace behavior.
+- **App target: 199 tests, 3 expected skips, 0 failures** (2026-09-08) — AppState lifecycle, persistence,
+  exports, and capture identity, regional body-map presentation, handoff isolation and draft generation.
 
-There is no end-to-end UI-automation suite; on-device behavior is
-validated manually.
+The 2026-09-08 body-map/handoff change includes simulator navigation, native
+renders in all three themes, and an independent source review. Automated
+vertical-drag checks are inconclusive even with page gestures removed; final
+physical touch verification is deferred while the operator records field audio.
+There is no end-to-end UI-automation suite.
 
 ## Architecture
 
@@ -208,6 +203,33 @@ xcrun devicectl device process launch --device <device-uuid> com.aarzamen.TCCCai
 
 `xcrun devicectl list devices` lists connected device UUIDs.
 
+The standalone [body-map SVG](reference/body-map.svg) matches the native vector
+outline. Runtime region shading comes from the recorded assessment.
+
+## Field walkthrough
+
+1. On Capture, start recording and check the timer and incoming transcript.
+   Speech recognition can miss words: audio capture, transcription, and extracted
+   facts are separate things to check. MED GIVEN is a marker, not a completed
+   medication entry; dictate the actual medication, dose, route and time.
+2. Use the footer arrows or swipe to Vitals and the Card. Check the values against
+   what was actually said. Empty fields mean not recorded, not normal.
+3. On the Card, both figures show the same casualty. R/L always means the patient's
+   right/left. Shading indicates a recorded bleeding region, not an exact wound,
+   injury count, or treatment position. With no front/back surface recorded, the
+   same region is dashed on both figures. An unknown side or unmappable location
+   stays in text. Tourniquet interventions remain text because their position is
+   not independently recorded. This is not a complete injury inventory.
+4. Scroll the card for longer findings; the card-side tabs and page controls stay
+   available. Back of card means DD 1380 sections D–H, not the posterior body view.
+5. STOP recording and allow the tail/finalization to finish. On Handoff, read the
+   structured ZMIST directly. Optional model prose is separate and needs review;
+   changing findings or casualty invalidates it. No model download is required
+   for the structured handoff.
+6. Review and explicitly share the selected export. The PDF uses a fallback layout;
+   no transmission occurs merely by viewing or generating it. NEW and END archive
+   care; WIPE purges the archive. Use NEW when moving to another casualty.
+
 ## Demo path
 
 1. Live Capture is the default screen. Tap **Load demo · GSW thigh**
@@ -215,8 +237,9 @@ xcrun devicectl device process launch --device <device-uuid> com.aarzamen.TCCCai
 2. The EXTRACTED panel populates with engine-derived facts (MOI,
    hemorrhage location, vitals, classification, etc.).
 3. Swipe through the five screens; each renders the same engine state.
-4. On Handoff, **Narrative** and **ZMIST** invoke the selected on-device
-   language model (if available) to produce prose summaries.
+4. On Handoff, **ZMIST · Current assessment** is ready immediately.
+   Optional **AI Narrative** / **AI Rewrite** model drafts require review; unavailable
+   models do not block the structured handoff.
 5. **JSON Encounter** and **Audio + Transcript** open the iOS share sheet
    with the corresponding files.
 6. Hold **Transmit** for two seconds with **QR · OFFLINE** selected to
@@ -230,9 +253,8 @@ xcrun devicectl device process launch --device <device-uuid> com.aarzamen.TCCCai
 - DD-1380 PDF export — **shipped**: a deterministic two-page PDF mapped
   from structured state (no LLM), protected at rest, shared only on explicit
   operator action. Remaining gaps: it renders a **fallback layout**, not the
-  official DD Form 1380 template, and the **identity fields** (name / service
-  number / unit / allergies / sex / service branch) are **placeholder
-  app-state**, not a real roster or intake source.
+  official DD Form 1380 template. Unentered identity and clinical values
+  remain blank; there is no roster integration.
 - Section C grid tap-to-edit — read-only today.
 - Over-the-air MEDEVAC transmission — intentionally absent (RF discipline);
   "Transmit" is script + logged event only.
