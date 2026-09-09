@@ -104,7 +104,7 @@ final class HemorrhageExtractorTests: XCTestCase {
         var initial = PatientState(patientId: "PATIENT_1")
         initial.march.hemorrhageLocation = "right thigh"
         let s = h.apply(initial,
-                        context: freshContext("Applying tourniquet to the right leg."))
+                        context: freshContext("Applying tourniquet to the right thigh."))
         XCTAssertEqual(s.march.hemorrhageIntervention, "Tourniquet applied (right thigh)")
     }
 
@@ -272,6 +272,37 @@ final class HemorrhageExtractorTests: XCTestCase {
     }
 
     // MARK: - Bilateral inference (right + left across sentences)
+
+    func testDifferentSidedAnatomyRemainsSeparateLocations() {
+        for (first, second) in [("right thigh", "left arm"), ("right arm", "left forearm"), ("right thigh", "left leg"), ("right upper thigh", "left thigh")] {
+            var state = PatientState(patientId: "PATIENT_1")
+            state = h.apply(state, context: freshContext("Bleeding from \(first)."))
+            state = h.apply(state, context: freshContext("Bleeding from \(second)."))
+            XCTAssertEqual(state.march.hemorrhageLocation, "\(first), \(second)")
+        }
+    }
+
+    func testBilateralLocationDoesNotSwallowAdditionalInjurySite() {
+        var state = PatientState(patientId: "PATIENT_1")
+        state = h.apply(state, context: freshContext("Both legs are bleeding."))
+        state = h.apply(state, context: freshContext("Bleeding from left arm."))
+        XCTAssertEqual(state.march.hemorrhageLocation, "bilateral legs, left arm")
+    }
+
+    func testForearmPairBecomesBilateralForearms() {
+        var state = PatientState(patientId: "PATIENT_1")
+        state = h.apply(state, context: freshContext("Bleeding from right forearm."))
+        state = h.apply(state, context: freshContext("Bleeding from left forearm."))
+        XCTAssertEqual(state.march.hemorrhageLocation, "bilateral forearms")
+    }
+
+    func testRepeatedSiteInMixedLocationsIsNotDuplicated() {
+        var state = PatientState(patientId: "PATIENT_1")
+        for location in ["right thigh", "left arm", "right thigh"] {
+            state = h.apply(state, context: freshContext("Bleeding from \(location)."))
+        }
+        XCTAssertEqual(state.march.hemorrhageLocation, "right thigh, left arm")
+    }
 
     func testRightLegThenLeftLegMergesToBilateral() {
         var state = PatientState(patientId: "PATIENT_1")

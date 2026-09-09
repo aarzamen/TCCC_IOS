@@ -273,66 +273,52 @@ public struct HemorrhageExtractor: ExtractorPass {
 
     // MARK: - Location merging
     //
-    // Mirrors the right + left → bilateral inference and the redundancy guard
-    // that Python's `_extract_hemorrhage` performs (state.py:610–637).
+    // Bilateral requires matching anatomy and specificity. Different sites
+    // remain separate recorded text rather than becoming a fabricated pair.
 
     private func mergeLocation(new: String, current: String?) -> String {
-        guard let current = current else { return new }
-        let cur = current.lowercased()
-
-        // Skip if the new location is redundant with the existing one.
-        if isRedundantLocation(newLocation: new, current: cur) {
+        guard let current else { return new }
+        let existing = current.split(separator: ",").map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if existing.contains(where: { isRedundantLocation(newLocation: new, current: $0) }) {
             return current
         }
-
-        // Detect bilateral from right + left.
-        if !cur.contains("bilateral") {
-            let hasRight = cur.contains("right") || new.contains("right")
-            let hasLeft = cur.contains("left") || new.contains("left")
-            if hasRight && hasLeft {
-                let parts = ["leg", "thigh", "arm", "forearm", "extremity"]
-                if let bodyPart = parts.first(where: { cur.contains($0) || new.contains($0) }) {
-                    return "bilateral \(bodyPart)s"
-                }
-                return "bilateral lower extremities"
-            }
-            if !cur.contains(new) {
-                return "\(current), \(new)"
+        if existing.count == 1,
+           let old = locationComponents(current), let incoming = locationComponents(new),
+           old.site == incoming.site {
+            if incoming.side == "bilateral" { return new }
+            if (old.side == "right" && incoming.side == "left") ||
+               (old.side == "left" && incoming.side == "right") {
+                let plural = old.site.hasSuffix("extremity")
+                    ? String(old.site.dropLast()) + "ies" : old.site + "s"
+                return "bilateral \(plural)"
             }
         }
-        return current
+        return "\(current), \(new)"
     }
 
-    /// Mirrors `_is_redundant_location` from state.py:1049–1094.
     private func isRedundantLocation(newLocation: String, current: String) -> Bool {
-        let newLower = newLocation.lowercased()
-        let curLower = current.lowercased()
+        if current.lowercased() == newLocation.lowercased() { return true }
+        guard let incoming = locationComponents(newLocation),
+              let old = locationComponents(current), incoming.site == old.site else { return false }
+        return incoming.side == old.side || old.side == "bilateral"
+    }
 
-        // Direct containment check.
-        if curLower.contains(newLower) { return true }
-
-        let sides = ["right", "left", "bilateral"]
-        let bodyParts = ["thigh", "leg", "arm", "forearm", "extremity", "extremities"]
-
-        func extractComponents(_ loc: String) -> (side: String?, part: String?) {
-            let side = sides.first(where: { loc.contains($0) })
-            let part = bodyParts.first(where: { loc.contains($0) })
-            return (side, part)
+    /// Exact anatomical tokens avoid treating "forearm" as "arm", and retain
+    /// qualifiers such as upper thigh instead of silently broadening them.
+    private func locationComponents(_ location: String) -> (side: String, site: String)? {
+        let words = location.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
+        guard (2...3).contains(words.count),
+              let side = words.first, ["right", "left", "bilateral"].contains(side),
+              let last = words.last else { return nil }
+        let singular = ["thighs": "thigh", "legs": "leg", "arms": "arm", "forearms": "forearm", "extremities": "extremity"][last] ?? last
+        guard ["thigh", "leg", "arm", "forearm", "extremity"].contains(singular) else { return nil }
+        if words.count == 3 {
+            guard ["upper", "lower"].contains(words[1]) else { return nil }
+            return (side, "\(words[1]) \(singular)")
         }
-
-        let (newSide, newPart) = extractComponents(newLower)
-        let (curSide, curPart) = extractComponents(curLower)
-
-        if let newSide = newSide, let curSide = curSide, newSide == curSide,
-           let newPart = newPart, let curPart = curPart {
-            if newPart == curPart { return true }
-            // "thigh" is part of "leg" anatomically.
-            if (newPart == "thigh" && curPart == "leg") ||
-               (newPart == "leg" && curPart == "thigh") {
-                return true
-            }
-        }
-        return false
+        return (side, singular)
     }
 
     // MARK: - Regex helpers

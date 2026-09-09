@@ -10,6 +10,7 @@ struct ScreenPager: View {
                 ForEach(AppState.Screen.allCases) { screen in
                     screenView(for: screen)
                         .frame(width: geo.size.width, height: geo.size.height)
+                        .accessibilityHidden(screen != state.screen)
                 }
             }
             .offset(x: -CGFloat(state.screen.rawValue) * geo.size.width + dragOffset)

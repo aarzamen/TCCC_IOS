@@ -106,29 +106,34 @@ final class FractureExtractorTests: XCTestCase {
         XCTAssertNil(s.march.hemorrhageLocation)
     }
 
-    // MARK: - Femur fracture seeds hemorrhage location
+    // MARK: - Fractures do not infer hemorrhage
 
-    func testFemurFractureSeedsHemorrhageLocationWhenEmpty() {
-        let s = extractor.apply(
-            emptyState(),
-            context: makeContext(sentence: "Right femur fracture identified.")
-        )
-        XCTAssertNotNil(s.march.hemorrhageLocation)
-        XCTAssertTrue(s.march.hemorrhageLocation!.lowercased().contains("femur"))
+    func testFemurFractureKeepsBleedingUnknownAndPreservesStatedLaterality() {
+        for descriptor in ["Right femur fracture", "Left femur fracture", "Femur fracture"] {
+            let s = extractor.apply(
+                emptyState(),
+                context: makeContext(sentence: "\(descriptor) identified.")
+            )
+            XCTAssertEqual(s.injuries, [descriptor])
+            XCTAssertEqual(s.march, emptyState().march, descriptor)
+        }
     }
 
-    func testFemurFractureAnnotatesExistingHemorrhageLocation() {
+    func testFemurFracturePreservesIndependentHemorrhageWithoutAnnotation() {
         var seed = emptyState()
-        seed.march.hemorrhageLocation = "right thigh"
+        seed.march.hemorrhageIdentified = true
+        seed.march.hemorrhageLocation = "right forearm"
+        seed.march.hemorrhageIntervention = "Pressure dressing applied"
         let s = extractor.apply(
             seed,
-            context: makeContext(sentence: "Right femur fracture identified.")
+            context: makeContext(sentence: "Left femur fracture identified.")
         )
-        XCTAssertEqual(s.march.hemorrhageLocation, "right thigh (femur fracture)")
+        XCTAssertEqual(s.march, seed.march)
+        XCTAssertEqual(s.injuries, ["Left femur fracture"])
     }
 
-    func testFemurFractureDoesNotDoubleAnnotate() {
-        // Pre-existing location already mentions "femur" — Python skips annotation.
+    func testFemurFractureDoesNotRewriteExistingRecordedLocation() {
+        // Prior recorded state is preserved; this pass does not rewrite history.
         var seed = emptyState()
         seed.march.hemorrhageLocation = "right thigh (femur fracture)"
         let s = extractor.apply(
@@ -136,6 +141,26 @@ final class FractureExtractorTests: XCTestCase {
             context: makeContext(sentence: "Right femur fracture confirmed.")
         )
         XCTAssertEqual(s.march.hemorrhageLocation, "right thigh (femur fracture)")
+    }
+
+    func testEngineSeparatesFractureFromIndependentBleedingLocation() async throws {
+        let engine = PatientStateEngine.standard()
+        await engine.processTranscript("Bleeding from right forearm. Left femur fracture identified.")
+        let snapshot = await engine.snapshot(of: "PATIENT_1")
+        let patient = try XCTUnwrap(snapshot)
+        XCTAssertEqual(patient.march.hemorrhageLocation, "right forearm")
+        XCTAssertTrue(patient.march.hemorrhageIdentified)
+        XCTAssertTrue(patient.injuries.contains("Left femur fracture"))
+    }
+
+    func testEngineDoesNotInferBleedingFromUnsidedFracture() async throws {
+        let engine = PatientStateEngine.standard()
+        await engine.processTranscript("Femur fracture identified.")
+        let snapshot = await engine.snapshot(of: "PATIENT_1")
+        let patient = try XCTUnwrap(snapshot)
+        XCTAssertNil(patient.march.hemorrhageLocation)
+        XCTAssertFalse(patient.march.hemorrhageIdentified)
+        XCTAssertEqual(patient.injuries, ["Femur fracture"])
     }
 
     // MARK: - Splinting
@@ -233,16 +258,15 @@ final class FractureExtractorTests: XCTestCase {
     // MARK: - Scenario-level mirrors
 
     func testScenario4FemurFractureInInjuries() throws {
-        // Mirrors the spirit of the Python scenario_4 tests — splinting a
-        // femur fracture should land in injuries and seed hemorrhage location.
+        // A fracture remains an injury; internal-bleeding risk is not an
+        // observed bleeding location.
         let scenario = try loadScenario("scenario_4_femur_fracture.txt")
         let s = applyExtractorToScenario(scenario)
         XCTAssertTrue(
             s.injuries.contains { $0.lowercased().contains("femur fracture") },
             "Expected a femur fracture entry in injuries: \(s.injuries)"
         )
-        XCTAssertNotNil(s.march.hemorrhageLocation)
-        XCTAssertTrue(s.march.hemorrhageLocation!.lowercased().contains("femur"))
+        XCTAssertNil(s.march.hemorrhageLocation)
     }
 
     func testScenario4SagerTractionSplintInterventionRecorded() throws {

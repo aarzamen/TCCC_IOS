@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 260" role="img" aria-labelledby="title desc">
+<title id="title">TCCC casualty body diagram — front and back</title>
+<desc id="desc">Patient right and left are labeled for each view. Unmarked anatomy does not mean uninjured. Reference vector matches the native SwiftUI body outline.</desc>
+<style>.body{fill:#20242c;stroke:#b8bdc7;stroke-width:1.1;stroke-linejoin:round}.detail{fill:none;stroke:#7a818d;stroke-width:.8;stroke-linecap:round}text{font-family:system-ui,sans-serif;fill:#f0f2f5;font-size:11px}.side{font-weight:700}.note{fill:#b8bdc7;font-size:9px}</style>
+<rect width="320" height="260" rx="4" fill="#111317"/>
+<text x="16" y="20" class="note">PATIENT’S RIGHT / LEFT</text>
+<defs><g id="outline"><ellipse cx="60" cy="15.5" rx="10" ry="12.5"/><path d="M 60 27 Q 55 27 54.5 30 Q 54 33 46.5 35 Q 39 37 36.5 40 Q 34 43 29.5 58 Q 25 73 21.5 85.5 Q 18 98 16 102 Q 14 106 14.5 110 Q 15 114 18 115 Q 21 116 24 110.5 Q 27 105 27 101.5 Q 27 98 31.5 88 Q 36 78 39 67.5 Q 42 57 43.5 67.5 Q 45 78 45 82.5 Q 45 87 43 93.5 Q 41 100 41 109 Q 41 118 42 131 Q 43 144 43.5 161.5 Q 44 179 41 184.5 Q 38 190 38 192.5 Q 38 195 45 195 Q 52 195 54 192.5 Q 56 190 55.5 186.5 Q 55 183 55.5 166.5 Q 56 150 58 132.5 Q 60 115 62 132.5 Q 64 150 64.5 166.5 Q 65 183 64.5 186.5 Q 64 190 66 192.5 Q 68 195 75 195 Q 82 195 82 192.5 Q 82 190 79 184.5 Q 76 179 76.5 161.5 Q 77 144 78 131 Q 79 118 79 109 Q 79 100 77 93.5 Q 75 87 75 82.5 Q 75 78 76.5 67.5 Q 78 57 81 67.5 Q 84 78 88.5 88 Q 93 98 93 101.5 Q 93 105 96 110.5 Q 99 116 102 115 Q 105 114 105.5 110 Q 106 106 104 102 Q 102 98 98.5 85.5 Q 95 73 90.5 58 Q 86 43 83.5 40 Q 81 37 73.5 35 Q 66 33 65.5 30 Q 65 27 60 27 Z"/></g></defs>
+<text x="20" y="38" class="side">R</text><text x="76" y="38" text-anchor="middle">Front</text><text x="130" y="38" class="side">L</text>
+<text x="180" y="38" class="side">L</text><text x="236" y="38" text-anchor="middle">Back</text><text x="290" y="38" class="side">R</text>
+<g transform="translate(16 44)"><use href="#outline" class="body"/><path d="M 46 44 L 54 42 L 60 46 L 66 42 L 74 44 M 46 60 L 53 63 L 58 61 M 74 60 L 67 63 L 62 61 M 46 100 L 60 111 L 74 100 M 45 146 L 49 148 L 54 146 M 66 146 L 71 148 L 75 146" class="detail"/><circle cx="60" cy="84" r="1" fill="#7a818d"/></g>
+<g transform="translate(176 44)"><use href="#outline" class="body"/><path d="M 60 36 L 60 99 M 47 47 L 52 60 L 57 48 M 73 47 L 68 60 L 63 48 M 46 103 L 53 106 L 60 103 L 67 106 L 74 103 M 45 146 L 49 148 L 54 146 M 66 146 L 71 148 L 75 146" class="detail"/></g>
+<text x="160" y="252" text-anchor="middle" class="note">Unmarked does not mean uninjured.</text>
+</svg>
