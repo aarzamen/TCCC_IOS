@@ -84,6 +84,16 @@ Baseline source `2e1dec2` has current green package/simulator/CI evidence from t
   labels. No real casualty data is used by these tests.
 - Explorer interactions and 320/360/736 layouts pass, in light and dark appearance,
   with zero browser errors. All animations/results are explicitly simulated.
+- Signed iPhone build verifies all six embedded packages and passes strict/deep
+  signature verification. The in-place device update preserves all 54 preexisting
+  top-level Documents entries. Device auto-lock blocks remote launch verification.
+- A normal Files import walkthrough reveals a Swift 6 executor assertion in the
+  Apple Speech permission callback. A shared nonisolated, Sendable permission
+  bridge fixes the cause; three regression tests cover background execution,
+  duplicate callbacks and determined permission. All 30 selected speech/lab tests
+  pass. Microphone callbacks receive the same explicit Sendable contract.
+  Repeating the normal import no longer crashes: the simulator reports denied
+  Speech permission, retains the audio/incomplete row, and reopens that saved
+  session after app relaunch. Successful ASR remains a physical-device check.
 - Physical-device model quality and matched pairing performance are not established
-  by these source/UI checks. The existing iPhone development link dropped during
-  update preparation; installation must be verified separately.
+  by these source/UI checks.

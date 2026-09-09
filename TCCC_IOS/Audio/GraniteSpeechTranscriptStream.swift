@@ -62,7 +62,7 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
     func authorize() async throws {
         // Mic permission first — needed regardless of model state.
         let micGranted: Bool = await withCheckedContinuation { cont in
-            AVAudioApplication.requestRecordPermission { cont.resume(returning: $0) }
+            AVAudioApplication.requestRecordPermission { @Sendable granted in cont.resume(returning: granted) }
         }
         guard micGranted else {
             throw TranscriptStreamError.microphoneDenied

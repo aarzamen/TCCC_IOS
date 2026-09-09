@@ -163,9 +163,7 @@ final class YapLabModel {
             do {
                 let url = try store.audioURL(name)
                 if selected == .apple {
-                    let authorization = await withCheckedContinuation { continuation in
-                        SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
-                    }
+                    let authorization = await SpeechAuthorization.request()
                     guard authorization == .authorized else { throw TranscriptStreamError.speechDenied }
                     try Task.checkCancellation()
                     let completion = try await AppleSpeechFileTranscriber().transcribe(fileURL: url)
