@@ -313,8 +313,11 @@ actor FluidAudioKokoroNativeSynthesizer: KokoroNativeSynthesizing {
         isSynthesizing = true
         defer { isSynthesizing = false }
 
-        let manager = try await managerForCurrentProcess()
-        let voice = Self.supportedFluidVoice(for: request.voiceID)
+        let voice = try Self.supportedFluidVoice(for: request.voiceID)
+        // Restore SDK auxiliary files from bundled/durable resources locally.
+        // Missing assets fail before any SDK ensure/download-capable function.
+        let modelDirectory = try KokoroOfflineAssets.prepareLocalResources()
+        let manager = try await managerForCurrentProcess(modelDirectory: modelDirectory)
         let audioData = try await manager.synthesize(
             text: request.text,
             voice: voice,
@@ -324,7 +327,7 @@ actor FluidAudioKokoroNativeSynthesizer: KokoroNativeSynthesizing {
         return KokoroNativeSynthesisResult(audioData: audioData, rendererName: "Kokoro CoreML")
     }
 
-    private func managerForCurrentProcess() async throws -> KokoroTtsManager {
+    private func managerForCurrentProcess(modelDirectory: URL) async throws -> KokoroTtsManager {
         if let manager {
             return manager
         }
@@ -333,21 +336,30 @@ actor FluidAudioKokoroNativeSynthesizer: KokoroNativeSynthesizing {
             defaultVoice: TtsConstants.recommendedVoice,
             computeUnits: .cpuAndGPU
         )
-        try await manager.initialize(preloadVoices: [TtsConstants.recommendedVoice])
+        let configuration = MLModelConfiguration()
+        configuration.computeUnits = .cpuAndGPU
+        var localModels: [ModelNames.TTS.Variant: MLModel] = [:]
+        for variant in ModelNames.TTS.Variant.allCases {
+            localModels[variant] = try await MLModel.load(
+                contentsOf: modelDirectory.appendingPathComponent(variant.fileName),
+                configuration: configuration
+            )
+        }
+        try await manager.initialize(
+            models: TtsModels(models: localModels),
+            preloadVoices: Set(TtsConstants.availableVoices.filter { $0.hasPrefix("af_") || $0.hasPrefix("am_") })
+        )
         self.manager = manager
         return manager
     }
 
-    private static func supportedFluidVoice(for voiceID: String) -> String {
-        // FluidAudio's Kokoro path is beta-tested for American English. Other
-        // Kokoro IDs remain in the app picker for compatibility, but the
-        // CoreML renderer falls back to af_heart when the selected voice is
-        // outside that tested American narrator set.
-        guard TtsConstants.availableVoices.contains(voiceID) else {
-            return TtsConstants.recommendedVoice
-        }
-        guard voiceID.hasPrefix("af_") || voiceID.hasPrefix("am_") else {
-            return TtsConstants.recommendedVoice
+    private static func supportedFluidVoice(for voiceID: String) throws -> String {
+        // This adapter's validated phoneme resources are American English.
+        // Unsupported selections take the labeled Device Speech fallback;
+        // never silently substitute a different Kokoro voice.
+        guard TtsConstants.availableVoices.contains(voiceID),
+              voiceID.hasPrefix("af_") || voiceID.hasPrefix("am_") else {
+            throw KokoroEngineError.unsupportedVoice(voiceID)
         }
         return voiceID
     }

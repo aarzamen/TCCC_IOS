@@ -1,11 +1,17 @@
 // PatientStateFieldWrite.swift
 import Foundation
+import TCCCDomain
 
 /// The ONLY vocabulary by which a non-extraction caller may write a `PatientState`
 /// field. Typed cases, never free-form strings: an LLM-originated string can reach
 /// a setter only by being translated into one of these cases by the rubric-bounded
 /// `FieldRouter`. The engine applies these and remains the sole writer of state.
 public enum PatientStateFieldWrite: Sendable, Equatable, Codable {
+    // Explicit manual corrections and performed interventions.
+    case mechanismOfInjury(String?)
+    case classification(Classification?)
+    case setInjuries([String])
+    case appendIntervention(Intervention)
     // Vitals (TCCC DD-1380 §C)
     case heartRate(Int)
     case spo2(Int)

@@ -1,0 +1,90 @@
+<div id="tccc-switchboard">
+  <div class="viz-row"><span class="viz-badge">Synthetic simulation</span><span class="text-small">No inference · no benchmark · no clinical advice</span></div>
+  <div class="viz-controls">
+    <label class="form-label">Speech adapter<select class="form-select" data-setting="asr"><option>Apple Speech</option><option>Parakeet · experimental</option><option>Granite Speech · experimental</option></select></label>
+    <label class="form-label">Optional language model<select class="form-select" data-setting="llm"><option>Apple Foundation Models</option><option>LFM2 · experimental</option><option>Qwen 3 · experimental</option><option>Off</option></select></label>
+  </div>
+  <div class="viz-controls">
+    <label class="form-label">Synthetic spoken observation<select class="form-select" data-setting="sample"><option value="pulse">“Pulse one hundred twenty.”</option><option value="empty">“Patient identity unknown.”</option></select></label>
+  </div>
+  <div class="viz-row">
+    <label class="form-check"><input class="form-check-input" type="checkbox" data-setting="loss"><span class="form-check-label">Drop a key word</span></label>
+    <label class="form-check"><input class="form-check-input" type="checkbox" data-setting="partial"><span class="form-check-label">Never finalize</span></label>
+    <label class="form-check"><input class="form-check-input" type="checkbox" data-setting="assets"><span class="form-check-label">ASR unavailable</span></label>
+    <label class="form-check"><input class="form-check-input" type="checkbox" data-setting="invent"><span class="form-check-label">Draft invents a value</span></label>
+  </div>
+  <div class="switch-map" role="group" aria-label="Interactive TCCC subsystem map">
+    <svg class="switch-wires" aria-hidden="true"></svg>
+    <div class="switch-node" data-place="capture"><button class="btn btn-block" data-node="capture" type="button"><i data-lucide="mic" aria-hidden="true"></i> Audio capture</button></div>
+    <div class="switch-node" data-place="asr"><button class="btn btn-block" data-node="asr" type="button"><i data-lucide="audio-lines" aria-hidden="true"></i> Speech → text</button></div>
+    <div class="switch-node" data-place="raw"><button class="btn btn-block" data-node="raw" type="button"><i data-lucide="file-audio" aria-hidden="true"></i> Raw evidence</button></div>
+    <div class="switch-node" data-place="report"><button class="btn btn-block" data-node="report" type="button"><i data-lucide="file-output" aria-hidden="true"></i> Report / export</button></div>
+    <div class="switch-node" data-place="engine"><button class="btn btn-block" data-node="engine" type="button"><i data-lucide="database" aria-hidden="true"></i> Engine / log</button></div>
+    <div class="switch-node" data-place="extract"><button class="btn btn-block" data-node="extract" type="button"><i data-lucide="list-filter" aria-hidden="true"></i> Rule extraction</button></div>
+    <div class="switch-node" data-place="draft"><button class="btn btn-block" data-node="draft" type="button"><i data-lucide="message-square" aria-hidden="true"></i> Optional drafts</button></div>
+    <div class="switch-node" data-place="lab"><button class="btn btn-block" data-node="lab" type="button"><i data-lucide="flask-conical" aria-hidden="true"></i> Yap Lab · sprint</button></div>
+    <div class="switch-node" data-place="local"><button class="btn btn-block" data-node="local" type="button"><i data-lucide="hard-drive" aria-hidden="true"></i> Assets · sprint</button></div>
+  </div>
+  <div class="viz-row"><span class="text-small">Solid → clinical evidence flow</span><span class="text-small">Dashed → optional draft</span><span class="text-small">Lab stays independent</span></div>
+  <div class="viz-row"><button type="button" class="btn btn-primary" data-action="step">Step observation</button><button type="button" class="btn" data-action="run">Run observation</button><button type="button" class="btn" data-action="lab">Try in Yap Lab</button></div>
+  <div class="switch-output" aria-live="polite"><span class="tabular-nums" data-output>Ready · pulse example selected.</span></div>
+  <div class="switch-detail text-small" aria-live="polite" data-detail>Audio capture · on-device input, with pre-roll and a stop tail; this animation uses no microphone.</div>
+</div>
+<style>
+#tccc-switchboard {display:grid;gap:16px;color:var(--foreground)}
+#tccc-switchboard .switch-map {position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:36px 22px;padding:10px 0}
+#tccc-switchboard .switch-node {min-width:0;z-index:1;display:flex;align-items:center}
+#tccc-switchboard .switch-wires {position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+#tccc-switchboard .switch-wire {fill:none;stroke:var(--border);stroke-width:1.5}
+#tccc-switchboard .switch-draft-wire {stroke-dasharray:5 5}
+#tccc-switchboard .switch-packet {fill:var(--viz-series-1);transition:cx .35s ease,cy .35s ease}
+#tccc-switchboard .switch-output {font-weight:500;overflow-wrap:anywhere}
+#tccc-switchboard .switch-detail {overflow-wrap:anywhere}
+@media(max-width:520px){#tccc-switchboard .switch-map{grid-template-columns:repeat(2,minmax(0,1fr));gap:30px 16px}#tccc-switchboard [data-place="raw"]{order:3}#tccc-switchboard [data-place="extract"]{order:2}#tccc-switchboard [data-place="engine"]{order:4}#tccc-switchboard [data-place="report"]{order:5}#tccc-switchboard [data-place="draft"]{order:6}#tccc-switchboard [data-place="lab"]{order:7}#tccc-switchboard [data-place="local"]{order:8}}
+@media(prefers-reduced-motion:reduce){#tccc-switchboard .switch-packet{transition:none}}
+</style>
+<script>
+(() => {
+ const root=document.getElementById('tccc-switchboard');
+ const $=s=>root.querySelector(s);
+ const nodes=[...root.querySelectorAll('[data-node]')];
+ const route=['capture','asr','raw','extract','engine','report','draft'];
+ const labels={capture:'Audio capture',asr:'Speech → text',raw:'Raw evidence',extract:'Rule extraction',engine:'Engine + event log',report:'Report / export',draft:'Optional drafts',lab:'Yap Lab',local:'Offline assets'};
+ const descriptions={capture:'On-device input, with pre-roll and a stop tail; this animation uses no microphone.',asr:'TranscriptStream adapters emit text, capture identity and finalization status; a model choice is not an accuracy claim.',raw:'Recognition evidence is retained; incomplete Apple/Parakeet segments do not become clinical facts. Granite retains its compatibility flow.',extract:'Spoken-number normalization, sentence parsing and extractor rules create typed observations; LLM prose is not this input.',engine:'The engine alone writes clinical state; event-log replay reconstructs the patient projection.',report:'DD1380Mapper uses structured state and supplied metadata; unknown fields stay blank. Optional prose does not populate its fields.',draft:'MEDEVAC/ZMIST drafts are checked against engine state, with deterministic fallback. Language models cannot write clinical state.',lab:'Current sprint addition: separate sessions, raw text and editable model prompts; shared adapters, no clinical extraction or record writes.',local:'Current sprint addition: inspect bundled/installed alternate-model files. Apple assets remain OS-managed; inference must not start downloads.'};
+ let stage=-1,selected='capture',timer=null;
+ const val=k=>$('[data-setting="'+k+'"]').value;
+ const flag=k=>$('[data-setting="'+k+'"]').checked;
+ const output=t=>{$('[data-output]').textContent=t;};
+ const raw=()=>val('sample')==='pulse'?(flag('loss')?'one hundred twenty.':'Pulse one hundred twenty.'):(flag('loss')?'unknown.':'Patient identity unknown.');
+ const fact=()=>!flag('assets')&&!flag('partial')&&!flag('loss')&&val('sample')==='pulse';
+ function choose(id){selected=id;nodes.forEach(n=>n.setAttribute('aria-pressed',String(n.dataset.node===id)));$('[data-detail]').textContent=labels[id]+' · '+descriptions[id];draw();}
+ function stop(){if(timer!==null){clearInterval(timer);timer=null;}$('[data-action="run"]').textContent='Run observation';}
+ function draw(){
+   const svg=$('.switch-wires'),box=$('.switch-map').getBoundingClientRect();
+   svg.setAttribute('viewBox','0 0 '+box.width+' '+box.height);svg.replaceChildren();
+   const points={};nodes.forEach(n=>{const b=n.getBoundingClientRect();points[n.dataset.node]={x:b.x-box.x+b.width/2,y:b.y-box.y+b.height/2,w:b.width,h:b.height};});
+   const NS='http://www.w3.org/2000/svg';
+   const defs=document.createElementNS(NS,'defs'),marker=document.createElementNS(NS,'marker'),head=document.createElementNS(NS,'path');marker.setAttribute('id','tccc-flow-arrow');marker.setAttribute('viewBox','0 0 8 8');marker.setAttribute('refX','7');marker.setAttribute('refY','4');marker.setAttribute('markerWidth','5');marker.setAttribute('markerHeight','5');marker.setAttribute('orient','auto');head.setAttribute('d','M 0 0 L 8 4 L 0 8');head.setAttribute('fill','var(--border)');marker.append(head);defs.append(marker);svg.append(defs);
+   const line=(a,b,dashed)=>{const p=points[a],q=points[b],same=Math.abs(p.y-q.y)<10;let d;
+    if(same){const sign=Math.sign(q.x-p.x);d='M '+(p.x+sign*p.w/2)+' '+p.y+' L '+(q.x-sign*q.w/2)+' '+q.y;}
+    else {const sign=Math.sign(q.y-p.y);const y1=p.y+sign*p.h/2,y2=q.y-sign*q.h/2,mid=(y1+y2)/2;d='M '+p.x+' '+y1+' V '+mid+' H '+q.x+' V '+y2;}
+    const path=document.createElementNS(NS,'path');path.setAttribute('d',d);path.setAttribute('marker-end','url(#tccc-flow-arrow)');path.setAttribute('class','switch-wire'+(dashed?' switch-draft-wire':''));svg.append(path);
+   };
+   [['capture','asr'],['asr','raw'],['raw','extract'],['extract','engine'],['engine','report']].forEach(e=>line(...e,false));line('engine','draft',true);
+   const p=points[selected];const dot=document.createElementNS(NS,'circle');dot.setAttribute('cx',p.x);dot.setAttribute('cy',p.y+p.h/2+7);dot.setAttribute('r','4');dot.setAttribute('class','switch-packet');svg.append(dot);
+ }
+ function advance(){
+   stage=(stage+1)%route.length;const id=route[stage];choose(id);
+   if(flag('assets')&&stage>=1){output('ASR blocked · '+val('asr')+' unavailable; no transcript or new clinical facts.');stop();return;}
+   const has=fact();
+   const states={capture:'1 / 7 · Synthetic sound enters capture.',asr:'2 / 7 · '+val('asr')+' → “'+raw()+'”',raw:'3 / 7 · Evidence: “'+raw()+'” · '+(flag('partial')?'incomplete; audit only in this example.':'finalized.'),extract:'4 / 7 · '+(has?'Rule result: pulse = 120 bpm.':flag('partial')?'No committed segment; no clinical extraction.':'No pulse fact extracted; missing words are not repaired.'),engine:'5 / 7 · '+(has?'Clinical projection: pulse 120 bpm; identity unknown.':'Clinical projection: pulse unknown; identity unknown.'),report:'6 / 7 · DD 1380: '+(has?'pulse 120 bpm':'pulse blank')+' · identity and allergies blank.',draft:val('llm')==='Off'?'7 / 7 · Model off; deterministic report remains available.':flag('invent')?'7 / 7 · Draft proposes pulse 80 → disagreement → deterministic fallback; clinical state unchanged.':'7 / 7 · '+val('llm')+' draft uses available facts; clinical state unchanged.'};
+   output(states[id]);if(stage===route.length-1)stop();
+ }
+ nodes.forEach(n=>n.addEventListener('click',()=>choose(n.dataset.node)));
+ $('[data-action="step"]').addEventListener('click',()=>{stop();advance();});
+ $('[data-action="run"]').addEventListener('click',()=>{if(timer!==null){stop();return;}stage=-1;advance();if(stage===0){$('[data-action="run"]').textContent='Pause';timer=setInterval(advance,1100);}});
+ $('[data-action="lab"]').addEventListener('click',()=>{stop();choose('lab');output(flag('assets')?'Lab ASR unavailable · clinical session remains untouched.':'Lab raw: “'+raw()+'” · '+(val('llm')==='Off'?'no model output.':'separate '+val('llm')+' prompt result.')+' Clinical session untouched.');});
+ root.querySelectorAll('[data-setting]').forEach(e=>e.addEventListener('change',()=>{stop();stage=-1;choose('capture');output('Ready · changed scenario starts a fresh synthetic run.');}));
+ new ResizeObserver(draw).observe($('.switch-map'));choose('capture');
+})();
+</script>

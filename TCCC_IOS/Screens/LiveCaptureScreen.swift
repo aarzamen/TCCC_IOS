@@ -9,6 +9,7 @@ struct LiveCaptureScreen: View {
     /// SpeechRecognizer remains the runtime default; Parakeet is
     /// reachable but requires the operator to provide a model
     /// directory in Settings before `start()` will succeed.
+    @State private var primingTask: Task<Void, Never>?
     @State private var recognizer: (any TranscriptStream)?
     @State private var streamingTask: Task<Void, Never>?
     @State private var activeGeneration: UUID?
@@ -134,18 +135,24 @@ struct LiveCaptureScreen: View {
         }
         .background(palette.bg)
         .task {
-            if recognizer == nil {
-                recognizer = makeRecognizer()
+            state.clinicalAudioRelease = {
+                primingTask?.cancel()
+                await primingTask?.value
+                await recognizer?.stopImmediate()
+                await streamingTask?.value
+                await recognizer?.unprime()
+                recognizer = nil
+                state.clinicalAudioRelease = nil
             }
-            // Prime the engine so the 30s pre-roll buffer is filling before
-            // the medic taps RECORD. Permission already granted (or not) —
-            // priming is silent on either path.
-            do {
-                try await recognizer?.authorize()
-                try await recognizer?.prime()
-            } catch {
-                // Authorization may be deferred to first RECORD tap; ignore.
+            if recognizer == nil { recognizer = makeRecognizer() }
+            primingTask = Task {
+                do {
+                    try await recognizer?.authorize()
+                    guard !Task.isCancelled else { return }
+                    try await recognizer?.prime()
+                } catch { }
             }
+            await primingTask?.value
         }
         .onDisappear {
             // Continuous recording: if a streaming task is in flight (operator
@@ -162,9 +169,13 @@ struct LiveCaptureScreen: View {
                 partialCommitTask?.cancel()
                 periodicCommitTask?.cancel()
                 elapsedTickerTask?.cancel()
+                let pendingPrime = primingTask
+                let retiringRecognizer = recognizer
+                pendingPrime?.cancel()
                 Task {
-                    await recognizer?.stopImmediate()
-                    await recognizer?.unprime()
+                    await pendingPrime?.value
+                    await retiringRecognizer?.stopImmediate()
+                    await retiringRecognizer?.unprime()
                 }
             }
         }
@@ -411,13 +422,13 @@ struct LiveCaptureScreen: View {
                 spacing: 6
             ) {
                 VoiceCommandChip(label: "MARK", systemImage: "bookmark") {
-                    state.appendSystem("MARK · \(currentTimestamp())")
+                    state.clinicalEntrySheet = .mark
                 }
                 VoiceCommandChip(label: "MED GIVEN", systemImage: "syringe") {
-                    state.appendSystem("MED GIVEN · pending dose")
+                    state.clinicalEntrySheet = .medication
                 }
                 VoiceCommandChip(label: "VITALS", systemImage: "heart") {
-                    state.appendSystem("VITALS · pending input")
+                    state.clinicalEntrySheet = .vitals
                 }
                 VoiceCommandChip(label: "NEXT", systemImage: "arrow.right") {
                     state.nextScreen()
@@ -438,7 +449,7 @@ struct LiveCaptureScreen: View {
             .disabled(isTailing || isChangingEncounter)
 
             BigButton("Mark", systemImage: "bookmark.fill", style: .accent) {
-                state.appendSystem("MARK · \(currentTimestamp())")
+                state.clinicalEntrySheet = .mark
             }
         }
     }

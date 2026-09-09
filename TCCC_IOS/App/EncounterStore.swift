@@ -97,8 +97,9 @@ actor EncounterStore {
     /// Separate from the event log: `vitalsLog` is an app-layer rolling buffer,
     /// not part of `PatientState`, so it lives beside `events.jsonl` rather than
     /// in it. No-op when there is no active encounter.
-    func saveSectionC(_ data: Data) throws {
+    func saveSectionC(_ data: Data, expectedDirectory: String? = nil) throws {
         guard let dir = activeDir else { return }
+        if let expectedDirectory, dir.lastPathComponent != expectedDirectory { throw CocoaError(.fileWriteUnknown) }
         try ProtectedWrite.data(data, to: dir.appendingPathComponent("sectionC.json"))
     }
 
@@ -106,6 +107,20 @@ actor EncounterStore {
     func loadSectionC() -> Data? {
         guard let dir = activeDir else { return nil }
         return try? Data(contentsOf: dir.appendingPathComponent("sectionC.json"))
+    }
+
+    func activeDirectoryName() -> String? { activeDir?.lastPathComponent }
+
+    func saveOperatorMetadata(_ data: Data, expectedDirectory: String) throws {
+        guard let dir = activeDir, dir.lastPathComponent == expectedDirectory else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        try ProtectedWrite.data(data, to: dir.appendingPathComponent("operator.json"))
+    }
+
+    func loadOperatorMetadata() -> Data? {
+        guard let dir = activeDir else { return nil }
+        return try? Data(contentsOf: dir.appendingPathComponent("operator.json"))
     }
 
     // MARK: - Helpers

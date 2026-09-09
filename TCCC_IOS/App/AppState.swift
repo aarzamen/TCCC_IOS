@@ -115,8 +115,8 @@ final class AppState {
 
     /// Filesystem path to the Parakeet CoreML model directory. Set
     /// from Settings when the operator AirDrops or downloads the
-    /// model bundle. Nil → Parakeet backend uses FluidAudio's auto-
-    /// download path on first start().
+    /// model bundle. Nil → the backend resolves bundled or prepared local models.
+    /// Missing assets block recording; only explicit preparation downloads.
     var parakeetModelDirectory: URL?
 
     /// Persistent security-scoped bookmark store for the Granite
@@ -199,6 +199,7 @@ final class AppState {
     private var memoryPressureSource: DispatchSourceMemoryPressure?
 
     init() {
+        parakeetStatus = OfflineModelAssets.parakeetDirectory != nil ? .ready : .notDownloaded
         // L1.3 — AudioSessionCoordinator closures. AudioSessionCoordinator
         // is itself @MainActor-isolated; its closures run on MainActor,
         // so we don't need an extra MainActor.run hop.
@@ -330,7 +331,7 @@ final class AppState {
         var displayName: String {
             switch self {
             case .appleFoundation: "Apple Foundation Models"
-            case .lfm2:            "Liquid LFM2.5 1.2B (alt)"
+            case .lfm2:            "Liquid LFM2 1.2B (alt)"
             case .qwen3:           "Qwen 3 1.7B (alt)"
             case .graniteText:     "IBM Granite 4.0 H 1B Base"
             }
@@ -655,7 +656,16 @@ final class AppState {
         }
     }
 
+    var clinicalEntrySheet: ClinicalEntryKind?
+    var operatorMetadata = EncounterOperatorMetadata()
+    var encounterIdentity = UUID()
+    var clinicalAudioRelease: (@MainActor () async -> Void)?
+    var nineLineValues: [Int: String] { operatorMetadata.nineLineValues }
+
     private func clearCasualtyIdentity() {
+        encounterIdentity = UUID()
+        clinicalEntrySheet = nil
+        operatorMetadata = EncounterOperatorMetadata()
         casualtyName = ""
         casualtyUnit = ""
         casualtyServiceNumberMasked = ""
@@ -774,6 +784,11 @@ final class AppState {
         }
     }
 
+    func settleCaptureBeforeOperatorEntry() async {
+        promoteProvisional()
+        await provisionalEngineTask?.value
+    }
+
     private func startSettleTimer() {
         provisionalSettleTask?.cancel()
         provisionalSettleTask = Task { @MainActor [weak self] in
@@ -817,14 +832,17 @@ final class AppState {
         await refreshPatientSnapshot()
     }
 
-    func refreshPatientSnapshot(persist: Bool = true) async {
+    func refreshPatientSnapshot(persist: Bool = true, recordVitals: Bool = true) async {
         let snapshot = await engine.snapshot()
+        let previousPatient = primaryPatient
         allPatients = snapshot
         // Single-casualty UI per design §9 — surface PATIENT_1 only.
         primaryPatient = snapshot["PATIENT_1"]
         // 2026 sprint Phase 4 — record a §C reading per snapshot. The grid
         // shows the 4 most recent readings.
-        let didAppendVitals = appendVitalsSnapshot()
+        let observationsChanged = previousPatient?.vitals != primaryPatient?.vitals
+            || previousPatient?.march.consciousness != primaryPatient?.march.consciousness
+        let didAppendVitals = recordVitals && observationsChanged && appendVitalsSnapshot()
         if persist {
             await persistNewEvents()                // skip on provisional commits; flush on settle
             if didAppendVitals { await persistSectionC() }
@@ -898,7 +916,18 @@ final class AppState {
                    let restored = try? Self.sectionCCodec.decoder.decode([SectionCReading].self, from: scData) {
                     vitalsLog = restored
                 }
-                await refreshPatientSnapshot()        // cursor up-to-date ⇒ persists nothing
+                if let data = await store.loadOperatorMetadata(),
+                   let metadata = try? JSONDecoder().decode(EncounterOperatorMetadata.self, from: data) {
+                    operatorMetadata = metadata
+                    casualtyName = metadata.name; casualtyUnit = metadata.unit
+                    casualtyServiceNumberMasked = metadata.serviceNumber
+                    casualtyAllergies = metadata.allergies
+                    lastMedevacTransmitTime = metadata.radioCallTime
+                    for note in metadata.notes {
+                        transcript.append(TranscriptLine(speaker: .system, text: note.text, timestamp: note.timestamp))
+                    }
+                }
+                await refreshPatientSnapshot(recordVitals: false)        // cursor up-to-date ⇒ persists nothing
                 appendSystem("RECOVERED · \(id) · \(log.events.count) events replayed")
             } else {
                 try await store.startNewCasualty(id: casualtyId, startUnix: Date().timeIntervalSince1970)
@@ -930,12 +959,14 @@ final class AppState {
         let timestamp: Date
         let vitals: Vitals
         let avpu: String?
+        var pain: String? = nil
 
-        init(timestamp: Date, vitals: Vitals, avpu: String?) {
+        init(timestamp: Date, vitals: Vitals, avpu: String?, pain: String? = nil) {
             self.id = UUID()
             self.timestamp = timestamp
             self.vitals = vitals
             self.avpu = avpu
+            self.pain = pain
         }
 
         /// Convert to the pure DD1380 grid column (pre-formatted display
@@ -954,7 +985,7 @@ final class AppState {
                 respiratoryRate: vitals.rr.map(String.init),
                 spo2: vitals.spo2.map(String.init),
                 avpu: DD1380Mapper.avpuLetter(avpu),
-                pain: nil
+                pain: pain
             )
         }
     }
@@ -1007,7 +1038,8 @@ final class AppState {
     /// was actually appended, so the caller can persist only on change.
     @discardableResult
     private func appendVitalsSnapshot() -> Bool {
-        guard let p = primaryPatient else { return false }
+        guard let p = primaryPatient,
+              p.vitals != Vitals() || p.march.consciousness?.isEmpty == false else { return false }
         let reading = SectionCReading(
             timestamp: Date(),
             vitals: p.vitals,
@@ -1029,6 +1061,19 @@ final class AppState {
     /// DD1380 exporter is not dependent on ephemeral UI state and the grid
     /// survives crash recovery. App-layer only — `vitalsLog` is not part of
     /// `PatientState`, so this does not touch the event-sourcing invariant.
+    func saveManualReading(_ reading: SectionCReading, encounter: UUID) async throws {
+        guard encounterIdentity == encounter, let store = encounterStore,
+              let directory = await store.activeDirectoryName(), encounterIdentity == encounter else {
+            throw ClinicalEntryError(message: "Encounter changed or storage unavailable.")
+        }
+        var readings = vitalsLog.filter { $0.id != reading.id }
+        readings.append(reading)
+        readings = Array(readings.suffix(4))
+        try await store.saveSectionC(Self.sectionCCodec.encoder.encode(readings), expectedDirectory: directory)
+        guard encounterIdentity == encounter else { throw ClinicalEntryError(message: "Encounter changed during save.") }
+        vitalsLog = readings
+    }
+
     private func persistSectionC() async {
         guard let store = encounterStore else { return }
         guard let data = try? Self.sectionCCodec.encoder.encode(vitalsLog) else { return }
@@ -1088,9 +1133,9 @@ final class AppState {
     var operatorTier: OperatorTier = .cmc
 
     var voiceCommandsEnabled: Bool = true
-    var hapticFeedbackEnabled: Bool = true
-    var lockOrientationEnabled: Bool = true
-    var autoExportOnWiredHandoffEnabled: Bool = false
+    var hapticFeedbackEnabled: Bool = UserDefaults.standard.object(forKey: "hapticFeedbackEnabled") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(hapticFeedbackEnabled, forKey: "hapticFeedbackEnabled") }
+    }
 
     func wipeSession() async {
         await endCaptureForLifecycle(preservePartial: false)

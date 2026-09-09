@@ -4,6 +4,9 @@ import UniformTypeIdentifiers
 
 struct SettingsOverlay: View {
     let state: AppState
+    var onReturnToSplash: (() -> Void)? = nil
+    @State private var returningToSplash = false
+    @State private var modelsOpen = false
     @Environment(\.palette) private var palette
 
     @State private var wipeProgress: CGFloat = 0
@@ -49,6 +52,20 @@ struct SettingsOverlay: View {
             header
             ScrollView {
                 VStack(spacing: 0) {
+                    HStack {
+                        Button("Offline model assets") { modelsOpen = true }
+                        Spacer()
+                        if let onReturnToSplash {
+                            Button(returningToSplash ? "Releasing microphone…" : "Return to launcher") {
+                                returningToSplash = true
+                                Task {
+                                    await state.clinicalAudioRelease?()
+                                    state.settingsOpen = false
+                                    onReturnToSplash()
+                                }
+                            }.disabled(state.isRecording || returningToSplash)
+                        }
+                    }.frame(minHeight: 44).padding(.horizontal, 16)
                     displayModeSection
                     sectionDivider
                     audioASRSection
@@ -63,6 +80,7 @@ struct SettingsOverlay: View {
                 }
             }
         }
+        .sheet(isPresented: $modelsOpen) { OfflineModelPreparationView() }
         .background(palette.bg1)
         .overlay(
             Rectangle()
@@ -254,11 +272,11 @@ struct SettingsOverlay: View {
     private func asrBackendSubtitle(_ backend: AppState.ASRBackend) -> String {
         switch backend {
         case .appleSpeech:
-            "On-device · default · always available"
+            "On-device · requires Apple speech assets and permission"
         case .parakeet:
-            "On-device · NVIDIA Parakeet TDT 0.6B · English only"
+            "On-device · Parakeet EOU 120M · English only"
         case .graniteSpeech:
-            "On-device · IBM Granite Speech 4.0 1B 5-bit · pick model folder below"
+            "On-device · IBM Granite Speech 4.0 1B 5-bit · bundled or local folder"
         }
     }
 
@@ -307,7 +325,7 @@ struct SettingsOverlay: View {
         case .notDownloaded:  return "Not downloaded"
         case .downloading(let f):
             return "Downloading · \(Int(f * 100))%"
-        case .ready:          return "Cached · ready"
+        case .ready:          return "Local files ready"
         case .failed(let msg): return "Failed · \(msg)"
         }
     }
@@ -356,6 +374,9 @@ struct SettingsOverlay: View {
             let name = url.lastPathComponent
             return isStale ? .stale(folderName: name) : .active(folderName: name)
         } catch GraniteSpeechBookmarkError.noBookmarkSaved {
+            if let local = HFHubCache.directory(for: GraniteSpeechModelResolver.defaultModelID) {
+                return .active(folderName: "Local assets · " + local.lastPathComponent)
+            }
             return .noBookmark
         } catch {
             return .error(message: error.localizedDescription)
@@ -533,8 +554,7 @@ struct SettingsOverlay: View {
 
             ToggleRow(label: "Voice Commands", detail: nil, isOn: Binding(get: { state.voiceCommandsEnabled }, set: { state.voiceCommandsEnabled = $0 }))
             ToggleRow(label: "Haptic Feedback", detail: nil, isOn: Binding(get: { state.hapticFeedbackEnabled }, set: { state.hapticFeedbackEnabled = $0 }))
-            ToggleRow(label: "Lock Orientation (Landscape)", detail: nil, isOn: Binding(get: { state.lockOrientationEnabled }, set: { state.lockOrientationEnabled = $0 }))
-            ToggleRow(label: "Auto-Export on Wired Handoff", detail: nil, isOn: Binding(get: { state.autoExportOnWiredHandoffEnabled }, set: { state.autoExportOnWiredHandoffEnabled = $0 }))
+            Text("Landscape orientation · fixed for field use").font(.subheadline).foregroundStyle(palette.fg2).padding(.vertical, 10)
             HStack {
                 Text("Build")
                     .font(.system(size: 13, weight: .semibold))

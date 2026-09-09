@@ -5,6 +5,33 @@ import TCCCDomain
 @MainActor
 final class NineLineFormTests: XCTestCase {
 
+    func testUnassessedPatientDoesNotInventOperationalFieldsOrReadiness() {
+        let form = NineLineForm.derive(from: [PatientState(patientId: "PATIENT_1")],
+            locationFix: .init(source: .gps, latitude: 34.5267, longitude: 69.1729))
+        XCTAssertFalse(form.isReadyForTransmit)
+        for number in [2, 3, 4, 5, 6, 7, 8, 9] {
+            let entry = form.entries.first { $0.number == number }!
+            XCTAssertFalse(entry.isVerifiedForTransmit, "Line \(number) needs operator input")
+        }
+    }
+
+    func testUnknownAndClearedOperatorFieldsRemainPending() {
+        let patient = PatientState(patientId: "PATIENT_1", classification: .urgent)
+        let form = NineLineForm.derive(from: [patient], locationFix: .init(source: .none, latitude: nil, longitude: nil),
+            operatorValues: [3: "", 4: " UNKNOWN ", 6: "Unverified"])
+        XCTAssertFalse(form.entries[2].isVerifiedForTransmit)
+        XCTAssertFalse(form.entries[3].isVerifiedForTransmit)
+        XCTAssertFalse(form.entries[5].isVerifiedForTransmit)
+    }
+
+    func testOnlyEnteredOperationalValuesCompleteForm() {
+        let form = NineLineForm.derive(from: [],
+            locationFix: .init(source: .gps, latitude: 34.5267, longitude: 69.1729),
+            operatorValues: Dictionary(uniqueKeysWithValues: (2...9).map { ($0, "operator supplied line \($0)") }))
+        XCTAssertEqual(form.completedCount, 9)
+        XCTAssertTrue(form.isReadyForTransmit)
+    }
+
     // Part G·NineLineForm-1: no GPS fix → Line 1 pending, form not ready.
     func testNoGPSFixLeavesLineOnePendingAndNotReady() throws {
         let patient = PatientState(patientId: "PATIENT_1", classification: .urgent)
@@ -20,7 +47,7 @@ final class NineLineFormTests: XCTestCase {
         XCTAssertTrue(lineOne.value.contains("UNVERIFIED"))
         XCTAssertFalse(lineOne.isAuto)
         // Part G·NineLineForm-5: Line 1 does not count without a valid fix.
-        XCTAssertEqual(form.completedCount, 8)
+        XCTAssertEqual(form.completedCount, 1)
         XCTAssertFalse(form.isReadyForTransmit)
     }
 
@@ -39,8 +66,8 @@ final class NineLineFormTests: XCTestCase {
             XCTFail("Line 1 must be ok for a valid GPS-derived MGRS.")
         }
         XCTAssertTrue(lineOne.isAuto, "GPS-derived Line 1 renders the GPS badge.")
-        XCTAssertEqual(form.completedCount, 9)
-        XCTAssertTrue(form.isReadyForTransmit)
+        XCTAssertEqual(form.completedCount, 2)
+        XCTAssertFalse(form.isReadyForTransmit)
     }
 
     // Part G·NineLineForm-3: GPS lat/lon present but MGRS nil (polar) →
@@ -59,7 +86,7 @@ final class NineLineFormTests: XCTestCase {
         }
         XCTAssertEqual(lineOne.value, "MGRS UNAVAILABLE")
         XCTAssertFalse(lineOne.value.contains("°"), "No decimal-degrees fallback.")
-        XCTAssertEqual(form.completedCount, 8)
+        XCTAssertEqual(form.completedCount, 1)
         XCTAssertFalse(form.isReadyForTransmit)
     }
 

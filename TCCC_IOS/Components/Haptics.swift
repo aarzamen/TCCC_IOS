@@ -20,6 +20,7 @@ enum Haptics {
     private static var notifyGen = UINotificationFeedbackGenerator()
 
     static func tap(_ style: UIImpactFeedbackGenerator.FeedbackStyle = .medium) {
+        guard UserDefaults.standard.object(forKey: "hapticFeedbackEnabled") as? Bool ?? true else { return }
         let gen: UIImpactFeedbackGenerator
         switch style {
         case .light:  gen = lightGen
@@ -32,11 +33,13 @@ enum Haptics {
     }
 
     static func selection() {
+        guard UserDefaults.standard.object(forKey: "hapticFeedbackEnabled") as? Bool ?? true else { return }
         selectionGen.selectionChanged()
         selectionGen.prepare()
     }
 
     static func notify(_ kind: UINotificationFeedbackGenerator.FeedbackType) {
+        guard UserDefaults.standard.object(forKey: "hapticFeedbackEnabled") as? Bool ?? true else { return }
         notifyGen.notificationOccurred(kind)
         notifyGen.prepare()
     }

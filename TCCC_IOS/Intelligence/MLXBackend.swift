@@ -5,7 +5,7 @@ import TCCCLLM
 /// (re-exported through the local `TCCCLLM` shim package — see
 /// `Packages/TCCCLLM/Package.swift` for why a shim is needed). The underlying
 /// MLX loader can auto-download weights, but this wrapper refuses to generate
-/// until the Settings download path has populated the local cache.
+/// until a complete bundled, installed or cached model directory resolves.
 ///
 /// The actor itself is stateless across `generate(...)` calls — every call
 /// constructs a fresh `LanguageModelSession`, so context never bleeds
@@ -39,7 +39,7 @@ actor MLXBackend: TCCCLLMBackend {
     }
 
     func generate(instructions: String, prompt: String) async throws -> String {
-        guard HFHubCache.contains(modelId: modelId) else {
+        guard let directory = HFHubCache.directory(for: modelId) else {
             throw BackendError.modelNotProvided(backend: displayName)
         }
 
@@ -47,7 +47,7 @@ actor MLXBackend: TCCCLLMBackend {
         // `LanguageModelSession(model:tools:instructions:)` accepts a
         // `String` directly (convenience init in
         // AnyLanguageModel/LanguageModelSession.swift line 40-46).
-        let model = MLXLanguageModel(modelId: modelId)
+        let model = MLXLanguageModel(modelId: modelId, directory: directory)
         let session = LanguageModelSession(model: model, instructions: instructions)
         do {
             let response = try await session.respond(to: prompt)
@@ -68,11 +68,11 @@ actor MLXBackend: TCCCLLMBackend {
         prompt: String,
         generating type: Content.Type
     ) async throws -> Content where Content: Generable, Content: Sendable {
-        guard HFHubCache.contains(modelId: modelId) else {
+        guard let directory = HFHubCache.directory(for: modelId) else {
             throw BackendError.modelNotProvided(backend: displayName)
         }
 
-        let model = MLXLanguageModel(modelId: modelId)
+        let model = MLXLanguageModel(modelId: modelId, directory: directory)
         let session = LanguageModelSession(model: model, instructions: instructions)
         var options = GenerationOptions()
         options.maximumResponseTokens = 768
@@ -92,18 +92,10 @@ actor MLXBackend: TCCCLLMBackend {
         }
     }
 
-    /// Trigger weight download into the HF Hub cache without performing a
-    /// real generation. The model loader has to materialize weights before
-    /// the first token, so a 1-token throwaway response is sufficient to
-    /// populate the on-disk cache. `availability` flips to `.available`
-    /// once this returns successfully (the snapshot directory is now
-    /// non-empty).
-    ///
-    /// Surfaces any download / load error as `BackendError.generationFailed`
-    /// for symmetry with `generate(...)`. The caller (typically
-    /// `AppState.downloadBackendWeights`) is responsible for surfacing the
-    /// failure to the operator via the system transcript or status pill.
+    /// Explicit Settings preparation. This is the only model-ID loading path,
+    /// and may download; ordinary generation always supplies a local directory.
     func prefetch() async throws {
+        if HFHubCache.contains(modelId: modelId) { return }
         let model = MLXLanguageModel(modelId: modelId)
         let session = LanguageModelSession(model: model, instructions: "warmup")
         var opts = GenerationOptions()
@@ -118,46 +110,11 @@ actor MLXBackend: TCCCLLMBackend {
     }
 }
 
-/// Probes Hugging Face Hub's local snapshot cache. The cache is created
-/// and populated by `mlx-swift-lm` (a transitive dep of AnyLanguageModel
-/// via the MLX trait) using the standard `Hub.snapshot()` flow. Path
-/// layout:
-///
-///   ~/Library/Caches/huggingface/hub/models--<owner>--<repo>/snapshots/<rev>/
-///
-/// We don't need to know the revision — checking that the
-/// `models--<owner>--<repo>` directory exists with at least one snapshot
-/// is sufficient signal for "weights are on disk and inference will not
-/// block on a download."
-///
-/// Note: on iOS, `URLs(for: .cachesDirectory, in: .userDomainMask).first`
-/// resolves to the app sandbox's `~/Library/Caches/<bundleId>/...`, which
-/// is where `Hub` writes by default unless the host overrides `HF_HOME`.
-/// If first-device test reveals weights landing somewhere else, update
-/// `directory(for:)` to match.
+/// Compatibility bridge: returns a validated model leaf, never a repository parent.
+/// Generation always passes this URL into the directory-only MLX loader.
 enum HFHubCache {
-    static func contains(modelId: String) -> Bool {
-        guard let url = directory(for: modelId) else { return false }
-        let snapshotsDir = url.appendingPathComponent("snapshots", isDirectory: true)
-        guard
-            let entries = try? FileManager.default.contentsOfDirectory(
-                atPath: snapshotsDir.path
-            )
-        else {
-            return false
-        }
-        return !entries.isEmpty
-    }
-
+    static func contains(modelId: String) -> Bool { directory(for: modelId) != nil }
     static func directory(for modelId: String) -> URL? {
-        let safe = modelId.replacingOccurrences(of: "/", with: "--")
-        let key = "models--\(safe)"
-        let caches = FileManager.default
-            .urls(for: .cachesDirectory, in: .userDomainMask)
-            .first
-        return caches?.appendingPathComponent(
-            "huggingface/hub/\(key)",
-            isDirectory: true
-        )
+        OfflineModelAssets.resolve(modelID: modelId)
     }
 }

@@ -7,18 +7,27 @@ import os
 @Observable
 final class AmbientMeter {
     private(set) var isSampling: Bool = false
+    private(set) var isStarting: Bool = false
     private(set) var dBFS: Double = AmbientMeterMath.minimumDBFS
     private(set) var normalizedLevel: Double = 0
     private(set) var statusMessage: String = "Ambient mic idle"
 
     @ObservationIgnored private let engine = AVAudioEngine()
     @ObservationIgnored private var tapInstalled = false
+    @ObservationIgnored private var ownsSession = false
+    @ObservationIgnored private var runID = UUID()
     @ObservationIgnored private var samplePump = AmbientMeterSamplePump()
 
     func start() async {
-        guard !isSampling else { return }
+        guard !isSampling, !isStarting else { return }
+        let token = UUID()
+        runID = token
+        isStarting = true
+        statusMessage = "Requesting microphone access…"
+        defer { if runID == token { isStarting = false } }
 
         let granted = await requestMicrophonePermission()
+        guard runID == token, !Task.isCancelled else { return }
         guard granted else {
             statusMessage = "Microphone permission denied"
             dBFS = AmbientMeterMath.minimumDBFS
@@ -30,7 +39,7 @@ final class AmbientMeter {
             try configureSession()
             try installTapAndStartEngine()
             isSampling = true
-            statusMessage = "Sampling ambient pre-roll"
+            statusMessage = "Sampling ambient level · audio is not saved"
         } catch {
             stop()
             statusMessage = "Ambient meter unavailable: \(error.localizedDescription)"
@@ -38,6 +47,8 @@ final class AmbientMeter {
     }
 
     func stop() {
+        runID = UUID()
+        isStarting = false
         if engine.isRunning {
             engine.stop()
         }
@@ -45,7 +56,10 @@ final class AmbientMeter {
             engine.inputNode.removeTap(onBus: 0)
             tapInstalled = false
         }
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if ownsSession {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            ownsSession = false
+        }
         samplePump.reset()
         isSampling = false
         dBFS = AmbientMeterMath.minimumDBFS
@@ -69,6 +83,7 @@ final class AmbientMeter {
             options: [.duckOthers, .defaultToSpeaker]
         )
         try session.setActive(true, options: .notifyOthersOnDeactivation)
+        ownsSession = true
     }
 
     private func installTapAndStartEngine() throws {
@@ -78,14 +93,17 @@ final class AmbientMeter {
             throw AmbientMeterError.inputFormatUnavailable
         }
 
-        let pump = samplePump
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            guard let sample = pump.ingest(buffer) else { return }
+        let token = runID
+        // Create the audio callback outside MainActor isolation. AVAudioEngine
+        // invokes it on its render queue; only value samples cross to the UI.
+        let tap = Self.makeTap(pump: samplePump) { [weak self] sample in
             Task { @MainActor [weak self] in
-                self?.dBFS = sample.dBFS
-                self?.normalizedLevel = sample.normalizedLevel
+                guard let self, self.runID == token, self.isSampling else { return }
+                self.dBFS = sample.dBFS
+                self.normalizedLevel = sample.normalizedLevel
             }
         }
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format, block: tap)
         tapInstalled = true
 
         engine.prepare()
@@ -97,6 +115,16 @@ final class AmbientMeter {
             throw error
         }
     }
+    nonisolated private static func makeTap(
+        pump: AmbientMeterSamplePump,
+        publish: @escaping @Sendable (AmbientMeterSample) -> Void
+    ) -> @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void {
+        { @Sendable buffer, _ in
+            guard let sample = pump.ingest(buffer) else { return }
+            publish(sample)
+        }
+    }
+
 }
 
 private enum AmbientMeterError: LocalizedError {

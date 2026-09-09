@@ -10,10 +10,13 @@ struct ContentView: View {
             case .splash:
                 SplashView(
                     onOpenMain: { rootRoute = .main },
-                    onOpenDevTools: { rootRoute = .devTools }
+                    onOpenDevTools: { rootRoute = .devTools },
+                    onOpenLab: { rootRoute = .lab }
                 )
             case .main:
-                MainAppShell(state: state)
+                MainAppShell(state: state, onReturnToSplash: { rootRoute = .splash })
+            case .lab:
+                YapLabView(state: state, onBack: { rootRoute = .splash })
             case .devTools:
                 DevToolsRootView(state: state, onReturnToSplash: { rootRoute = .splash })
             }
@@ -26,11 +29,13 @@ struct ContentView: View {
         case splash
         case main
         case devTools
+        case lab
     }
 }
 
 private struct MainAppShell: View {
     let state: AppState
+    let onReturnToSplash: () -> Void
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -45,7 +50,7 @@ private struct MainAppShell: View {
             }
 
             if state.settingsOpen {
-                SettingsOverlay(state: state)
+                SettingsOverlay(state: state, onReturnToSplash: onReturnToSplash)
                     .transition(.opacity)
                     .zIndex(2)
             }
@@ -74,6 +79,9 @@ private struct MainAppShell: View {
             // the layout doesn't depend on that.
             VoiceCommandBanner(state: state)
                 .zIndex(3)
+        }
+        .sheet(item: Binding(get: { state.clinicalEntrySheet }, set: { state.clinicalEntrySheet = $0 })) { kind in
+            ClinicalEntrySheet(state: state, kind: kind)
         }
         .ignoresSafeArea(.keyboard)
         .animation(.fast, value: state.settingsOpen)

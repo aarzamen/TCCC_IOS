@@ -80,28 +80,28 @@ struct QuickActionsSheet: View {
             columns: Array(repeating: GridItem(.flexible(), spacing: Layout.hairline), count: 3),
             spacing: Layout.hairline
         ) {
-            actionButton(label: "Mark Time", sub: "Stamp now", icon: "bookmark.fill") {
-                state.appendSystem("MARK · \(Self.timestamp())")
+            actionButton(label: "Mark Time", sub: "Timestamp + note", icon: "bookmark.fill") {
+                state.clinicalEntrySheet = .mark
                 state.quickActionsOpen = false
             }
-            actionButton(label: "New Vital", sub: "Dictate", icon: "heart.text.square") {
-                state.appendSystem("VITALS · pending dictation")
+            actionButton(label: "New Vital", sub: "Enter values", icon: "heart.text.square") {
+                state.clinicalEntrySheet = .vitals
                 state.quickActionsOpen = false
             }
             actionButton(label: "TQ Apply", sub: "Log TQ", icon: "bandage.fill") {
-                state.appendSystem("TQ APPLIED · pending location")
+                state.clinicalEntrySheet = .tourniquet
                 state.quickActionsOpen = false
             }
             actionButton(label: "Med Given", sub: "Pick + dose", icon: "syringe.fill") {
-                state.appendSystem("MED GIVEN · pending dose")
+                state.clinicalEntrySheet = .medication
                 state.quickActionsOpen = false
             }
-            actionButton(label: "Photo", sub: "Wound", icon: "camera.fill") {
-                state.appendSystem("PHOTO · capture deferred")
+            actionButton(label: "Casualty", sub: "Edit details", icon: "person.text.rectangle") {
+                state.clinicalEntrySheet = .identity
                 state.quickActionsOpen = false
             }
             actionButton(label: "End Care", sub: "Finalize \(state.casualtyId)", icon: "checkmark.shield.fill") {
-                Task { @MainActor in await state.endCurrentCare() }
+                state.requestConfirmation(.endCare)
                 state.quickActionsOpen = false
             }
         }

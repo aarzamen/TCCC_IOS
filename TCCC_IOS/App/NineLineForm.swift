@@ -1,12 +1,12 @@
 import Foundation
 import TCCCDomain
 
-struct NineLineEntry: Identifiable {
+struct NineLineEntry: Identifiable, Equatable {
     /// Line-1 source-aware statuses:
     /// - `.ok`      — GPS fix with a valid full-precision MGRS; ready.
     /// - `.pending` — no usable GPS fix (or MGRS conversion failed);
     ///   operator must capture a GPS fix before transmit.
-    enum Status { case ok, warn, crit, auto, pending }
+    enum Status: Equatable { case ok, warn, crit, auto, pending }
 
     let number: Int
     let label: String
@@ -42,15 +42,15 @@ struct NineLineForm {
     static func derive(
         from patients: [PatientState],
         locationFix: AppState.LocationFix,
-        callsign: String = "MEDEVAC",
-        frequency: String = "38.65 FM"
+        callsign: String = "",
+        frequency: String = "",
+        operatorValues: [Int: String] = [:]
     ) -> NineLineForm {
-        let urgent = patients.filter { $0.classification == .urgent || $0.classification == nil }.count
+        let urgent = patients.filter { $0.classification == .urgent }.count
         let urgentSurg = patients.filter { $0.classification == .urgentSurgical }.count
         let priority = patients.filter { $0.classification == .priority }.count
         let routine = patients.filter { $0.classification == .routine }.count
 
-        let (litter, ambulatory) = litterCount(patients)
 
         var entries: [NineLineEntry] = []
 
@@ -92,14 +92,14 @@ struct NineLineForm {
         entries.append(.init(
             number: 2,
             label: "FREQ / CALL",
-            value: "\(frequency) · \(callsign)",
+            value: frequency.isEmpty || callsign.isEmpty ? "—" : "\(frequency) · \(callsign)",
             icon: "antenna.radiowaves.left.and.right",
             status: .ok,
             isAuto: false
         ))
 
         // Line 3 — Patients by precedence
-        let line3Value = formattedPrecedence(urgent: urgent, urgentSurg: urgentSurg, priority: priority, routine: routine)
+        let line3Value = patients.contains { $0.classification == nil } ? "—" : formattedPrecedence(urgent: urgent, urgentSurg: urgentSurg, priority: priority, routine: routine)
         let line3Status: NineLineEntry.Status = (urgent + urgentSurg) > 0 ? .crit : (priority > 0 ? .warn : .ok)
         entries.append(.init(
             number: 3,
@@ -111,32 +111,20 @@ struct NineLineForm {
         ))
 
         // Line 4 — Special equipment
-        let line4 = specialEquipment(patients)
         entries.append(.init(
             number: 4,
             label: "SPECIAL EQUIPMENT",
-            value: line4,
+            value: "—",
             icon: "lungs",
             status: .ok,
             isAuto: false
         ))
 
         // Line 5 — Patients by type (litter / ambulatory)
-        let total = litter + ambulatory
-        let line5: String
-        if litter > 0 && ambulatory > 0 {
-            line5 = "L\(litter)  ·  A\(ambulatory)  ·  \(total) total"
-        } else if litter > 0 {
-            line5 = "L\(litter)  ·  \(litter) litter"
-        } else if ambulatory > 0 {
-            line5 = "A\(ambulatory)  ·  \(ambulatory) ambulatory"
-        } else {
-            line5 = "—"
-        }
         entries.append(.init(
             number: 5,
             label: "PATIENTS BY TYPE",
-            value: line5,
+            value: "—",
             icon: "person.fill",
             status: .ok,
             isAuto: false
@@ -146,7 +134,7 @@ struct NineLineForm {
         entries.append(.init(
             number: 6,
             label: "SECURITY (WAR)",
-            value: "P · POSSIBLE ENEMY",
+            value: "—",
             icon: "exclamationmark.triangle",
             status: .warn,
             isAuto: false
@@ -156,7 +144,7 @@ struct NineLineForm {
         entries.append(.init(
             number: 7,
             label: "MARKING METHOD",
-            value: "C · SMOKE — VS-17 BACKUP",
+            value: "—",
             icon: "smoke.fill",
             status: .ok,
             isAuto: false
@@ -166,7 +154,7 @@ struct NineLineForm {
         entries.append(.init(
             number: 8,
             label: "PT NATIONALITY",
-            value: "A · US MIL",
+            value: "—",
             icon: "checkmark.circle",
             status: .ok,
             isAuto: false
@@ -176,12 +164,23 @@ struct NineLineForm {
         entries.append(.init(
             number: 9,
             label: "CBRN CONTAMINATION",
-            value: "N · NONE",
+            value: "—",
             icon: "shield.lefthalf.filled",
             status: .ok,
             isAuto: false
         ))
 
+        // Operational lines require actual operator input. No assumed nationality,
+        // equipment, security, marking, contamination, or transport posture.
+        entries = entries.map { entry in
+            guard entry.number != 1 else { return entry }
+            let supplied = operatorValues[entry.number]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = supplied.map { $0.isEmpty ? "—" : $0 } ?? entry.value
+            let unknown = ["", "—", "-", "?", "unknown", "unverified", "pending", "tbd", "not assessed", "not entered"]
+                .contains(value.lowercased())
+            return NineLineEntry(number: entry.number, label: entry.label, value: value,
+                icon: entry.icon, status: unknown ? .pending : .ok, isAuto: false)
+        }
         let completed = entries.filter(\.countsTowardCompletion).count
         return NineLineForm(entries: entries, completedCount: completed, totalCount: 9)
     }
@@ -197,48 +196,4 @@ struct NineLineForm {
         return parts.isEmpty ? "—" : parts.joined(separator: " · ")
     }
 
-    /// Litter / ambulatory split mirroring the litter rules from
-    /// `reports.py:_calculate_litter_ambulatory`. Lower-extremity hemorrhage,
-    /// reduced consciousness, or `urgent` classification all force litter.
-    private static func litterCount(_ patients: [PatientState]) -> (litter: Int, ambulatory: Int) {
-        var litter = 0
-        var ambulatory = 0
-        for patient in patients {
-            if patientNeedsLitter(patient) { litter += 1 } else { ambulatory += 1 }
-        }
-        return (litter, ambulatory)
-    }
-
-    private static func patientNeedsLitter(_ patient: PatientState) -> Bool {
-        if patient.classification == .urgent || patient.classification == .urgentSurgical {
-            return true
-        }
-        if let cons = patient.march.consciousness?.lowercased(),
-           cons.contains("voice") || cons.contains("pain") || cons.contains("unresponsive") {
-            return true
-        }
-        if let loc = patient.march.hemorrhageLocation?.lowercased(),
-           loc.contains("thigh") || loc.contains("leg") || loc.contains("femur") {
-            return true
-        }
-        return false
-    }
-
-    private static func specialEquipment(_ patients: [PatientState]) -> String {
-        var equipment: [String] = []
-        for patient in patients {
-            if let air = patient.march.airwayIntervention?.lowercased(),
-               air.contains("cric") || air.contains("vent") {
-                equipment.append("VENTILATOR")
-            }
-            if let resp = patient.march.respirationIntervention?.lowercased(),
-               resp.contains("vent") || resp.contains("intubat") {
-                equipment.append("VENTILATOR")
-            }
-        }
-        let unique = Set(equipment)
-        if unique.isEmpty { return "A · NONE" }
-        if unique.contains("VENTILATOR") { return "B · VENTILATOR" }
-        return "A · NONE"
-    }
 }

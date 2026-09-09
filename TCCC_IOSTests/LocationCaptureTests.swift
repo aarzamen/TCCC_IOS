@@ -55,7 +55,8 @@ final class LocationCaptureTests: XCTestCase {
         let form = NineLineForm.derive(from: [patient], locationFix: state.locationFix)
         let lineOne = try XCTUnwrap(form.entries.first { $0.number == 1 })
         XCTAssertEqual(lineOne.value, "42S WD 15867 20571")
-        XCTAssertTrue(form.isReadyForTransmit)
+        XCTAssertTrue(form.entries[0].isVerifiedForTransmit)
+        XCTAssertFalse(form.isReadyForTransmit, "GPS alone cannot complete unentered operational lines")
     }
 
     // Part G·App-2: denied permission → GPS DENIED state, no crash.

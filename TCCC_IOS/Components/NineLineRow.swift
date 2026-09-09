@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NineLineRow: View {
     let entry: NineLineEntry
+    var onEdit: (() -> Void)? = nil
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -37,16 +38,17 @@ struct NineLineRow: View {
 
             Spacer(minLength: 0)
 
-            // Right badge
-            HStack(spacing: 4) {
-                Image(systemName: badgeIcon)
-                    .font(.system(size: 9, weight: .semibold))
-                Text(badgeText)
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .tracking(0.5)
+            if let onEdit, entry.number != 1 {
+                Button(action: onEdit) {
+                    Label(entry.value == "—" ? "ADD" : "EDIT", systemImage: "pencil")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(minWidth: 70, minHeight: 44)
+                }.buttonStyle(.plain).foregroundStyle(palette.accent)
+            } else {
+                Label(badgeText, systemImage: badgeIcon)
+                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(badgeColor)
+                    .frame(width: 70, alignment: .trailing)
             }
-            .foregroundStyle(badgeColor)
-            .frame(width: 70, alignment: .trailing)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 12)
@@ -68,7 +70,7 @@ struct NineLineRow: View {
 
     private var badgeText: String {
         switch entry.status {
-        case .pending: "NO FIX"
+        case .pending: entry.number == 1 ? "NO FIX" : "NEEDED"
         case .auto: "GPS"
         case .ok, .warn, .crit: entry.isAuto ? "GPS" : "EDIT"
         }

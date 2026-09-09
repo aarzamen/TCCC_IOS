@@ -103,7 +103,7 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
     }
 
     func unprime() async {
-        if isRecording { await stopImmediate() }
+        await stopImmediate()
         if isPrimed {
             await runtime.unload()
             isPrimed = false
@@ -231,6 +231,7 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
                 let stream = try await runtimeRef.transcribe(audioURL: url)
                 var accumulator = ""
                 for try await event in stream {
+                    try Task.checkCancellation()
                     if case .token(let token) = event {
                         accumulator += token
                     } else if case .result(let output) = event {
@@ -239,11 +240,14 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
                         }
                     }
                 }
+                try Task.checkCancellation()
                 cont.yield(RecognitionUpdate(
                     text: accumulator,
                     isFinal: true,
                     timestamp: Date()
                 ))
+            } catch is CancellationError {
+                // Cancellation is teardown, not a successful final transcript.
             } catch {
                 cont.yield(RecognitionUpdate(
                     text: "[Granite Speech: \(error.localizedDescription)]",
@@ -259,18 +263,23 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
     }
 
     func stopImmediate() async {
-        guard isRecording else { return }
-        engine.stop()
-        engine.inputNode.removeTap(onBus: 0)
-        isRecording = false
-        try? AVAudioSession.sharedInstance().setActive(
-            false, options: .notifyOthersOnDeactivation
-        )
+        // Stop may already have released the microphone and started decoding.
+        // Always cancel and join that task before unloading its model or starting
+        // another lab session, even when recording has ended.
+        transcribeTask?.cancel()
+        if isRecording {
+            engine.stop()
+            engine.inputNode.removeTap(onBus: 0)
+            isRecording = false
+            try? AVAudioSession.sharedInstance().setActive(
+                false, options: .notifyOthersOnDeactivation
+            )
+        }
         audioFile = nil
         recordedURL = nil
         continuation?.finish()
         continuation = nil
-        transcribeTask?.cancel()
+        if let transcribeTask { await transcribeTask.value }
         transcribeTask = nil
         if let weakLevels = self.levels {
             Task { @MainActor in weakLevels.reset() }

@@ -32,6 +32,8 @@ struct GraniteLiveView: View {
     @State private var streamWatchTask: Task<Void, Never>?
     @State private var stream: GraniteSpeechTranscriptStream?
     @State private var lastError: String?
+    @State private var isLeaving = false
+    @State private var cleanupTask: Task<Void, Never>?
 
     /// Wall-clock start of the current recording session. Drives the
     /// long-form warning banner's 60-s duration sentinel. Reset on
@@ -63,6 +65,20 @@ struct GraniteLiveView: View {
         state.graniteSpeechBookmarkStore.hasBookmark
     }
 
+    private var hasLocalModel: Bool {
+        if HFHubCache.directory(for: GraniteSpeechModelResolver.defaultModelID) != nil { return true }
+        guard let bundled = GraniteSpeechModelResolver.defaultBundleResourceCheck() else { return false }
+        return OfflineModelAssets.problems(at: bundled, modelID: GraniteSpeechModelResolver.defaultModelID).isEmpty
+    }
+
+    private var hasModelSource: Bool { hasBookmark || hasLocalModel }
+
+    private var modelStatus: String {
+        if hasBookmark { return "Folder selected · validated on load" }
+        if hasLocalModel { return "Local files found · no download needed" }
+        return "Missing model files · open Model Setup"
+    }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1.0)) { _ in
             VStack(alignment: .leading, spacing: Layout.gridGap) {
@@ -82,11 +98,7 @@ struct GraniteLiveView: View {
             monitor.start()
         }
         .onDisappear {
-            monitor.stop()
-            lifecycleTask?.cancel()
-            streamWatchTask?.cancel()
-            Task { await stream?.stopImmediate() }
-            csvLogger = nil
+            _ = beginCleanup()
         }
         .onChange(of: monitor.current) { _, reading in
             csvLogger?.append(reading, pressure: monitor.pressure)
@@ -102,7 +114,7 @@ struct GraniteLiveView: View {
         Panel("Granite Live", titleIcon: "mic.circle.fill", action: phaseLabel, padded: true) {
             VStack(alignment: .leading, spacing: 8) {
                 row(label: "MODEL", value: GraniteSpeechModelResolver.defaultModelID)
-                row(label: "BOOKMARK", value: hasBookmark ? "Configured" : "Missing — use Settings")
+                row(label: "ASSETS", value: modelStatus)
                 if let source = resolverSource {
                     row(label: "RESOLVED FROM", value: source.rawValue)
                 }
@@ -155,9 +167,12 @@ struct GraniteLiveView: View {
     private var controls: some View {
         HStack(spacing: 12) {
             Button {
-                onBack()
+                Task {
+                    await beginCleanup().value
+                    onBack()
+                }
             } label: {
-                Text("Back")
+                Text(isLeaving ? "Releasing…" : "Back")
                     .font(.system(size: 11, weight: .heavy))
                     .tracking(1.4)
                     .textCase(.uppercase)
@@ -170,6 +185,7 @@ struct GraniteLiveView: View {
                     )
             }
             .buttonStyle(.plain)
+            .disabled(isLeaving)
 
             Button {
                 Haptics.tap()
@@ -197,7 +213,7 @@ struct GraniteLiveView: View {
 
     private var recordButtonLabel: String {
         switch phase {
-        case .idle:                  hasBookmark ? "Record" : "Configure model first"
+        case .idle:                  hasModelSource ? "Record" : "Prepare model files"
         case .priming:               "Priming model…"
         case .recording:             "Stop"
         case .transcribing:          "Transcribing…"
@@ -229,7 +245,9 @@ struct GraniteLiveView: View {
     }
 
     private var canRecord: Bool {
-        guard hasBookmark else { return false }
+        guard !isLeaving else { return false }
+        if phase == .recording { return true }
+        guard hasModelSource else { return false }
         switch phase {
         case .priming, .transcribing: return false
         default:                       return true
@@ -237,6 +255,29 @@ struct GraniteLiveView: View {
     }
 
     // MARK: - Lifecycle
+
+    /// Capture this view's resources before suspending, cancel startup, and
+    /// join it before final teardown. Back cannot leave an awaited permission
+    /// or model load free to start a microphone on the next screen.
+    private func beginCleanup() -> Task<Void, Never> {
+        if let cleanupTask { return cleanupTask }
+        isLeaving = true
+        monitor.stop()
+        let startup = lifecycleTask
+        let watcher = streamWatchTask
+        let activeStream = stream
+        startup?.cancel()
+        watcher?.cancel()
+        let cleanup = Task {
+            await startup?.value
+            await activeStream?.stopImmediate()
+            await activeStream?.unprime()
+            await watcher?.value
+            csvLogger = nil
+        }
+        cleanupTask = cleanup
+        return cleanup
+    }
 
     private func handleRecordTap() {
         switch phase {
@@ -250,7 +291,7 @@ struct GraniteLiveView: View {
     }
 
     private func startRecording() {
-        guard hasBookmark else { return }
+        guard !isLeaving, hasModelSource else { return }
         lifecycleTask?.cancel()
         streamWatchTask?.cancel()
         lastError = nil
@@ -263,6 +304,11 @@ struct GraniteLiveView: View {
         let runtime = GraniteSpeechRuntime(
             resolver: GraniteSpeechModelResolver(
                 bookmarkStore: state.graniteSpeechBookmarkStore,
+                    bundleResourceCheck: {
+                        guard let bundled = GraniteSpeechModelResolver.defaultBundleResourceCheck(),
+                              OfflineModelAssets.problems(at: bundled, modelID: GraniteSpeechModelResolver.defaultModelID).isEmpty else { return nil }
+                        return bundled
+                    },
                 hfCacheLookup: { modelID in
                     HFHubCache.directory(for: modelID).flatMap { dir in
                         HFHubCache.contains(modelId: modelID) ? dir : nil
@@ -276,23 +322,31 @@ struct GraniteLiveView: View {
         phase = .priming
         lifecycleTask = Task {
             do {
+                try Task.checkCancellation()
                 try await newStream.authorize()
+                try Task.checkCancellation()
                 try await newStream.prime()
+                try Task.checkCancellation()
                 let source = await newStream.primedSource
+                try Task.checkCancellation()
                 let live = try await newStream.start(audioURL: nil)
+                try Task.checkCancellation()
 
                 await MainActor.run {
+                    guard !self.isLeaving, !Task.isCancelled else { return }
                     self.resolverSource = source
                     self.recordingStartedAt = Date()
                     self.csvLogger?.append(self.monitor.current, pressure: self.monitor.pressure, event: "primed")
                     self.phase = .recording
                 }
+                try Task.checkCancellation()
 
                 // Watch the stream for the final RecognitionUpdate (emitted
                 // after stop() runs runtime.transcribe over the captured
                 // file). The stream finishes after the final update.
                 streamWatchTask = Task {
                     for await update in live {
+                        guard !Task.isCancelled else { break }
                         await MainActor.run {
                             self.transcriptText = update.text
                             if update.isFinal {
@@ -304,6 +358,9 @@ struct GraniteLiveView: View {
                     }
                 }
             } catch {
+                await newStream.stopImmediate()
+                await newStream.unprime()
+                guard !Task.isCancelled, !isLeaving else { return }
                 await MainActor.run {
                     self.lastError = error.localizedDescription
                     self.csvLogger?.append(self.monitor.current, pressure: self.monitor.pressure, event: "failed")
@@ -392,7 +449,7 @@ struct GraniteLiveView: View {
 
     private var phaseLabel: String {
         switch phase {
-        case .idle:                  "ready"
+        case .idle:                  hasLocalModel ? "local files found" : (hasBookmark ? "folder selected" : "missing model files")
         case .priming:               "priming"
         case .recording:             "recording"
         case .transcribing:          "transcribing"

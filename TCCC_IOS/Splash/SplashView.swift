@@ -3,6 +3,7 @@ import SwiftUI
 struct SplashView: View {
     let onOpenMain: () -> Void
     let onOpenDevTools: () -> Void
+    let onOpenLab: () -> Void
 
     @Environment(\.palette) private var palette
 
@@ -25,10 +26,17 @@ struct SplashView: View {
 
                     SplashChoiceCard(
                         title: "DevTools",
-                        subtitle: "Scenario playback",
+                        subtitle: "Playback & benchmarks",
                         systemImage: "waveform.badge.magnifyingglass",
                         style: .standard,
                         action: onOpenDevTools
+                    )
+                    SplashChoiceCard(
+                        title: "Yap Lab",
+                        subtitle: "Record · transcribe · experiment",
+                        systemImage: "waveform.and.magnifyingglass",
+                        style: .standard,
+                        action: onOpenLab
                     )
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -51,7 +59,7 @@ struct SplashView: View {
                     .fill(palette.line)
                     .frame(width: Layout.hairline, height: 18)
 
-                Text("Select Role")
+                Text("Choose your workspace")
                     .tccc(.h1)
                     .foregroundStyle(palette.fg)
                     .textCase(.uppercase)
@@ -93,7 +101,8 @@ private struct SplashChoiceCard: View {
                         .tccc(.labelSmall)
                         .foregroundStyle(palette.fg2)
                         .textCase(.uppercase)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
 
                     Text(title)
                         .tccc(.h1)
@@ -148,6 +157,6 @@ private struct SplashChoiceCard: View {
 }
 
 #Preview {
-    SplashView(onOpenMain: {}, onOpenDevTools: {})
+    SplashView(onOpenMain: {}, onOpenDevTools: {}, onOpenLab: {})
         .environment(\.palette, Theme.dark.palette)
 }
