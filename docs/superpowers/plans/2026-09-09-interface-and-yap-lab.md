@@ -56,7 +56,7 @@ Files: AppState, clinical screens/components, root/splash navigation, new correc
 - [x] Rename QR presentation and remove false transmit/AES claims; expose export errors and improve label legibility.
 - [x] Fix Sender callback isolation and stale MEDEVAC model responses.
 - [x] Wire Yap Lab and preparation into the existing app, regenerate Xcode project once workers finish.
-- [ ] Complete repository publication and signed device build/update after the verified implementation.
+- [x] Complete repository publication and signed device build/update after the verified implementation.
 
 ## Execution ledger
 
@@ -97,3 +97,14 @@ Baseline source `2e1dec2` has current green package/simulator/CI evidence from t
   session after app relaunch. Successful ASR remains a physical-device check.
 - Physical-device model quality and matched pairing performance are not established
   by these source/UI checks.
+
+## Delivery
+
+PR #8 merges into main at `b0e93f4` after CI run `34349882535` passes.
+The canonical checkout fast-forwards to that merge. Signed build `b479354`
+contains the same application code and is installed in place on the iPhone 17
+Pro with all six verified model packages. All 54 preexisting top-level Documents
+entries remain present with unchanged resource metadata. iOS auto-lock prevents
+remote launch verification; first launch and physical model-pair comparison
+remain explicit operator checks. No private recordings or model weights enter
+Git. This final documentation update changes no application code.
