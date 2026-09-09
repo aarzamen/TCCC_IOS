@@ -110,15 +110,13 @@ actor SpeechRecognizer: TranscriptStream {
     // MARK: - Authorization
 
     func authorize() async throws {
-        let speechStatus: SFSpeechRecognizerAuthorizationStatus = await withCheckedContinuation { cont in
-            SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0) }
-        }
+        let speechStatus = await SpeechAuthorization.request()
         guard speechStatus == .authorized else {
             throw TranscriptStreamError.speechDenied
         }
 
         let micGranted: Bool = await withCheckedContinuation { cont in
-            AVAudioApplication.requestRecordPermission { cont.resume(returning: $0) }
+            AVAudioApplication.requestRecordPermission { @Sendable granted in cont.resume(returning: granted) }
         }
         guard micGranted else {
             throw TranscriptStreamError.microphoneDenied

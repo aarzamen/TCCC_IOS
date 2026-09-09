@@ -13,9 +13,8 @@ import os
 /// model produces sane transcripts inside §7's runtime memory cap.
 ///
 /// Prerequisites:
-/// - Settings → ASR Backend → Granite Speech (alt) → Select Model
-///   Folder. The bake-off uses the same `GraniteSpeechBookmarkStore`
-///   the runtime uses.
+/// - Valid bundled/installed/cache model files, or an explicitly selected
+///   model folder through the shared `GraniteSpeechBookmarkStore`.
 /// - The bundled fixture (`test_5min.wav`, 16 kHz mono Float32) ships
 ///   in `TCCC_IOS/Resources/`. Despite the name, the synthesized
 ///   reading runs ~100 s (macOS `say` reads the §6 narrative fast);
@@ -64,6 +63,20 @@ struct GraniteBakeoffView: View {
         state.graniteSpeechBookmarkStore.hasBookmark
     }
 
+    private var hasLocalModel: Bool {
+        if HFHubCache.directory(for: GraniteSpeechModelResolver.defaultModelID) != nil { return true }
+        guard let bundled = GraniteSpeechModelResolver.defaultBundleResourceCheck() else { return false }
+        return OfflineModelAssets.problems(at: bundled, modelID: GraniteSpeechModelResolver.defaultModelID).isEmpty
+    }
+
+    private var hasModelSource: Bool { hasBookmark || hasLocalModel }
+
+    private var modelStatus: String {
+        if hasBookmark { return "Folder selected · validated on load" }
+        if hasLocalModel { return "Local files found · no download needed" }
+        return "Missing model files · open Model Setup"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Layout.gridGap) {
             statusPanel
@@ -86,8 +99,9 @@ struct GraniteBakeoffView: View {
         Panel("Granite Bake-off", titleIcon: "gauge.with.dots.needle.bottom.50percent", action: phaseLabel, padded: true) {
             VStack(alignment: .leading, spacing: 8) {
                 row(label: "MODEL", value: GraniteSpeechModelResolver.defaultModelID)
-                row(label: "BOOKMARK", value: hasBookmark ? "Configured" : "Missing — use Settings")
+                row(label: "ASSETS", value: modelStatus)
                 row(label: "FIXTURE", value: fixtureURL != nil ? "test_5min.wav (16 kHz mono)" : "Missing")
+                if case .failed(let message) = phase { row(label: "ERROR", value: message) }
                 if let source = resolverSource {
                     row(label: "RESOLVED FROM", value: source.rawValue)
                 }
@@ -178,7 +192,7 @@ struct GraniteBakeoffView: View {
 
     private var runButtonLabel: String {
         switch phase {
-        case .idle:                  hasBookmark ? "Run Bake-off" : "Configure model first"
+        case .idle:                  !hasModelSource ? "Prepare model files" : (fixtureURL == nil ? "Fixture missing" : "Run Bake-off")
         case .priming:               "Loading model…"
         case .transcribing:          "Transcribing…"
         case .complete:              "Run Again"
@@ -187,7 +201,7 @@ struct GraniteBakeoffView: View {
     }
 
     private var canRun: Bool {
-        guard hasBookmark else { return false }
+        guard hasModelSource else { return false }
         guard fixtureURL != nil else { return false }
         switch phase {
         case .priming, .transcribing: return false
@@ -213,6 +227,11 @@ struct GraniteBakeoffView: View {
             let runtime = GraniteSpeechRuntime(
                 resolver: GraniteSpeechModelResolver(
                     bookmarkStore: state.graniteSpeechBookmarkStore,
+                    bundleResourceCheck: {
+                        guard let bundled = GraniteSpeechModelResolver.defaultBundleResourceCheck(),
+                              OfflineModelAssets.problems(at: bundled, modelID: GraniteSpeechModelResolver.defaultModelID).isEmpty else { return nil }
+                        return bundled
+                    },
                     hfCacheLookup: { modelID in
                         HFHubCache.directory(for: modelID).flatMap { dir in
                             HFHubCache.contains(modelId: modelID) ? dir : nil
@@ -235,6 +254,7 @@ struct GraniteBakeoffView: View {
 
                 let stream = try await runtime.transcribe(audioURL: url)
                 var accumulator = ""
+                var authoritativeResult: String?
                 for try await event in stream {
                     let footprint = MemoryMonitor.physFootprintBytes()
                     await MainActor.run {
@@ -258,6 +278,7 @@ struct GraniteBakeoffView: View {
                         // Don't blank the panel in that case — only
                         // overwrite when result actually carries text.
                         let final = output.text
+                        if !final.isEmpty { authoritativeResult = final }
                         await MainActor.run {
                             if !final.isEmpty {
                                 self.transcriptText = final
@@ -267,11 +288,12 @@ struct GraniteBakeoffView: View {
                     }
                 }
 
-                let finalText = accumulator
+                let finalText = authoritativeResult ?? accumulator
                 await MainActor.run {
                     if self.transcribeEnd == nil {
                         self.transcribeEnd = Date()
                     }
+                    self.transcriptText = finalText
                     self.keywordHits = Self.expectedTokens.reduce(into: [:]) { acc, token in
                         acc[token] = finalText.range(of: token, options: .caseInsensitive) != nil
                     }
@@ -301,7 +323,7 @@ struct GraniteBakeoffView: View {
 
     private var phaseLabel: String {
         switch phase {
-        case .idle:                  "ready"
+        case .idle:                  hasLocalModel ? "local files found" : (hasBookmark ? "folder selected" : "missing model files")
         case .priming:               "priming"
         case .transcribing:          "transcribing"
         case .complete:              "complete"

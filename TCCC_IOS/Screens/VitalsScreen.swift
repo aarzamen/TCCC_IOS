@@ -12,9 +12,7 @@ import TCCCDomain
 /// Reference: reference/rubric/extracted/dd1380_field_inventory.json fields
 /// with section_identifier "C".
 ///
-/// **Editing is read-only for now.** Future work: tap-to-edit cells plus a
-/// "Add Reading" affordance to capture a new timestamped column. The
-/// engine's auto-snapshot covers the read-path until then.
+/// Add / correct reading records operator-supplied observations through the engine.
 struct VitalsScreen: View {
     let state: AppState
     @Environment(\.palette) private var palette
@@ -73,6 +71,8 @@ struct VitalsScreen: View {
         ) {
             ScrollView {
                 VStack(spacing: 0) {
+                    Button("Add / correct reading") { state.clinicalEntrySheet = .vitals }
+                        .frame(maxWidth: .infinity, minHeight: 44)
                     headerRow
                     rowDivider
                     cRow(label: "Time",        values: fourColumns.map { columnTimeString($0) })
@@ -87,14 +87,14 @@ struct VitalsScreen: View {
                     rowDivider
                     cRow(label: "AVPU",        values: fourColumns.map { avpuValue($0) })
                     rowDivider
-                    cRow(label: "Pain (0-10)", values: fourColumns.map { _ in "—" })
+                    cRow(label: "Pain (0-10)", values: fourColumns.map { $0?.pain ?? "—" })
                 }
             }
         }
     }
 
     private var gridAction: String {
-        state.vitalsLog.isEmpty ? "AWAITING DATA" : "READ-ONLY · DRAFT"
+        state.vitalsLog.isEmpty ? "AWAITING DATA" : "RECORDED · DRAFT"
     }
 
     // MARK: - Grid header

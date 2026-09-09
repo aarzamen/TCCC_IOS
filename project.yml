@@ -41,6 +41,9 @@ settings:
     # post-build script needs (.git/HEAD, refs, index). Offline local
     # project; scripts are ours; determinism > sandbox here.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
+  configs:
+    Release:
+      TCCC_REQUIRE_OFFLINE_MODELS: YES
 targets:
   TCCC_IOS:
     type: application
@@ -98,6 +101,11 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: TCCC_IOS/TCCC_IOS.entitlements
+    preBuildScripts:
+      - name: "Embed verified offline models"
+        basedOnDependencyAnalysis: false
+        shell: /bin/bash
+        script: bash "$SRCROOT/tools/embed_offline_models.sh"
     postBuildScripts:
       - name: "Stamp build identity"
         basedOnDependencyAnalysis: false

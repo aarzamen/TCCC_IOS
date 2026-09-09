@@ -38,6 +38,8 @@ struct TCCCCardScreen: View {
                 }
                 .buttonStyle(.plain)
                 Spacer()
+                Button("Casualty details") { state.clinicalEntrySheet = .identity }.frame(minHeight: 44)
+                Button("Assessment") { state.clinicalEntrySheet = .assessment }.frame(minHeight: 44)
             }
             .padding(.horizontal, Layout.outerPadding)
             .padding(.top, 6)

@@ -13,7 +13,8 @@ user shares manually via the iOS share sheet, plus an offline QR code
 generated locally for scanning by another device. The only network
 activity in the entire app is the optional, operator-gated one-time
 model download for the alternate ASR/LLM backends (see below); the
-default backends download nothing.
+Apple system assets are managed separately by iOS. Field builds can embed the
+non-Apple model pack so new installs work without a first-run download.
 
 > **Status: working prototype, not a cleared medical device.** It runs
 > end-to-end on an iPhone 17 Pro and has been used to capture real
@@ -22,14 +23,16 @@ default backends download nothing.
 
 ## What actually works today
 
-Verified on an iPhone 17 Pro (iOS 26.x) and in the iOS Simulator.
+Verification is feature-specific: the existing capture path has physical-device
+evidence; the September 9 interface/lab pass has simulator and source-test evidence.
+See [field interface and Yap Lab](docs/field-interface-and-yap-lab.md) for the current workflow.
 
 | Screen | Works | Not yet / caveats |
 |---|---|---|
 | 01 Live Capture | On-device ASR with live transcript; engine-extracted facts panel; 30 s pre-roll + 30 s tail; two "Load demo" buttons to seed the engine without speaking | Engine runs on committed lines, not partials |
-| 02 Vital Signs Log | DD 1380 Section C grid (4 timestamped columns × 7 rows) populated from engine snapshots; interventions panel | **Cells are read-only** — tap-to-edit is not built |
+| 02 Vital Signs Log | DD 1380 Section C grid (4 timestamped columns × 7 rows) populated from engine snapshots; interventions panel | Add / correct reading opens manual entry; the grid retains four readings |
 | 03 TCCC Card | Front/back regional body diagram with patient laterality and explicit unknowns, MARCH (incl. Hypothermia §7 + TBI §8 sub-rows), PAWS, meds log, front/back card with §D–H scaffold | §D–H fields are best-effort from extracted state; not all are populated |
-| 04 MEDEVAC | Auto-populated 9-line (incl. in-house WGS-84→MGRS for Line 1), voice-readable transmit script | **"Transmit" produces a script and logs an event — there is no over-the-air transmission of any kind** |
+| 04 MEDEVAC | GPS Line 1, editable operational fields with explicit unknowns, source-checked radio worksheet | Call made records an operator confirmation; QR/share does not imply a transmitted request |
 | 05 Handoff | Encounter summary, timeline, immediate structured ZMIST plus optional on-device model drafts, JSON / audio+transcript / CSV exports, offline QR, **DD-1380 PDF** (deterministic two-page export, protected at rest, shared via the sheet) | DD-1380 uses a **fallback layout, not the official DD Form 1380 template**; unentered identity fields stay blank |
 
 **Lifecycle & persistence (shipped, device-validated):** each casualty's
@@ -40,6 +43,15 @@ Care **archive** the record (never delete); WIPE (hold 3 s) purges the
 whole archive and re-arms a fresh casualty. Every write is made with
 `NSFileProtectionComplete`. (Encryption is code-set on every write; the
 locked-device-unreadability property has not been independently audited.)
+
+## Launcher tools
+
+**Yap Lab** records/imports local audio, compares recognizers, keeps raw text
+separate from editable-prompt LLM drafts, and saves source-linked experiments.
+It includes local playback, search, word counts, prompts and elapsed generation
+time. **DevTools** provides optional scenario playback and Granite diagnostics.
+See the [interactive architecture explorer](reference/system-explorer/tccc-switchboard.html)
+and [offline installation guide](docs/research/2026-09-09-offline-model-installation.md).
 
 ## Transcript pipeline
 
@@ -66,11 +78,11 @@ or a MARCH/PAWS phase-status change. See `CLAUDE.md` for the audit log.
 
 ## Tests
 
-- **TCCCKit (pure logic): 836 tests, 0 failures** (2026-09-08) — run in isolation
+- **TCCCKit (pure logic): 836 tests, 0 failures** (2026-09-09) — run in isolation
   with `swift test`, no simulator needed. These mirror the Python
   prototype's assertions plus Swift-only coverage of the event-sourcing
   fold, projection equivalence, and the transcript pipeline.
-- **App target: 199 tests, 3 expected skips, 0 failures** (2026-09-08) — AppState lifecycle, persistence,
+- **App target: 242 tests, 3 expected skips, 0 failures** (2026-09-09) — AppState lifecycle, persistence,
   exports, and capture identity, regional body-map presentation, handoff isolation and draft generation.
 
 The 2026-09-08 body-map/handoff change includes simulator navigation, native
@@ -91,7 +103,9 @@ TCCC_IOS/
 │   ├── Chrome/ Components/      # StatusStrip, PageHeader, Panel, FooterHints, SettingsOverlay
 │   ├── Design/                 # Theme tokens, typography, layout
 │   ├── Intelligence/           # TCCCLLMBackend conformers (Apple FM / LFM2 / Qwen / Granite)
-│   ├── DevTools/               # dev-only Granite audio benchmark (launch-arg gated), not in normal runtime
+│   ├── DevTools/               # scenario playback and Granite diagnostics
+│   ├── TranscriptionLab/       # independent raw ASR and prompt experiments
+│   ├── OfflineModels/          # validated local resolver and preparation UI
 │   ├── Pager/ Screens/          # 5-screen swipe pager + screen views
 ├── Packages/TCCCKit/           # local SPM — pure logic, testable in isolation
 │   └── Sources/

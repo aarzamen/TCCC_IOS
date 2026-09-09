@@ -8,195 +8,38 @@ struct TransmitScript: View {
     let generatedScript: String?
     let isGenerating: Bool
     let generationError: String?
-
     @Environment(\.palette) private var palette
-    @State private var holdProgress: CGFloat = 0
-    @State private var holdTask: Task<Void, Never>?
-    private let holdDuration: Double = 2.0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            scriptCard
-            generationStatusLine
-            transmitStatusLine
-            actionsRow
-        }
-    }
-
-    private var scriptCard: some View {
-        Group {
-            if let generated = generatedScript, !generated.isEmpty {
-                generatedScriptView(generated)
-            } else {
-                fallbackScriptView
-            }
-        }
-    }
-
-    private var fallbackScriptView: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("MEDEVAC, MEDEVAC,")
-                .foregroundStyle(palette.accent)
-            Text("THIS IS MEDIC,")
-                .foregroundStyle(palette.fg)
-
-            ForEach(scriptLines, id: \.self) { line in
-                Text(line)
-                    .foregroundStyle(palette.fg)
-            }
-        }
-        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-        .lineSpacing(3)
-        .padding(.vertical, 8)
-        .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(palette.bg)
-        .overlay(
-            Rectangle()
-                .strokeBorder(palette.line, lineWidth: Layout.hairline)
-        )
-    }
-
-    private func generatedScriptView(_ text: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(text.components(separatedBy: "\n"), id: \.self) { line in
-                Text(line.isEmpty ? " " : line)
-                    .foregroundStyle(line.lowercased().contains("dustoff") ? palette.accent : palette.fg)
-            }
-        }
-        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-        .lineSpacing(3)
-        .padding(.vertical, 8)
-        .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(palette.bg)
-        .overlay(
-            Rectangle()
-                .strokeBorder(palette.accentDim, lineWidth: Layout.hairline)
-        )
-    }
-
-    private var scriptLines: [String] {
-        var out: [String] = []
-        for entry in entries.prefix(5) {
-            out.append("LINE \(entry.number): \(entry.value.uppercased())")
-        }
-        return out
-    }
-
-    private var blockingTransmitEntry: NineLineEntry? {
-        entries.first { !$0.isVerifiedForTransmit }
-    }
-
-    private var canTransmit: Bool {
-        blockingTransmitEntry == nil
-    }
-
-    @ViewBuilder
-    private var generationStatusLine: some View {
-        if isGenerating {
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.mini)
-                Text("Generating radio call · on-device")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(1.4)
-                    .foregroundStyle(palette.fg2)
-                    .textCase(.uppercase)
-            }
-        } else if let err = generationError {
-            Text(err)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(palette.crit)
-                .lineLimit(2)
-        } else if generatedScript != nil {
-            Text("Generated · review before transmit")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.4)
-                .foregroundStyle(palette.accent)
-                .textCase(.uppercase)
-        }
-    }
-
-    @ViewBuilder
-    private var transmitStatusLine: some View {
-        if let blockingTransmitEntry {
-            Text("Line \(blockingTransmitEntry.number) \(blockingTransmitEntry.label) required before transmit")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.2)
-                .foregroundStyle(palette.crit)
-                .textCase(.uppercase)
-                .lineLimit(2)
-        }
-    }
-
-    private var actionsRow: some View {
-        HStack(spacing: 6) {
-            BigButton(
-                isGenerating ? "Generating…" : (generatedScript == nil ? "Generate" : "Regenerate"),
-                systemImage: "wand.and.stars",
-                style: .standard,
-                action: onGenerate
-            )
-            .disabled(isGenerating)
-
-            BigButton("Review", systemImage: "slider.horizontal.3", style: .standard, action: onReview)
-
-            ZStack(alignment: .bottomLeading) {
-                BigButton(
-                    "Transmit",
-                    systemImage: "paperplane.fill",
-                    style: canTransmit ? .accent : .standard
-                ) { /* handled by long-press gesture below */ }
-                .gesture(transmitHoldGesture)
-                .disabled(!canTransmit)
-                .opacity(canTransmit ? 1 : 0.45)
-
-                Rectangle()
-                    .fill(palette.accent)
-                    .frame(width: holdProgress * fullWidth, height: 2)
-                    .opacity(holdProgress > 0 ? 1 : 0)
-            }
-        }
-    }
-
-    private var fullWidth: CGFloat { 200 }
-
-    private var transmitHoldGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { _ in
-                guard canTransmit else {
-                    holdTask?.cancel()
-                    holdTask = nil
-                    holdProgress = 0
-                    return
-                }
-                if holdTask == nil {
-                    holdProgress = 0
-                    let start = Date()
-                    holdTask = Task { @MainActor in
-                        while !Task.isCancelled {
-                            let elapsed = Date().timeIntervalSince(start)
-                            let p = min(1, elapsed / holdDuration)
-                            holdProgress = CGFloat(p)
-                            if p >= 1 {
-                                onTransmit()
-                                holdProgress = 0
-                                holdTask = nil
-                                return
-                            }
-                            try? await Task.sleep(nanoseconds: 30_000_000)
+        VStack(alignment: .leading, spacing: 8) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(generatedScript == nil ? "DETERMINISTIC WORKSHEET" : "LLM DRAFT · REVIEW WORDING")
+                        .font(.caption.bold()).foregroundStyle(palette.accent)
+                    if let generatedScript {
+                        Text(generatedScript).textSelection(.enabled)
+                    } else {
+                        ForEach(entries) { entry in
+                            Text("LINE \(entry.number): \(entry.value)")
                         }
                     }
                 }
+                .font(.system(size: 12, design: .monospaced))
+                .frame(maxWidth: .infinity, alignment: .leading).padding(10)
             }
-            .onEnded { _ in
-                holdTask?.cancel()
-                holdTask = nil
-                if holdProgress < 1 {
-                    withAnimation(.fast) {
-                        holdProgress = 0
-                    }
-                }
+            .background(palette.bg)
+            if let generationError {
+                Text(generationError).font(.caption).foregroundStyle(palette.crit)
             }
+            let missing = entries.filter { !$0.isVerifiedForTransmit }.count
+            Text(missing == 0 ? "All lines entered · review before use" : "\(missing) lines need information")
+                .font(.caption).foregroundStyle(missing == 0 ? palette.fg2 : palette.warn)
+            HStack(spacing: 6) {
+                BigButton(isGenerating ? "Generating…" : "Draft wording", systemImage: "wand.and.stars", style: .standard, action: onGenerate)
+                    .disabled(isGenerating)
+                BigButton("Edit fields", systemImage: "pencil", style: .standard, action: onReview)
+                BigButton("Call made", systemImage: "checkmark.bubble", style: .standard, action: onTransmit)
+            }
+        }
     }
 }

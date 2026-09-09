@@ -5,9 +5,12 @@ enum GraniteLocalModelAssetFailure: Sendable, Equatable, Hashable, CustomStringC
     case configMissing(String)
     case tokenizerMissing(String)
     case weightsMissing(String)
+    case incompleteFiles(String)
 
     var description: String {
         switch self {
+        case .incompleteFiles(let message):
+            return message
         case .directoryMissing(let path):
             return "Model directory is missing: \(path)"
         case .configMissing(let path):
@@ -72,6 +75,9 @@ enum GraniteLocalModelAssetGate {
             failures.insert(.weightsMissing(path))
         }
 
+        for issue in OfflineModelAssets.mlxProblems(at: modelDirectory) {
+            failures.insert(.incompleteFiles(issue))
+        }
         return GraniteLocalModelAssetReport(
             modelDirectory: modelDirectory,
             failures: failures

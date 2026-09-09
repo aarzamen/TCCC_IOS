@@ -56,6 +56,11 @@ extension PatientStateEngine {
     /// the engine and the projection own timestamp semantics around it.
     nonisolated static func applyWrite(_ write: PatientStateFieldWrite, to p: inout PatientState) {
         switch write {
+        case .mechanismOfInjury(let value): p.mechanismOfInjury = value
+        case .classification(let value): p.classification = value
+        case .setInjuries(let value): p.injuries = value
+        case .appendIntervention(let value):
+            if !p.interventions.contains(where: { $0.id == value.id }) { p.interventions.append(value) }
         case .heartRate(let v):              p.vitals.hr = v
         case .spo2(let v):                   p.vitals.spo2 = v
         case .respiratoryRate(let v):        p.vitals.rr = v

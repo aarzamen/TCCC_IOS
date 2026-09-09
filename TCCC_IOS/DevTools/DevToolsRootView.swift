@@ -5,6 +5,7 @@ struct DevToolsRootView: View {
     let onReturnToSplash: () -> Void
 
     @Environment(\.palette) private var palette
+    @State private var modelAssetsOpen = false
     @State private var route: DevToolsRoute = .landing
 
     var body: some View {
@@ -37,6 +38,7 @@ struct DevToolsRootView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .sheet(isPresented: $modelAssetsOpen) { OfflineModelPreparationView() }
     }
 
     private var header: some View {
@@ -53,6 +55,7 @@ struct DevToolsRootView: View {
                 .textCase(.uppercase)
 
             Spacer(minLength: 12)
+            HeaderButton(title: "Offline assets", systemImage: "shippingbox") { modelAssetsOpen = true }
 
             if route != .landing {
                 HeaderButton(title: "Back", systemImage: "chevron.left") {
@@ -77,7 +80,7 @@ struct DevToolsRootView: View {
 
     private var headerSubtitle: String {
         switch route {
-        case .landing:        "Sender / Receiver / Bake-off / Live"
+        case .landing:        "Scenario playback / Granite diagnostics"
         case .sender:         "TTS Sender"
         case .receiver:       "Receiver Stub"
         case .graniteBakeoff: "Granite Bake-off"

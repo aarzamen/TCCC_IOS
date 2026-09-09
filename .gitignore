@@ -34,3 +34,7 @@ reference/rubric/*
 !reference/rubric/extracted/
 .claude/
 PROJECT.gdu
+
+# Model binaries are privately staged, embedded at build time, never source.
+*.safetensors
+OfflineModels-Staging/

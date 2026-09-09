@@ -5,6 +5,9 @@ struct MedevacScreen: View {
     let state: AppState
     @Environment(\.palette) private var palette
 
+    @State private var generationTask: Task<Void, Never>?
+    @State private var showRadioConfirmation = false
+    @State private var radioError: String?
     @State private var generatedScript: String?
     @State private var isGenerating: Bool = false
     @State private var generationError: String?
@@ -16,7 +19,8 @@ struct MedevacScreen: View {
             : Array(patients)
         return NineLineForm.derive(
             from: source,
-            locationFix: state.locationFix
+            locationFix: state.locationFix,
+            operatorValues: state.nineLineValues
         )
     }
 
@@ -46,6 +50,26 @@ struct MedevacScreen: View {
             )
         }
         .background(palette.bg)
+        .onChange(of: generationContext) { _, _ in
+            generationTask?.cancel(); generationTask = nil
+            generatedScript = nil; generationError = nil; isGenerating = false
+        }
+        .onDisappear { generationTask?.cancel(); isGenerating = false }
+        .confirmationDialog("Record that you made the radio call?", isPresented: $showRadioConfirmation, titleVisibility: .visible) {
+            Button("I made the radio call") {
+                let encounter = state.encounterIdentity
+                Task {
+                    var metadata = state.operatorMetadata
+                    metadata.radioCallTime = Date()
+                    metadata.notes.append(.init(timestamp: Date(), text: "RADIO CALL · operator confirmed"))
+                    do { try await state.saveOperatorMetadata(metadata, encounter: encounter) }
+                    catch { radioError = error.localizedDescription }
+                }
+            }
+        } message: { Text("This app does not transmit a radio request. Only record a call you actually made.") }
+        .alert("Could not save radio-call time", isPresented: Binding(get: { radioError != nil }, set: { if !$0 { radioError = nil } })) {
+            Button("OK") { radioError = nil }
+        } message: { Text(radioError ?? "") }
     }
 
     // MARK: - Panels
@@ -60,7 +84,7 @@ struct MedevacScreen: View {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(form.entries) { entry in
-                            NineLineRow(entry: entry)
+                            NineLineRow(entry: entry, onEdit: { state.clinicalEntrySheet = .nineLine })
                             Rectangle()
                                 .fill(palette.line)
                                 .frame(height: Layout.hairline)
@@ -149,7 +173,7 @@ struct MedevacScreen: View {
     }
 
     private var transmitPanel: some View {
-        Panel("Voice Ready-Transmit", titleIcon: "antenna.radiowaves.left.and.right", padded: true) {
+        Panel("Radio call worksheet", titleIcon: "antenna.radiowaves.left.and.right", padded: true) {
             VStack(spacing: 8) {
                 // Persistent SLM availability badge — operator sees current
                 // truth before tapping Generate. Per night-pass A5.
@@ -173,68 +197,45 @@ struct MedevacScreen: View {
     // MARK: - Actions
 
     private func handleReview() {
-        state.appendSystem("REVIEW · 9-LINE FIELDS")
+        state.clinicalEntrySheet = .nineLine
     }
 
-    private func handleTransmit() {
-        guard form.isReadyForTransmit else {
-            state.appendSystem("TRANSMIT BLOCKED · 9-LINE INCOMPLETE · \(formattedTimestamp())")
-            return
-        }
-        let dest = state.selectedHandoffDestination.displayName
-        state.appendSystem("TRANSMIT · 9-LINE · \(dest) · \(formattedTimestamp())")
+    private func handleTransmit() { showRadioConfirmation = true }
+
+    private var generationContext: String {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let patients = (try? encoder.encode(state.allPatients)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        return state.encounterIdentity.uuidString + form.entries.map(\.value).joined(separator: "|")
+            + state.operatorCallsign + state.llmBackend.rawValue + patients
+            + state.transcript.map(\.text).joined(separator: "|")
     }
 
     private func handleGenerate() {
+        generationTask?.cancel()
+        let context = generationContext
+        let snapshot = form
+        let patients = state.allPatients.values.sorted { $0.patientId < $1.patientId }
+        let transcript = state.transcript.map(\.text).joined(separator: " ")
         let callsign = state.operatorCallsign
-        Task { @MainActor in
-            isGenerating = true
-            generationError = nil
-
-            // Refresh the GPS fix so the transmitted LINE 1 reflects the
-            // current position, then snapshot the form. Silent: a transient
-            // miss keeps the existing grid rather than blanking it.
-            await state.captureGPSFix(silent: true)
-            let snapshot = form
-            // Snapshot patients + transcript on the main actor so the
-            // validator can cross-check the SLM output against engine state.
-            let patientsForValidation: [PatientState] = {
-                let sorted = state.allPatients.values.sorted { $0.patientId < $1.patientId }
-                if !sorted.isEmpty { return Array(sorted) }
-                return state.primaryPatient.map { [$0] } ?? []
-            }()
-            let transcriptForValidation = state.transcript.map(\.text).joined(separator: " ")
-
-            let backend = state.currentBackend
-            // Pre-flight the selected backend so Generate cannot trigger an
-            // implicit model download or show Apple-only availability text.
+        let backend = state.currentBackend
+        isGenerating = true; generationError = nil
+        generationTask = Task { @MainActor in
             let availability = await backend.availability
+            guard !Task.isCancelled, generationContext == context else { return }
             guard availability == .available else {
                 generationError = availability.message(for: backend.displayName)
-                isGenerating = false
-                return
+                isGenerating = false; return
             }
-
             do {
-                let generator = RadioScriptGenerator(backend: backend)
-                let text = try await generator.generate(
-                    from: snapshot,
-                    patients: patientsForValidation,
-                    transcript: transcriptForValidation,
-                    callsign: callsign
-                )
+                let text = try await RadioScriptGenerator(backend: backend).generate(
+                    from: snapshot, patients: Array(patients), transcript: transcript, callsign: callsign)
+                guard !Task.isCancelled, generationContext == context else { return }
                 generatedScript = text
-                state.appendSystem("RADIO SCRIPT · generated on-device · \(formattedTimestamp())")
             } catch {
+                guard !Task.isCancelled, generationContext == context else { return }
                 generationError = error.localizedDescription
             }
             isGenerating = false
         }
-    }
-
-    private func formattedTimestamp() -> String {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss"
-        return f.string(from: Date())
     }
 }

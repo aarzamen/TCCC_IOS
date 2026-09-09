@@ -35,15 +35,6 @@ struct DevToolsLandingView: View {
                 )
 
                 modeCard(
-                    title: "Receiver",
-                    subtitle: "Capture peer device input",
-                    icon: "dot.radiowaves.left.and.right",
-                    accent: false,
-                    isEnabled: true,
-                    action: onOpenReceiver
-                )
-
-                modeCard(
                     title: "Bake-off",
                     subtitle: onOpenBakeoff == nil ? "Pending" : "Granite Speech 5-bit",
                     icon: "gauge.with.dots.needle.bottom.50percent",

@@ -3,19 +3,6 @@ import Speech
 import TCCCBench
 import TCCCExtractor
 
-/// One-shot thread-safe latch so a callback that may fire multiple times
-/// resumes a continuation exactly once.
-private final class OnceFlag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var used = false
-    func claim() -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        if used { return false }
-        used = true
-        return true
-    }
-}
-
 /// Launch-arg-gated benchmark screen (`--transcription-benchmark`).
 /// File-ingestion mode: for every audio file in
 /// Documents/TranscriptionBenchmark/fixtures/, run the on-device Apple
@@ -38,14 +25,7 @@ struct TranscriptionBenchmarkView: View {
     /// continuation guarded against double-resume (the system callback has
     /// been observed to fire more than once).
     private static func speechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
-        let current = SFSpeechRecognizer.authorizationStatus()
-        if current != .notDetermined { return current }
-        return await withCheckedContinuation { (cont: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
-            let once = OnceFlag()
-            SFSpeechRecognizer.requestAuthorization { status in
-                if once.claim() { cont.resume(returning: status) }
-            }
-        }
+        await SpeechAuthorization.request()
     }
 
     var body: some View {

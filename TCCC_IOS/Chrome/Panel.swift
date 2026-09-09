@@ -52,6 +52,8 @@ struct Panel<Content: View>: View {
                     .tccc(.labelSmall)
                     .foregroundStyle(palette.fg)
                     .textCase(.uppercase)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
 
             Spacer(minLength: 0)

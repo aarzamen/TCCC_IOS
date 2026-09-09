@@ -3,24 +3,14 @@ import UIKit
 import TCCCDomain
 import TCCCReports
 
-/// Screen 05 — Role-1 → Role-2 Handoff.
-///
-/// Three-column layout per design brief §5.5:
-///   1.1fr  ENCOUNTER SUMMARY (rolled-up state lines)
-///   1.0fr  TIMELINE          (vertical chronological events with rail + node)
-///   0.9fr  EXPORT · TRANSMIT (export cards + 2×2 destination grid + AES TRANSMIT)
-///
-/// The TRANSMIT button uses a 2-second `LongPressGesture` with a visual
-/// progress bar; on completion it appends a system transcript line. No
-/// networking framework is wired (RF Ghost). When the QR destination is
-/// active, completion also raises a sheet rendering an offline `CIQRCodeGenerator`
-/// QR of the patient's JSON-encoded state.
+/// Screen 05 — structured documentation, explicit sharing and plain QR presentation.
 struct HandoffScreen: View {
     let state: AppState
 
     @Environment(\.palette) private var palette
-    @State private var transmitProgress: Double = 0
-    @State private var isTransmitting: Bool = false
+    @State private var exportError: String?
+    @State private var failedExport: String?
+    @State private var isExportingPDF = false
     @State private var elapsedTick: Date = Date()
     @State private var shareItems: [Any] = []
     @State private var shareSheetVisible: Bool = false
@@ -37,17 +27,17 @@ struct HandoffScreen: View {
             PageHeader(
                 screen: .handoff,
                 total: AppState.Screen.allCases.count,
-                trailingKickerLabel: "DESTINATION",
-                trailingKickerValue: state.selectedHandoffDestination.displayName
+                trailingKickerLabel: "HANDOFF",
+                trailingKickerValue: "REVIEW / SHARE"
             )
 
             GeometryReader { geo in
                 let totalGap = Layout.gridGap * 2
                 let usable = geo.size.width - totalGap
-                // Layout playground: summary / timeline / export = 2.00 / 1.00 / 1.10
-                let total: CGFloat = 4.10
-                let w1 = usable * (2.00 / total)
-                let w2 = usable * (1.00 / total)
+                // Give export names and missing-field details space to wrap.
+                let total: CGFloat = 3.80
+                let w1 = usable * (1.55 / total)
+                let w2 = usable * (0.90 / total)
                 let w3 = usable - w1 - w2
                 HStack(spacing: Layout.gridGap) {
                     summaryColumn
@@ -161,10 +151,10 @@ struct HandoffScreen: View {
 
     private var slmActionRow: some View {
         VStack(alignment: .leading, spacing: 6) {
+            FMStatusBadge(state: state)
             HStack(spacing: 6) {
-                FMStatusBadge(state: state)
                 slmButton(
-                    title: "AI Narrative",
+                    title: "AI summary",
                     icon: "wand.and.stars",
                     isLoading: state.isGeneratingHandoffDraft(.narrative),
                     action: { handleGenerateDraft(.narrative) }
@@ -267,8 +257,7 @@ struct HandoffScreen: View {
                 let events = HandoffTimeline.events(
                     for: patient,
                     sessionStart: state.sessionStart,
-                    now: elapsedTick,
-                    medevacTransmitted: state.lastMedevacTransmitTime != nil
+                    medevacTransmittedAt: state.lastMedevacTransmitTime
                 )
                 LazyVStack(spacing: 0) {
                     ForEach(Array(events.enumerated()), id: \.element.id) { idx, event in
@@ -288,10 +277,10 @@ struct HandoffScreen: View {
         }
     }
 
-    // MARK: - Column 3: Export · Transmit
+    // MARK: - Column 3: Documentation sharing
 
     private var exportColumn: some View {
-        Panel("Export · Transmit", titleIcon: "square.and.arrow.up", padded: false) {
+        Panel("Share documentation", titleIcon: "square.and.arrow.up", padded: false) {
             GeometryReader { viewport in
                 ScrollView(.vertical) {
                     VStack(spacing: 0) {
@@ -305,20 +294,16 @@ struct HandoffScreen: View {
                             .padding(.vertical, 10)
                             .padding(.horizontal, 12)
 
-                        destinationLabel
-                            .padding(.horizontal, 12)
-                        destinationGrid
-                            .padding(.horizontal, 12)
-                            .padding(.top, 6)
-
-                        transmitButtonBlock
-                            .padding(.horizontal, 12)
-                            .padding(.top, 8)
-
-                        transmitFooter
-                            .padding(.top, 6)
-                            .padding(.bottom, 12)
-                            .padding(.horizontal, 12)
+                        BigButton("Show QR", systemImage: "qrcode", style: .accent) {
+                            state.qrOverlayVisible = true
+                        }
+                        .disabled(patient == nil)
+                        .padding(.horizontal, 12)
+                        Text("Plain JSON QR · showing or sharing does not confirm receipt.")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(palette.fg2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(12)
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
@@ -333,28 +318,30 @@ struct HandoffScreen: View {
         // deliverable per §19 Documentation of Care. Layout reflects that:
         // a labeled "Primary" group with the DD-1380 PDF card on top, a
         // divider, then a "Supplementary Exports" group for JSON / Audio /
-        // Vitals. The §19 verbatim callout runs below.
+        // Vitals. Completeness remains distinct from export availability.
         VStack(spacing: 6) {
             exportSubhead("Primary · DD 1380")
             ExportCard(
                 icon: "doc.richtext",
                 title: "DD-1380 PDF",
                 detail: dd1380Detail,
-                isReady: patient != nil,
+                isReady: patient != nil && !isExportingPDF,
+                actionLabel: "Export draft",
                 action: { shareDD1380PDF() }
             )
 
-            section19Callout
-                .padding(.vertical, 4)
+            exportFailure(for: "pdf")
+            if isExportingPDF { ProgressView("Preparing PDF…") }
 
             exportSubhead("Supplementary Exports")
             ExportCard(
                 icon: "curlybraces",
                 title: "JSON Encounter",
-                detail: "\(HandoffQR.payloadKilobytes(for: patient)) KB · Tap to share",
+                detail: patient == nil ? "No casualty state" : "\(HandoffQR.payloadKilobytes(for: patient)) KB · structured record",
                 isReady: patient != nil,
                 action: { shareJSON() }
             )
+            exportFailure(for: "json")
             ExportCard(
                 icon: "waveform",
                 title: "Audio + Transcript",
@@ -362,13 +349,18 @@ struct HandoffScreen: View {
                 isReady: hasAudioOrTranscript,
                 action: { shareAudioAndTranscript() }
             )
+            exportFailure(for: "audio")
             ExportCard(
                 icon: "tablecells",
                 title: "Vitals CSV",
                 detail: vitalsCsvDetail,
-                isReady: vitalsFieldCount > 0,
+                isReady: !state.vitalsLog.isEmpty,
                 action: { shareVitalsCSV() }
             )
+            exportFailure(for: "csv")
+            Button("Review & correct") { state.clinicalEntrySheet = .assessment }
+                .font(.system(size: 13, weight: .semibold))
+                .frame(maxWidth: .infinity, minHeight: Layout.minHitTarget)
         }
     }
 
@@ -381,34 +373,31 @@ struct HandoffScreen: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// 2026 §19 Documentation of Care — verbatim callout. This is the
-    /// load-bearing rubric mandate: the DD 1380 isn't an artifact, it IS
-    /// the deliverable.
-    private var section19Callout: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("§19 · DOCUMENTATION OF CARE")
-                .font(.system(size: 9, weight: .heavy))
-                .tracking(1.4)
-                .foregroundStyle(palette.accent)
-                .textCase(.uppercase)
-            Text("Forward documentation with the casualty to the next level of care.")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(palette.fg)
+    @ViewBuilder
+    private func exportFailure(for key: String) -> some View {
+        if failedExport == key, let exportError {
+            Text(exportError + " Retry using the export action.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(palette.crit)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel("Export failed. " + exportError)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(
-            Rectangle()
-                .strokeBorder(palette.accent.opacity(0.6), lineWidth: Layout.hairline)
-        )
+    }
+
+    private func beginExport() {
+        failedExport = nil
+        exportError = nil
+    }
+
+    private func failExport(_ key: String, _ message: String) {
+        failedExport = key
+        exportError = message
     }
 
     // MARK: - Share actions
 
     private var hasAudioOrTranscript: Bool {
-        !state.transcript.isEmpty || state.lastRecordingURL != nil
+        !state.transcript.isEmpty || (state.lastRecordingURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false)
     }
 
     /// DD-1380 card detail. Deterministic; readiness informs the text but never
@@ -417,49 +406,67 @@ struct HandoffScreen: View {
         guard let card = state.makeDD1380Card() else { return "No casualty state" }
         let readiness = DD1380Readiness.evaluate(card: card)
         if readiness.criticalMissing.isEmpty {
-            return "Ready · 2 pages · CUI when filled"
+            return "Draft · required fields present · review before sharing"
         }
-        return "Ready · 2 pages · \(readiness.criticalMissing.count) blank · CUI when filled"
+        return "Draft · \(readiness.criticalMissing.count) missing required fields"
     }
 
     /// Render the deterministic DD-1380 to a protected PDF and hand it to the
     /// iOS share sheet. The only way the file leaves the device is this explicit
     /// operator action. Never crashes on blank fields; never uses LLM output.
     private func shareDD1380PDF() {
+        guard !isExportingPDF else { return }
+        beginExport()
         guard let card = state.makeDD1380Card() else {
-            state.appendSystem("DD-1380 · no casualty state")
+            failExport("pdf", "No casualty state to export.")
             return
         }
         let casualtyId = state.casualtyId
         let documentsURL = state.documentsURL
+        let sessionStart = state.sessionStart
+        isExportingPDF = true
         Task { @MainActor in
+            defer { isExportingPDF = false }
             do {
                 let url = try await dd1380Export.export(
                     card: card, casualtyId: casualtyId, documentsURL: documentsURL)
+                guard state.casualtyId == casualtyId, state.sessionStart == sessionStart else { return }
                 shareItems = [url]
                 shareSheetVisible = true
                 state.appendSystem("DD-1380 PDF · generated on-device")
             } catch {
-                state.appendSystem("DD-1380 PDF FAILED · \(error.localizedDescription)")
+                failExport("pdf", error.localizedDescription)
             }
         }
     }
 
     private func shareJSON() {
-        guard let url = HandoffExports.writeJSON(for: patient, casualtyId: state.casualtyId) else { return }
+        beginExport()
+        guard let url = HandoffExports.writeJSON(for: patient, casualtyId: state.casualtyId) else {
+            failExport("json", "Could not write the JSON file.")
+            return
+        }
         shareItems = [url]
         shareSheetVisible = true
     }
 
     private func shareAudioAndTranscript() {
+        beginExport()
         var items: [Any] = []
         if let audio = state.lastRecordingURL,
            FileManager.default.fileExists(atPath: audio.path) {
             items.append(audio)
         }
-        if !state.transcript.isEmpty,
-           let txt = HandoffExports.writeTranscript(transcript: state.transcript, casualtyId: state.casualtyId) {
+        if !state.transcript.isEmpty {
+            guard let txt = HandoffExports.writeTranscript(transcript: state.transcript, casualtyId: state.casualtyId) else {
+                failExport("audio", "Could not write the transcript file.")
+                return
+            }
             items.append(txt)
+        }
+        guard !items.isEmpty else {
+            failExport("audio", "No saved audio or transcript is available.")
+            return
         }
         // Diagnostics log (post-fix instrumentation pass): pull the most
         // recent run-*.log if it exists so the operator can ship audio +
@@ -495,112 +502,14 @@ struct HandoffScreen: View {
     }
 
     private func shareVitalsCSV() {
-        guard let url = HandoffExports.writeVitalsCSV(vitals: state.primaryPatient?.vitals, casualtyId: state.casualtyId) else { return }
-        shareItems = [url]
-        shareSheetVisible = true
-    }
-
-    private var destinationLabel: some View {
-        Text("Destination")
-            .font(.system(size: 10, weight: .semibold))
-            .tracking(1.6)
-            .foregroundStyle(palette.fg2)
-            .textCase(.uppercase)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var destinationGrid: some View {
-        let cols = [
-            GridItem(.flexible(), spacing: 6),
-            GridItem(.flexible(), spacing: 6)
-        ]
-        return LazyVGrid(columns: cols, spacing: 6) {
-            ForEach(HandoffDestination.allCases, id: \.self) { dest in
-                DestCard(
-                    icon: dest.symbol,
-                    label: dest.displayName,
-                    isActive: state.selectedHandoffDestination == dest,
-                    action: { state.selectedHandoffDestination = dest }
-                )
-                // Mark non-functional destinations with a PEND corner badge +
-                // reduced opacity so the operator sees they aren't wired before
-                // tapping TRANSMIT. Selection is still allowed; transmit logs
-                // a "TRANSMIT BLOCKED" line instead of a fake success.
-                .opacity(dest.isFunctional ? 1.0 : 0.6)
-                .overlay(alignment: .topTrailing) {
-                    if !dest.isFunctional {
-                        Text("PEND")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .tracking(1.2)
-                            .foregroundStyle(palette.fg2)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(palette.bg2)
-                            .overlay(
-                                Rectangle()
-                                    .strokeBorder(palette.line, lineWidth: Layout.hairline)
-                            )
-                            .padding(4)
-                            .allowsHitTesting(false)
-                    }
-                }
-            }
+        beginExport()
+        do {
+            let url = try HandoffExports.writeVitalsCSV(readings: state.vitalsLog, casualtyId: state.casualtyId)
+            shareItems = [url]
+            shareSheetVisible = true
+        } catch {
+            failExport("csv", error.localizedDescription)
         }
-    }
-
-    private var transmitButtonBlock: some View {
-        ZStack(alignment: .bottomLeading) {
-            BigButton(
-                "Transmit / Hold 2s · AES-256",
-                systemImage: "antenna.radiowaves.left.and.right",
-                style: .accent
-            ) { /* handled by long-press gesture below */ }
-                .gesture(
-                    LongPressGesture(minimumDuration: 2, maximumDistance: 30)
-                        .onChanged { _ in
-                            if !isTransmitting {
-                                isTransmitting = true
-                                withAnimation(.linear(duration: 2)) {
-                                    transmitProgress = 1.0
-                                }
-                            }
-                        }
-                        .onEnded { _ in
-                            completeTransmit()
-                        }
-                )
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onEnded { _ in
-                            if isTransmitting && transmitProgress < 1 {
-                                cancelTransmit()
-                            }
-                        }
-                )
-
-            // Progress bar — thin line growing along the bottom of the button.
-            GeometryReader { geo in
-                Rectangle()
-                    .fill(palette.accent)
-                    .frame(width: geo.size.width * transmitProgress, height: 2)
-            }
-            .frame(height: 2)
-            .allowsHitTesting(false)
-        }
-    }
-
-    private var transmitFooter: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(palette.fg3)
-            Text("AIRGAP · QR FALLBACK")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .tracking(1.4)
-                .foregroundStyle(palette.fg3)
-                .textCase(.uppercase)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Derived export details
@@ -615,72 +524,18 @@ struct HandoffScreen: View {
         return parts.joined(separator: " · ") + " · Tap to share"
     }
 
-    private var vitalsFieldCount: Int {
-        guard let v = patient?.vitals else { return 0 }
-        var n = 0
-        if v.hr != nil { n += 1 }
-        if v.bp != nil { n += 1 }
-        if v.spo2 != nil { n += 1 }
-        if v.rr != nil { n += 1 }
-        if v.gcs != nil { n += 1 }
-        if v.temperatureCelsius != nil { n += 1 }
-        if v.capillaryRefillSeconds != nil { n += 1 }
-        return n
-    }
-
     private var vitalsCsvDetail: String {
-        let n = vitalsFieldCount
-        if n == 0 { return "No vitals recorded" }
-        return "\(n) field\(n == 1 ? "" : "s")"
+        let count = state.vitalsLog.count
+        guard count > 0 else { return "No recorded readings" }
+        return "\(count) retained readings · recorded times + AVPU"
     }
 
-    // MARK: - Transmit gesture handling
-
-    private func completeTransmit() {
-        guard isTransmitting else { return }
-        isTransmitting = false
-        transmitProgress = 1
-        let dest = state.selectedHandoffDestination
-        let stamp = HandoffSummary.formatTime(Date())
-
-        if dest.isFunctional {
-            // Strong success cue — the medic has gloves on and
-            // probably can't see the SYS line scroll. The
-            // notification haptic is unambiguous.
-            Haptics.notify(.success)
-            state.appendSystem("TRANSMIT · \(dest.displayName) · \(stamp)")
-            state.lastMedevacTransmitTime = Date()
-            if dest == .qr {
-                state.qrOverlayVisible = true
-            }
-        } else {
-            // RF Ghost: NFC has no networking path wired. Do NOT
-            // log a success-shaped TRANSMIT line — the operator could read that
-            // as "the casualty packet was sent." Make the failure explicit.
-            Haptics.notify(.error)
-            state.appendSystem("TRANSMIT BLOCKED · \(dest.displayName) NOT WIRED · \(stamp)")
-        }
-        // Reset progress shortly after completion so the button is reusable.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation(.easeOut(duration: 0.2)) {
-                transmitProgress = 0
-            }
-        }
-    }
-
-    private func cancelTransmit() {
-        isTransmitting = false
-        withAnimation(.easeOut(duration: 0.15)) {
-            transmitProgress = 0
-        }
-    }
 }
 
 // MARK: - QR sheet
 
 /// Modal sheet showing the offline QR code for the selected payload.
-/// Includes Save-to-Photos and Share buttons so the medic can hand the code
-/// off via any local mechanism (AirDrop, Photos library, Files).
+/// Sharing uses the system sheet without claiming delivery or receipt.
 private struct QRSheet: View {
     let payload: Data
 
@@ -689,7 +544,6 @@ private struct QRSheet: View {
 
     @State private var qrCG: CGImage?
     @State private var showShare: Bool = false
-    @State private var saveStatus: String?
 
     var body: some View {
         ZStack {
@@ -722,7 +576,7 @@ private struct QRSheet: View {
 
                 actionRow
 
-                Text(footerText)
+                Text("\(payload.count) bytes · plain JSON · no receipt confirmation")
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(palette.fg2)
                     .padding(.bottom, 14)
@@ -741,10 +595,10 @@ private struct QRSheet: View {
 
     private var header: some View {
         HStack {
-            Image(systemName: "lock.fill")
+            Image(systemName: "qrcode")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(palette.accent)
-            Text("OFFLINE QR · ROLE-2 SCAN")
+            Text("PATIENT RECORD QR")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(1.6)
                 .foregroundStyle(palette.fg)
@@ -770,14 +624,6 @@ private struct QRSheet: View {
     private var actionRow: some View {
         HStack(spacing: 8) {
             Button {
-                saveToPhotos()
-            } label: {
-                actionButtonLabel(icon: "square.and.arrow.down", title: "Save to Photos")
-            }
-            .buttonStyle(.plain)
-            .disabled(qrCG == nil)
-
-            Button {
                 showShare = true
             } label: {
                 actionButtonLabel(icon: "square.and.arrow.up", title: "Share")
@@ -800,16 +646,11 @@ private struct QRSheet: View {
         .foregroundStyle(palette.fg)
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, minHeight: Layout.minHitTarget)
         .overlay(
             Rectangle()
                 .strokeBorder(palette.line, lineWidth: Layout.hairline)
         )
-    }
-
-    private var footerText: String {
-        if let status = saveStatus { return status }
-        return "\(payload.count) bytes · on-device only"
     }
 
     private func qrUIImage() -> UIImage? {
@@ -817,9 +658,4 @@ private struct QRSheet: View {
         return UIImage(cgImage: cg)
     }
 
-    private func saveToPhotos() {
-        guard let img = qrUIImage() else { return }
-        UIImageWriteToSavedPhotosAlbum(img, nil, nil, nil)
-        saveStatus = "Saved to Photos · scan from another device"
-    }
 }

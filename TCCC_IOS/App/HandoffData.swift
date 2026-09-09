@@ -99,7 +99,7 @@ enum HandoffSummary {
             )
         )
 
-        // PRIORITY — classification + LITTER/AMBULATORY + DUSTOFF requested.
+        // PRIORITY — recorded classification only; no inferred transport/request.
         rows.append(
             .init(
                 icon: "antenna.radiowaves.left.and.right",
@@ -202,17 +202,7 @@ enum HandoffSummary {
 
     private static func priorityValue(for classification: Classification?) -> String {
         guard let classification else { return "—" }
-        let isLitter: Bool
-        switch classification {
-        case .urgent, .urgentSurgical, .priority, .expectant: isLitter = true
-        case .routine: isLitter = false
-        }
-        let mode = isLitter ? "LITTER" : "AMBULATORY"
-        var parts: [String] = [classification.rawValue.uppercased(), mode]
-        if classification == .urgent || classification == .urgentSurgical {
-            parts.append("MEDEVAC requested")
-        }
-        return parts.joined(separator: " · ")
+        return classification.rawValue.uppercased()
     }
 
     static func formatTime(_ date: Date) -> String {
@@ -230,19 +220,18 @@ enum HandoffTimeline {
     static func events(
         for patient: PatientState?,
         sessionStart: Date,
-        now: Date = Date(),
-        medevacTransmitted: Bool = false
+        medevacTransmittedAt: Date? = nil
     ) -> [HandoffTimelineEvent] {
         var rows: [HandoffTimelineEvent] = []
 
-        // Synthetic POI marker.
+        // This timestamp records documentation, not an inferred time of injury/contact.
         let poiTimestamp = patient?.timestampFirstMention.map { Date(timeIntervalSince1970: $0) } ?? sessionStart
         rows.append(
             .init(
                 timestamp: poiTimestamp,
                 icon: "person.crop.circle",
-                kindLabel: "POI",
-                detail: "Casualty contact",
+                kindLabel: patient?.timestampFirstMention == nil ? "SESSION" : "RECORD",
+                detail: patient?.timestampFirstMention == nil ? "Encounter started" : "First recorded observation",
                 isHot: false
             )
         )
@@ -265,10 +254,10 @@ enum HandoffTimeline {
         // 9-Line marker — only when the operator actually transmitted.
         // Previously this row was unconditionally appended, which made an
         // un-sent encounter look like MEDEVAC was requested.
-        if medevacTransmitted {
+        if let medevacTransmittedAt {
             rows.append(
                 .init(
-                    timestamp: now,
+                    timestamp: medevacTransmittedAt,
                     icon: "antenna.radiowaves.left.and.right",
                     kindLabel: "9L",
                     detail: "MEDEVAC requested",
@@ -277,7 +266,7 @@ enum HandoffTimeline {
             )
         }
 
-        return rows
+        return rows.sorted { $0.timestamp < $1.timestamp }
     }
 
     static func formatTimestamp(_ date: Date) -> String {
@@ -392,36 +381,44 @@ enum HandoffExports {
         }
     }
 
-    /// Build a CSV with one row of current vitals and write to temp.
-    /// Phase 1 stub — DD 1380 Section C is rebuilt as a 4-column grid in
-    /// Phase 4, at which point this helper will emit the full grid.
-    /// Header row + a single timestamped row of the most recent vitals.
-    static func writeVitalsCSV(vitals: Vitals?, casualtyId: String) -> URL? {
+    /// Export the retained observation log; export time never becomes a reading.
+    static func writeVitalsCSV(readings: [AppState.SectionCReading], casualtyId: String) throws -> URL {
         let dir = FileManager.default.temporaryDirectory
         let stamp = Self.timestampString()
         let url = dir.appendingPathComponent("vitals-\(casualtyId)-\(stamp).csv")
+        try ProtectedWrite.data(Data(vitalsCSV(readings: readings).utf8), to: url)
+        return url
+    }
 
-        var rows: [String] = []
-        rows.append("timestamp,hr,sys,dia,spo2,rr")
+    static func vitalsCSV(readings: [AppState.SectionCReading]) -> String {
+        var rows = ["timestamp,hr,sys,dia,bp_palpated,spo2,rr,gcs,temperature_c,capillary_refill_seconds,avpu,pain"]
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]
-        let ts = f.string(from: Date())
-        let hr = (vitals?.hr).map(String.init) ?? ""
-        let sys = (vitals?.bp?.systolic).map(String.init) ?? ""
-        let dia = (vitals?.bp?.diastolic).map(String.init) ?? ""
-        let spo2 = (vitals?.spo2).map(String.init) ?? ""
-        let rr = (vitals?.rr).map(String.init) ?? ""
-        rows.append("\(ts),\(hr),\(sys),\(dia),\(spo2),\(rr)")
-        let csv = rows.joined(separator: "\n").appending("\n")
-
-        do {
-            if let csvData = csv.data(using: .utf8) {
-                try ProtectedWrite.data(csvData, to: url)
-            }
-            return url
-        } catch {
-            return nil
+        // Preserve input order for observations with identical timestamps.
+        let ordered = readings.enumerated().sorted {
+            $0.element.timestamp == $1.element.timestamp
+                ? $0.offset < $1.offset : $0.element.timestamp < $1.element.timestamp
         }
+        for (_, reading) in ordered {
+            let v = reading.vitals
+            let fields: [String] = [
+                f.string(from: reading.timestamp), v.hr.map(String.init) ?? "",
+                v.bp?.systolic.description ?? "", v.bp?.diastolic.description ?? "",
+                v.bp.map { $0.palpated ? "true" : "false" } ?? "",
+                v.spo2.map(String.init) ?? "", v.rr.map(String.init) ?? "",
+                v.gcs.map(String.init) ?? "", v.temperatureCelsius.map { String($0) } ?? "",
+                v.capillaryRefillSeconds.map { String($0) } ?? "", reading.avpu ?? "", reading.pain ?? ""
+            ]
+            rows.append(fields.map(csvField).joined(separator: ","))
+        }
+        return rows.joined(separator: "\n") + "\n"
+    }
+
+    private static func csvField(_ value: String) -> String {
+        guard value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r") else {
+            return value
+        }
+        return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
     }
 
     /// Build a plain-text transcript file (one line per `TranscriptLine`).

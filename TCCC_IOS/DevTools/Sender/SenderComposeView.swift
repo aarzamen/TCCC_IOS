@@ -7,6 +7,7 @@ struct SenderComposeView: View {
 
     @State private var ambientMeter = AmbientMeter()
     @Environment(\.palette) private var palette
+    @Environment(\.scenePhase) private var scenePhase
 
     init(
         viewModel: SenderViewModel,
@@ -33,11 +34,11 @@ struct SenderComposeView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(palette.bg)
-        .task {
-            await ambientMeter.start()
-        }
         .onDisappear {
             ambientMeter.stop()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { ambientMeter.stop() }
         }
     }
 
@@ -162,7 +163,7 @@ struct SenderComposeView: View {
                 )
 
                 sliderRow(
-                    label: "Pitch",
+                    label: "Pitch · Device Speech only",
                     value: String(format: "%+.1f st", viewModel.pitchSemitones),
                     binding: Binding(
                         get: { viewModel.pitchSemitones },
@@ -213,7 +214,7 @@ struct SenderComposeView: View {
     private var ambientPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Ambient pre-roll")
+                Text("Ambient level · optional")
                     .tccc(.labelSmall)
                     .foregroundStyle(palette.fg2)
                     .textCase(.uppercase)
@@ -237,6 +238,16 @@ struct SenderComposeView: View {
                 )
             }
             .frame(height: 18)
+
+            Button(ambientMeter.isSampling || ambientMeter.isStarting ? "Stop ambient meter" : "Start ambient meter") {
+                if ambientMeter.isSampling || ambientMeter.isStarting {
+                    ambientMeter.stop()
+                } else {
+                    Task { await ambientMeter.start() }
+                }
+            }
+            .frame(minHeight: Layout.minHitTarget)
+            .disabled(viewModel.isSending)
 
             Text(ambientMeter.statusMessage)
                 .font(.system(size: 10, weight: .medium, design: .monospaced))

@@ -43,10 +43,8 @@ actor ParakeetTranscriptStream: TranscriptStream {
     private let tailDuration: TimeInterval = 30.0
 
     /// Directory containing the Parakeet CoreML models. If set, used
-    /// directly. If nil, FluidAudio's auto-download path runs on
-    /// first `start()` (one HTTPS fetch from Hugging Face,
-    /// progress-callback driven, cached in Application Support
-    /// thereafter — RF Ghost is preserved post-download).
+    /// directly. Otherwise the shared local resolver checks bundled/installed
+    /// assets. Only explicit ensureModelsLoaded() preparation may download.
     private var modelDirectory: URL?
 
     /// Provider for the current dynamic gain multiplier (linear, not
@@ -168,8 +166,8 @@ actor ParakeetTranscriptStream: TranscriptStream {
 
     /// Provide the directory containing the Parakeet CoreML model bundle.
     /// Called from the Settings UI after the operator AirDrops or
-    /// downloads the model files. If you skip this, FluidAudio's
-    /// auto-download path runs on first start().
+    /// downloads the model files. Recording otherwise uses the shared local
+    /// resolver and refuses missing assets without downloading.
     func setModelDirectory(_ url: URL) {
         self.modelDirectory = url
     }
@@ -197,7 +195,7 @@ actor ParakeetTranscriptStream: TranscriptStream {
             chunkSize: chunkSize,
             eouDebounceMs: eouDebounceMs
         )
-        if let dir = modelDirectory {
+        if let dir = modelDirectory ?? OfflineModelAssets.parakeetDirectory {
             try await mgr.loadModels(from: dir)
         } else {
             // Forward FluidAudio's DownloadProgress to our simpler
@@ -216,13 +214,25 @@ actor ParakeetTranscriptStream: TranscriptStream {
         DiagnosticsLogger.shared.log("ensureModelsLoaded · loadModels returned OK", category: "asr")
     }
 
+    /// Recording paths never call the SDK's download-capable overload.
+    private func loadLocalModels() async throws {
+        guard manager == nil else { return }
+        guard let directory = modelDirectory ?? OfflineModelAssets.parakeetDirectory,
+              OfflineModelAssets.parakeetProblems(at: directory).isEmpty else {
+            throw TranscriptStreamError.backendUnavailable("Parakeet assets missing or incomplete. Prepare offline models before recording.")
+        }
+        let local = StreamingEouAsrManager(chunkSize: chunkSize, eouDebounceMs: eouDebounceMs)
+        try await local.loadModels(from: directory)
+        manager = local
+    }
+
     // MARK: - Authorization
 
     func authorize() async throws {
         // Same mic-permission flow as SpeechRecognizer; no Speech
         // framework permission needed since we don't use SFSpeechRecognizer.
         let micGranted: Bool = await withCheckedContinuation { cont in
-            AVAudioApplication.requestRecordPermission { cont.resume(returning: $0) }
+            AVAudioApplication.requestRecordPermission { @Sendable granted in cont.resume(returning: granted) }
         }
         guard micGranted else {
             throw TranscriptStreamError.microphoneDenied
@@ -232,6 +242,7 @@ actor ParakeetTranscriptStream: TranscriptStream {
     // MARK: - Engine lifecycle
 
     func prime() async throws {
+        try await loadLocalModels()
         guard !isPrimed else { return }
         _ = await DiagnosticsLogger.shared.startSession()
         DiagnosticsLogger.shared.log(
@@ -386,7 +397,7 @@ actor ParakeetTranscriptStream: TranscriptStream {
         let id = UUID()
         captureID = id
         if !isPrimed { try await prime() }
-        try await ensureModelsLoaded()
+        try await loadLocalModels()
         guard captureID == id, let manager else {
             throw TranscriptStreamError.backendUnavailable("Capture cancelled during startup")
         }
