@@ -18,6 +18,15 @@ jobs:
       - name: Swift Package Tests
         run: swift test --package-path Packages/TCCCKit
 
+      - name: Isolated design system verification
+        working-directory: Packages/TCCCDesignSystem
+        run: |
+          swift test
+          swift build --configuration release
+          xcodebuild -scheme TCCCDesignSystem \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug build CODE_SIGNING_ALLOWED=NO
+
       - name: Install xcodegen
         run: brew install xcodegen
 
