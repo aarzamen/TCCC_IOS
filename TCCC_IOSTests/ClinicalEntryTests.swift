@@ -5,6 +5,69 @@ import TCCCExtractor
 
 @MainActor
 final class ClinicalEntryTests: XCTestCase {
+    func testWhitespaceVitalsUseTheSameNormalizedValuesInFactsAndExports() throws {
+        var draft = ManualVitalsDraft()
+        draft.hr = " 92\n"; draft.systolic = " 120 "; draft.diastolic = "80\t"
+        draft.spo2 = " 98 "; draft.rr = " 18 "; draft.avpu = " Alert "; draft.pain = " 07 "
+        let reading = try draft.reading(timestamp: Date(timeIntervalSince1970: 100))
+        XCTAssertEqual(reading.vitals, Vitals(hr: 92, bp: BloodPressure(systolic: 120, diastolic: 80), spo2: 98, rr: 18))
+        XCTAssertEqual(reading.avpu, "Alert")
+        XCTAssertEqual(reading.pain, "7")
+        XCTAssertEqual(try draft.writes(), [.heartRate(92), .spo2(98), .respiratoryRate(18),
+            .bloodPressure(systolic: 120, diastolic: 80, palpated: false), .consciousness("Alert"), .pain("7")])
+        XCTAssertEqual(reading.toDD1380().pulse, "92")
+        XCTAssertTrue(HandoffExports.vitalsCSV(readings: [reading]).contains(",92,120,80,false,98,18,,,,Alert,7"))
+    }
+
+    func testWhitespaceOnlyVitalsRemainUnentered() {
+        var draft = ManualVitalsDraft(); draft.hr = " \n"; draft.avpu = " "
+        XCTAssertThrowsError(try draft.reading())
+    }
+
+    func testAssessmentPrecedenceEditPreservesNewUntouchedEvidence() async throws {
+        let engine = PatientStateEngine.standard()
+        var draft = ManualAssessmentDraft(patient: nil)
+        draft.classification = Classification.priority.rawValue
+        await engine.recordOperatorAcceptedFact(write: .mechanismOfInjury("New mechanism"), factId: nil,
+            domain: "test", field: "mechanism", rawValue: nil, to: "PATIENT_1")
+        await engine.recordOperatorAcceptedFact(write: .setInjuries(["New recorded injury"]), factId: nil,
+            domain: "test", field: "injuries", rawValue: nil, to: "PATIENT_1")
+        try await draft.apply(to: engine)
+        let patient = await engine.snapshot(of: "PATIENT_1")
+        XCTAssertEqual(patient?.classification, .priority)
+        XCTAssertEqual(patient?.mechanismOfInjury, "New mechanism")
+        XCTAssertEqual(patient?.injuries, ["New recorded injury"])
+    }
+
+    func testAssessmentConflictingEditedFieldRejectsWholePatch() async throws {
+        let engine = PatientStateEngine.standard()
+        var draft = ManualAssessmentDraft(patient: nil)
+        draft.mechanism = "Operator mechanism"
+        draft.classification = Classification.priority.rawValue
+        await engine.recordOperatorAcceptedFact(write: .mechanismOfInjury("New captured mechanism"), factId: nil,
+            domain: "test", field: "mechanism", rawValue: nil, to: "PATIENT_1")
+        do { try await draft.apply(to: engine); XCTFail("A newer value in an edited field must require review") }
+        catch { XCTAssertTrue(error.localizedDescription.contains("Mechanism")) }
+        let patient = await engine.snapshot(of: "PATIENT_1")
+        XCTAssertEqual(patient?.mechanismOfInjury, "New captured mechanism")
+        XCTAssertNil(patient?.classification, "No partial patch may precede conflict detection")
+    }
+
+    func testExplicitAssessmentClearOnlyClearsTheEditedField() async throws {
+        let engine = PatientStateEngine.standard()
+        await engine.recordOperatorAcceptedFact(write: .mechanismOfInjury("Old mechanism"), factId: nil,
+            domain: "test", field: "mechanism", rawValue: nil, to: "PATIENT_1")
+        let initial = await engine.snapshot(of: "PATIENT_1")
+        var draft = ManualAssessmentDraft(patient: initial)
+        draft.mechanism = ""
+        await engine.recordOperatorAcceptedFact(write: .classification(.urgent), factId: nil,
+            domain: "test", field: "classification", rawValue: nil, to: "PATIENT_1")
+        try await draft.apply(to: engine)
+        let patient = await engine.snapshot(of: "PATIENT_1")
+        XCTAssertNil(patient?.mechanismOfInjury)
+        XCTAssertEqual(patient?.classification, .urgent)
+    }
+
     func testRepeatedManualReadingsRetainBothTimesWithoutCarriedFields() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

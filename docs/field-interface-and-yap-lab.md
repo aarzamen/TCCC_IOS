@@ -10,7 +10,9 @@ entering another workspace.
 
 - Capture → Vitals opens measured-value entry. Blank fields keep prior clinical
   values. A manual reading stores only the observations entered at that time;
-  repeating the same measurement creates a separate reading. Section C displays
+  repeating the same measurement creates a separate reading. Pasted numeric
+  values are trimmed and parsed once, so the engine, Section C and exports keep
+  the same observation. Section C displays
   the most recent four retained readings, and CSV exports those recorded times,
   AVPU and pain values. It is not a complete lifetime vital-sign history.
 - Capture → Med given and Actions → TQ apply record actual interventions after
@@ -19,7 +21,10 @@ entering another workspace.
   transient placeholder messages.
 - Card → Casualty details edits identity/allergies; unknowns stay blank. Card →
   Assessment corrects mechanism, injuries and precedence through audited engine
-  writes. Other MARCH fields remain driven by capture/review.
+  writes. Only edited assessment fields change. New observations in untouched
+  fields are preserved; a conflicting update to an edited field requires
+  reopening the editor before saving. Other MARCH fields remain driven by
+  capture/review.
 - MEDEVAC → Add/Edit or Edit fields opens the operational worksheet. Equipment,
   transport type, security, marking, nationality and CBRN have no default values.
   Unknown/unverified values do not count as complete. GPS supplies Line 1.
@@ -29,7 +34,9 @@ entering another workspace.
   transmit a request. Displaying or sharing QR never records a completed call.
 - Handoff distinguishes an exportable draft from complete documentation and
   surfaces export failures on the screen. QR is plain structured data; at-rest
-  file protection is not an encrypted transport claim.
+  file protection is not an encrypted transport claim. Audio + Transcript
+  includes only those current artifacts; it no longer attaches the most recent
+  diagnostics log from an unrelated run.
 
 Identity, operational fields and notes live in a protected per-encounter file
 beside the clinical event log. They survive relaunch and archive with the
@@ -56,6 +63,17 @@ encounter; they do not carry into the next casualty.
    Recognition failure details stay with the raw row after reopening and are
    included when sharing. An unreadable session produces a warning without
    hiding healthy sessions or removing the original file.
+6. Reopened unfinished rows are marked Interrupted / incomplete, with retained
+   words intact. Empty final recognition is labeled No speech recognized,
+   rather than Completed; listen and retry before judging coverage. A raw row
+   without linked audio cannot silently play or re-transcribe another source.
+7. Last saved shows the most recent successful checkpoint. A failed save keeps
+   the current evidence in memory and prevents new recognition or generation
+   from starting. New/reopen wait for a successful save. Back offers Keep editing
+   or an explicit Leave without saving choice if saving fails. Partial live and
+   Granite file evidence is checkpointed at most once per second; completion and
+   cancellation save immediately. A sudden termination can lose words received
+   since the last checkpoint.
 
 If a permission is denied, the controls explain which access is missing and
 offer Open Settings. Permission state refreshes on return. System permission
@@ -76,6 +94,15 @@ fallback. The ambient meter is opt-in. The pitch control applies to Device
 Speech; unsupported Kokoro voices use the labeled fallback. Receiver's empty
 launcher card is removed. Granite Bake-off and Live accept validated local
 assets and show setup errors; authoritative results drive Bake-off metrics.
+
+Sender stops ambient listening and pending synthesis when paging away, leaving
+or backgrounding. Obsolete results cannot reopen a discarded readout. The
+readout keeps the script, voice, speed, pitch and volume actually submitted,
+even if the controls change while synthesis is pending. Only the active Sender
+page remains mounted, so hidden playback controls do not keep playing. Speed,
+pitch and volume changes are clamped without recursive observation callbacks.
+In landscape, setup options scroll while Send / Play stays visible. Page changes
+use Send / Play and Re-edit; dragging a slider no longer changes pages.
 
 ## Offline preparation and model pairing
 

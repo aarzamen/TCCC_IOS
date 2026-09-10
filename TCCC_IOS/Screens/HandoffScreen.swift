@@ -452,53 +452,13 @@ struct HandoffScreen: View {
 
     private func shareAudioAndTranscript() {
         beginExport()
-        var items: [Any] = []
-        if let audio = state.lastRecordingURL,
-           FileManager.default.fileExists(atPath: audio.path) {
-            items.append(audio)
+        do {
+            shareItems = try HandoffAudioExport.items(audioURL: state.lastRecordingURL,
+                transcript: state.transcript, casualtyId: state.casualtyId)
+            shareSheetVisible = true
+        } catch {
+            failExport("audio", error.localizedDescription)
         }
-        if !state.transcript.isEmpty {
-            guard let txt = HandoffExports.writeTranscript(transcript: state.transcript, casualtyId: state.casualtyId) else {
-                failExport("audio", "Could not write the transcript file.")
-                return
-            }
-            items.append(txt)
-        }
-        guard !items.isEmpty else {
-            failExport("audio", "No saved audio or transcript is available.")
-            return
-        }
-        // Diagnostics log (post-fix instrumentation pass): pull the most
-        // recent run-*.log if it exists so the operator can ship audio +
-        // transcript + log in one share. Best-effort — recording sessions
-        // before this build won't have a log.
-        if let log = mostRecentDiagnosticsLog(),
-           FileManager.default.fileExists(atPath: log.path) {
-            items.append(log)
-        }
-        guard !items.isEmpty else { return }
-        shareItems = items
-        shareSheetVisible = true
-    }
-
-    private func mostRecentDiagnosticsLog() -> URL? {
-        let fm = FileManager.default
-        guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return nil
-        }
-        guard let entries = try? fm.contentsOfDirectory(
-            at: docs,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        ) else { return nil }
-        return entries
-            .filter { $0.lastPathComponent.hasPrefix("diagnostics-") && $0.pathExtension == "log" }
-            .sorted { lhs, rhs in
-                let lDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                let rDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                return lDate > rDate
-            }
-            .first
     }
 
     private func shareVitalsCSV() {
@@ -530,6 +490,34 @@ struct HandoffScreen: View {
         return "\(count) retained readings · recorded times + AVPU"
     }
 
+}
+
+/// Only explicitly supplied current-encounter artifacts enter clinical sharing.
+/// Diagnostics have their own export workflow and are never discovered here.
+@MainActor
+enum HandoffAudioExport {
+    enum ExportError: LocalizedError {
+        case transcriptWriteFailed, noArtifacts
+        var errorDescription: String? {
+            switch self {
+            case .transcriptWriteFailed: "Could not write the transcript file."
+            case .noArtifacts: "No saved audio or transcript is available."
+            }
+        }
+    }
+
+    static func items(audioURL: URL?, transcript: [TranscriptLine], casualtyId: String) throws -> [URL] {
+        var items: [URL] = []
+        if let audioURL, FileManager.default.fileExists(atPath: audioURL.path) { items.append(audioURL) }
+        if !transcript.isEmpty {
+            guard let textURL = HandoffExports.writeTranscript(transcript: transcript, casualtyId: casualtyId) else {
+                throw ExportError.transcriptWriteFailed
+            }
+            items.append(textURL)
+        }
+        guard !items.isEmpty else { throw ExportError.noArtifacts }
+        return items
+    }
 }
 
 // MARK: - QR sheet

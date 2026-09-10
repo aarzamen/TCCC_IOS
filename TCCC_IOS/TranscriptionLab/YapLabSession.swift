@@ -12,6 +12,17 @@ struct YapLabSession: Codable, Identifiable, Equatable {
     var taskPrompt = YapPreset.clean.task
     var transcripts: [YapTranscript] = []
     var results: [YapResult] = []
+
+    /// No run survives process termination. Keep the words and source linkage,
+    /// but never present a persisted in-flight row as an active recognizer.
+    mutating func recoverInterruptedTranscripts() {
+        for index in transcripts.indices where transcripts[index].isInProgress {
+            transcripts[index].status = "Interrupted / incomplete"
+            if transcripts[index].failureReason == nil {
+                transcripts[index].failureReason = "The previous run ended before completion. Retained words may be partial; re-transcribe the saved source to retry."
+            }
+        }
+    }
 }
 
 struct YapTranscript: Codable, Identifiable, Equatable {

@@ -4,6 +4,31 @@ import TCCCDomain
 
 @MainActor
 final class HandoffCSVTests: XCTestCase {
+    func testAudioShareIncludesOnlyExplicitCurrentArtifacts() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let audio = root.appendingPathComponent("current.m4a")
+        let diagnosticsDirectory = try FileManager.default.url(for: .documentDirectory,
+            in: .userDomainMask, appropriateFor: nil, create: true)
+        let diagnostic = diagnosticsDirectory.appendingPathComponent("diagnostics-synthetic-\(UUID().uuidString).log")
+        defer { try? FileManager.default.removeItem(at: diagnostic) }
+        try Data("synthetic audio".utf8).write(to: audio)
+        try Data("prior diagnostic session".utf8).write(to: diagnostic)
+        let line = TranscriptLine(speaker: .medic, text: "current synthetic evidence", timestamp: Date())
+        let items = try HandoffAudioExport.items(audioURL: audio, transcript: [line], casualtyId: UUID().uuidString)
+        defer { for url in items where url != audio { try? FileManager.default.removeItem(at: url) } }
+        XCTAssertEqual(items.count, 2)
+        XCTAssertEqual(items.first, audio)
+        XCTAssertFalse(items.contains(diagnostic))
+        XCTAssertTrue(try String(contentsOf: items[1], encoding: .utf8).contains(line.text))
+    }
+
+    func testMissingAudioAndEmptyTranscriptCannotShareOnlyDiagnostics() throws {
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        XCTAssertThrowsError(try HandoffAudioExport.items(audioURL: missing, transcript: [], casualtyId: "TEST"))
+    }
+
     func testCSVUsesRecordedTimesInChronologicalOrderAndRetainsAVPU() {
         let early = AppState.SectionCReading(
             timestamp: Date(timeIntervalSince1970: 0), vitals: Vitals(hr: 110), avpu: "Alert")

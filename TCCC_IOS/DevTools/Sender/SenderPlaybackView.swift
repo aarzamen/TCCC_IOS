@@ -4,54 +4,50 @@ struct SenderPlaybackView: View {
     let onBack: () -> Void
 
     @State private var viewModel = SenderViewModel()
+    @State private var ambientMeter = AmbientMeter()
     @State private var page: SenderPage = .compose
-    @State private var dragOffset: CGFloat = 0
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        GeometryReader { geo in
-            HStack(spacing: 0) {
-                SenderComposeView(
-                    viewModel: viewModel,
-                    onBack: onBack,
-                    onSend: {
-                        withAnimation(.pageTransition) {
-                            page = .readout
-                        }
-                    }
-                )
-                .frame(width: geo.size.width, height: geo.size.height)
-
-                SenderReadoutView(
-                    viewModel: viewModel,
-                    onReedit: {
-                        withAnimation(.pageTransition) {
-                            page = .compose
-                        }
-                    }
-                )
-                .frame(width: geo.size.width, height: geo.size.height)
+        GeometryReader { geometry in
+            Group {
+                switch page {
+                    case .compose:
+                        SenderComposeView(
+                            viewModel: viewModel,
+                            ambientMeter: ambientMeter,
+                            onBack: {
+                                endSurfaceActivity()
+                                onBack()
+                            },
+                            onSend: { show(.readout) }
+                        )
+                    case .readout:
+                        SenderReadoutView(
+                            viewModel: viewModel,
+                            onReedit: { show(.compose) }
+                        )
+                }
             }
-            .offset(x: -CGFloat(page.rawValue) * geo.size.width + dragOffset)
-            .animation(.pageTransition, value: page)
-            .gesture(
-                DragGesture(minimumDistance: 8)
-                    .onChanged { value in
-                        dragOffset = value.translation.width
-                    }
-                    .onEnded { value in
-                        let dx = value.translation.width
-                        withAnimation(.pageTransition) {
-                            dragOffset = 0
-                            if dx < -Layout.swipeThreshold {
-                                page = .readout
-                            } else if dx > Layout.swipeThreshold {
-                                page = .compose
-                            }
-                        }
-                    }
-            )
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
         }
-        .clipped()
+        // Page changes use Send / Play and Re-edit. A page-wide drag competes
+        // with the sliders and can leave Compose while the user adjusts them.
+        .onDisappear { endSurfaceActivity() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { endSurfaceActivity() }
+        }
+    }
+
+    private func show(_ destination: SenderPage) {
+        guard destination != page else { return }
+        endSurfaceActivity()
+        withAnimation(.pageTransition) { page = destination }
+    }
+
+    private func endSurfaceActivity() {
+        viewModel.endSurfaceActivity(stopAmbient: ambientMeter.stop)
     }
 }
 
