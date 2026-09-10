@@ -8,6 +8,7 @@ struct YapLabView: View {
     let onBack: () -> Void
     @State private var model = YapLabModel()
     @State private var importing = false
+    @State private var confirmUnsavedExit = false
     @State private var assetsOpen = false
     @State private var choosingFileBackend = false
     @State private var pendingFileImport = true
@@ -23,7 +24,14 @@ struct YapLabView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Button { playback.stop(); Task { await model.cancel(); onBack() } } label: {
+                Button {
+                    playback.stop()
+                    Task {
+                        await model.cancel()
+                        if model.saveError == nil { onBack() }
+                        else { confirmUnsavedExit = true }
+                    }
+                } label: {
                     Label("Back", systemImage: "chevron.left").frame(minHeight: 44)
                 }
                 Text("YAP LAB").font(.title2.bold())
@@ -54,7 +62,7 @@ struct YapLabView: View {
                             .padding(4).background(.quaternary).disabled(model.busy)
                         Button("Generate separate draft") { playback.stop(); model.generate() }
                             .buttonStyle(.borderedProminent).frame(minHeight: 56)
-                            .disabled(model.busy || model.transcript?.text.isEmpty != false)
+                            .disabled(model.busy || model.transcript?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false)
                         Text("Re-run the same source with another model or prompt. Each draft keeps its source and exact prompts. No clinical extraction runs here.")
                             .font(.caption).foregroundStyle(.secondary)
                         savedSessions
@@ -104,14 +112,24 @@ struct YapLabView: View {
                 if model.busy { ProgressView().controlSize(.small) }
                 Text(model.status).font(.caption)
                 Spacer()
+                if let savedAt = model.lastSavedAt {
+                    Text("Last saved \(savedAt.formatted(date: .omitted, time: .standard))").font(.caption).foregroundStyle(.secondary)
+                }
                 if model.busy { Button("Cancel") { Task { await model.cancel() } }.frame(minHeight: 44) }
             }
             if let error = model.error { Text(error).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
+            if let error = model.saveError { Text(error).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
         }
         .padding(16)
         .background(Color(uiColor: .systemBackground))
         .task { model.refresh(); await model.checkReadiness() }
         .sheet(isPresented: $assetsOpen) { OfflineModelPreparationView() }
+        .alert("Session could not be saved", isPresented: $confirmUnsavedExit) {
+            Button("Keep editing", role: .cancel) { }
+            Button("Leave without saving", role: .destructive) { onBack() }
+        } message: {
+            Text("Your latest changes are still only in memory. Keep editing to retry Save or share the text before leaving.")
+        }
         .confirmationDialog("Choose a recognizer for this audio file", isPresented: $choosingFileBackend, titleVisibility: .visible) {
             ForEach(YapASR.allCases.filter(\.supportsFile)) { backend in
                 Button("Use \(backend.rawValue)") {
@@ -227,7 +245,7 @@ struct YapLabView: View {
         VStack(alignment: .leading, spacing: 4) {
             Button {
                 if playback.isPlaying { playback.stop() }
-                else if let filename = model.transcript?.audioFilename ?? model.session.audioFilename {
+                else if let filename = model.sourceAudioFilename {
                     do { try playback.play(YapLabStore().audioURL(filename)) }
                     catch { playback.error = "Audio playback failed: \(error.localizedDescription)" }
                 }
@@ -236,7 +254,10 @@ struct YapLabView: View {
                     systemImage: playback.isPlaying ? "stop.fill" : "play.fill")
                     .frame(minHeight: 44)
             }
-            .disabled(model.busy || (model.transcript?.audioFilename ?? model.session.audioFilename) == nil)
+            .disabled(model.busy || (model.sourceAudioFilename) == nil)
+            if model.transcript != nil && model.sourceAudioFilename == nil {
+                Text("No source audio is linked to this transcript. Import the original recording to compare recognizers.").font(.caption).foregroundStyle(.secondary)
+            }
             if let error = playback.error { Text(error).font(.caption).foregroundStyle(.red) }
         }
     }

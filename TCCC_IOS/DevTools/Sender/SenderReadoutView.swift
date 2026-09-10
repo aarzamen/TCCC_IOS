@@ -7,6 +7,7 @@ struct SenderReadoutView: View {
     let onReedit: () -> Void
 
     @Environment(\.palette) private var palette
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var playback = SenderReadoutPlaybackController()
 
     init(
@@ -36,6 +37,16 @@ struct SenderReadoutView: View {
         }
         .onDisappear {
             playback.close()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                playback.configure(
+                    result: viewModel.readout?.synthesisResult,
+                    initialVolume: viewModel.readout?.volume ?? viewModel.volume
+                )
+            } else {
+                playback.close()
+            }
         }
     }
 

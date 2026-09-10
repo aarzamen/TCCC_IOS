@@ -8,9 +8,7 @@ struct ClinicalEntrySheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var metadata = EncounterOperatorMetadata()
     @State private var vitals = ManualVitalsDraft()
-    @State private var mechanism = ""
-    @State private var classification = ""
-    @State private var injuries = ""
+    @State private var assessment = ManualAssessmentDraft(patient: nil)
     @State private var details = ""
     @State private var location = ""
     @State private var time = Date()
@@ -42,9 +40,7 @@ struct ClinicalEntrySheet: View {
             .onAppear {
                 encounter = state.encounterIdentity
                 metadata = state.operatorMetadata
-                mechanism = state.primaryPatient?.mechanismOfInjury ?? ""
-                classification = state.primaryPatient?.classification?.rawValue ?? ""
-                injuries = state.primaryPatient?.injuries.joined(separator: "\n") ?? ""
+                assessment = ManualAssessmentDraft(patient: state.primaryPatient)
             }
         }
     }
@@ -53,7 +49,7 @@ struct ClinicalEntrySheet: View {
         switch kind {
         case .vitals: "Add a reading. Blank fields keep existing observations unchanged."
         case .identity: "Unknown details stay blank. Enter allergies only when known."
-        case .assessment: "Corrections update the clinical record and remain in its audit history. One injury per line."
+        case .assessment: "Only edited fields change. If new evidence changes a field you edited, reopen it for review. Corrections remain in the audit history. One injury per line."
         case .nineLine: "Enter known operational values. Empty lines remain unverified. Line 1 comes from the GPS control on the 9-line screen."
         case .tourniquet: "Record what was performed. Saving does not imply bleeding is controlled."
         case .medication: "Document the medication, dose and route actually given; no dose is supplied automatically."
@@ -88,12 +84,12 @@ struct ClinicalEntrySheet: View {
             }
         case .assessment:
             Section("Assessment") {
-                TextField("Mechanism of injury", text: $mechanism)
-                Picker("Precedence", selection: $classification) {
+                TextField("Mechanism of injury", text: $assessment.mechanism)
+                Picker("Precedence", selection: $assessment.classification) {
                     Text("Unknown").tag("")
                     ForEach(Classification.allCases, id: \.rawValue) { Text($0.rawValue).tag($0.rawValue) }
                 }
-                TextEditor(text: $injuries).frame(minHeight: 100).accessibilityLabel("Injuries, one per line")
+                TextEditor(text: $assessment.injuries).frame(minHeight: 100).accessibilityLabel("Injuries, one per line")
             }
         case .tourniquet, .medication:
             Section("Performed intervention") {
@@ -136,12 +132,11 @@ struct ClinicalEntrySheet: View {
                     let writes: [PatientStateFieldWrite]
                     switch kind {
                     case .vitals:
-                        writes = try vitals.writes()
-                        manualReading = try vitals.reading()
+                        let validated = try vitals.validated()
+                        writes = validated.writes
+                        manualReading = validated.reading
                     case .assessment:
-                        writes = [.mechanismOfInjury(mechanism.isEmpty ? nil : mechanism),
-                            .classification(Classification(rawValue: classification)),
-                            .setInjuries(injuries.split(separator: "\n").map(String.init))]
+                        writes = [] // Assessment uses an atomic, conflict-checked patch below.
                     case .tourniquet:
                         guard !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ClinicalEntryError(message: "Enter the tourniquet location and side.") }
                         writes = [.hemorrhageIntervention("Tourniquet"), .hemorrhageLocation(location),
@@ -151,7 +146,11 @@ struct ClinicalEntrySheet: View {
                         writes = [.appendIntervention(.init(timestamp: time, kind: .medication, description: details))]
                     default: writes = []
                     }
-                    try await state.applyClinicalEntry(writes, encounter: encounter, recordsVitals: kind == .vitals)
+                    if kind == .assessment {
+                        try await state.applyAssessmentEntry(assessment, encounter: encounter)
+                    } else {
+                        try await state.applyClinicalEntry(writes, encounter: encounter, recordsVitals: kind == .vitals)
+                    }
                     applied = true
                 }
                 try await state.verifyClinicalEntrySaved(encounter: encounter)

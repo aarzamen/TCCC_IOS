@@ -105,4 +105,108 @@ final class YapLabEvidenceTests: XCTestCase {
         XCTAssertTrue(model.canOpenPermissionSettings)
         XCTAssertTrue(model.permissionGuidance?.contains("audio import remains available") == true)
     }
+    func testReopenMarksInterruptedRowsIncompleteAndKeepsEvidence() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = YapLabStore(root: root)
+        var interrupted = YapLabSession()
+        interrupted.transcripts = [
+            YapTranscript(backend: .apple, text: "retained partial", status: "Recording / incomplete"),
+            YapTranscript(backend: .granite, text: "", status: "Transcribing file"),
+            YapTranscript(backend: .apple, text: "prior complete", status: "Completed")
+        ]
+        try store.save(interrupted)
+        let model = YapLabModel(store: store)
+        model.reopen(interrupted.id)
+        XCTAssertFalse(model.session.transcripts.contains(where: \.isInProgress))
+        XCTAssertEqual(model.session.transcripts[0].text, "retained partial")
+        XCTAssertNotNil(model.session.transcripts[0].failureReason)
+        XCTAssertEqual(model.session.transcripts[2], interrupted.transcripts[2])
+        model.save()
+        XCTAssertFalse(try store.load(interrupted.id).transcripts.contains(where: \.isInProgress))
+    }
+
+    func testUnlinkedOlderTranscriptCannotBorrowCurrentAudio() {
+        let model = YapLabModel()
+        let old = YapTranscript(backend: .apple, text: "unlinked source", status: "Completed")
+        model.session.audioFilename = "different-source.m4a"
+        model.session.transcripts = [old]
+        model.selectedTranscriptID = old.id
+        XCTAssertNil(model.sourceAudioFilename)
+        XCTAssertEqual(model.transcript?.id, old.id)
+    }
+
+    func testFinalizedEmptyRecognitionIsNotCompleted() {
+        let model = YapLabModel()
+        let raw = YapTranscript(backend: .apple, text: "", status: "Transcribing file")
+        model.session.transcripts = [raw]
+        let completion = SpeechFileRunState.Completion(
+            termination: .finalized, transcript: " \n ", isComplete: true,
+            failureReason: nil, callbackCount: 1, startedAt: .distantPast,
+            firstHypothesisAt: nil, lastHypothesisAt: nil, finishedAt: .distantPast)
+        model.retainFileEvidence(completion, transcriptID: raw.id, sessionID: model.session.id)
+        XCTAssertNotEqual(model.session.transcripts[0].status, "Completed")
+        XCTAssertNotNil(model.session.transcripts[0].failureReason)
+        XCTAssertEqual(model.session.transcripts[0].text, " \n ")
+    }
+
+    func testFailedCheckpointDoesNotStartFileRecognitionOrGeneration() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = YapLabStore(root: root)
+        let model = YapLabModel(store: store)
+        try store.prepare()
+        try FileManager.default.createDirectory(at: store.url(model.session.id), withIntermediateDirectories: false)
+        model.session.audioFilename = "synthetic.wav"
+        try Data([0]).write(to: root.appendingPathComponent("synthetic.wav"))
+        model.session.transcripts = [YapTranscript(backend: .apple, audioFilename: "synthetic.wav", text: "source", status: "Completed")]
+        model.transcribeFile()
+        XCTAssertFalse(model.busy, "Do not run recognition after its evidence checkpoint failed")
+        model.selectedTranscriptID = model.session.transcripts.first?.id
+        model.generate()
+        XCTAssertFalse(model.busy, "Do not start generation with unsaved source and prompts")
+        XCTAssertNotNil(model.saveError)
+        XCTAssertNil(model.lastSavedAt)
+        let unsavedID = model.session.id
+        model.newSession()
+        XCTAssertEqual(model.session.id, unsavedID)
+        XCTAssertNotNil(model.saveError)
+    }
+
+    func testSaveRetryClearsStorageErrorWithoutDiscardingRecognitionIssue() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = YapLabStore(root: root)
+        let model = YapLabModel(store: store)
+        try store.prepare()
+        try FileManager.default.createDirectory(at: store.url(model.session.id), withIntermediateDirectories: false)
+        model.error = "Recognition retained only partial words"
+        XCTAssertFalse(model.save())
+        XCTAssertNotNil(model.saveError)
+        try FileManager.default.removeItem(at: store.url(model.session.id))
+        XCTAssertTrue(model.save())
+        XCTAssertNil(model.saveError)
+        XCTAssertNotNil(model.lastSavedAt)
+        XCTAssertEqual(model.error, "Recognition retained only partial words")
+        XCTAssertEqual(try store.load(model.session.id), model.session)
+    }
+
+    func testFailedCheckpointDoesNotOpenMicrophone() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = YapLabStore(root: root)
+        let model = YapLabModel(store: store)
+        try store.prepare()
+        try FileManager.default.createDirectory(at: store.url(model.session.id), withIntermediateDirectories: false)
+        model.session.audioFilename = "imported.wav"
+        model.record(clinicalRecording: false)
+        XCTAssertEqual(model.sourceAudioFilename, "imported.wav")
+        XCTAssertNil(model.selectedTranscriptID)
+        XCTAssertNil(model.session.transcripts.last?.audioFilename)
+        XCTAssertFalse(model.busy)
+        XCTAssertFalse(model.recording)
+        XCTAssertEqual(model.session.transcripts.last?.status, "Not started")
+        XCTAssertNotNil(model.saveError)
+    }
+
 }

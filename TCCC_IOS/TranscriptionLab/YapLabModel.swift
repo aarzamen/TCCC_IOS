@@ -13,6 +13,8 @@ final class YapLabModel {
     var recording = false
     var status = "Ready. Models run on this device; install assets in Model Setup."
     var error: String?
+    var saveError: String?
+    var lastSavedAt: Date?
     var readiness = "Check models to inspect availability."
     var unreadableSessionCount = 0
     var speechPermission = SFSpeechRecognizer.authorizationStatus()
@@ -21,6 +23,7 @@ final class YapLabModel {
     private var gate = YapRunGate()
     private var operation: Task<Void, Never>?
     private var capture: (any TranscriptStream)?
+    private var lastPartialCheckpoint: ContinuousClock.Instant?
 
     init(store: YapLabStore = YapLabStore()) { self.store = store }
     var permissionGuidance: String? {
@@ -49,7 +52,7 @@ final class YapLabModel {
     var sourceAudioFilename: String? {
         if let selectedTranscriptID,
            let selected = session.transcripts.first(where: { $0.id == selectedTranscriptID }) {
-            return selected.audioFilename ?? session.audioFilename
+            return selected.audioFilename
         }
         return session.audioFilename
     }
@@ -74,23 +77,37 @@ final class YapLabModel {
             unreadableSessionCount = inventory.unreadableCount
         } catch { self.error = "Saved sessions could not be read: \(error.localizedDescription)" }
     }
-    func save() {
-        do { try store.save(session); refresh() }
-        catch { self.error = "Session save failed: \(error.localizedDescription)" }
+    @discardableResult
+    func save(refreshLibrary: Bool = true) -> Bool {
+        do {
+            try store.save(session)
+            saveError = nil
+            lastSavedAt = Date()
+            if refreshLibrary { refresh() }
+            return true
+        } catch {
+            saveError = "Session save failed: \(error.localizedDescription) Your current evidence is still in memory. Retry Save before leaving."
+            return false
+        }
     }
     func newSession() {
         guard !busy else { return }
         error = nil
-        save()
-        guard error == nil else { return }
-        session = YapLabSession(); selectedTranscriptID = nil; status = "New session."
+        guard save() else { return }
+        session = YapLabSession(); selectedTranscriptID = nil; lastSavedAt = nil; status = "New session."
     }
     func reopen(_ id: UUID) {
         guard !busy else { return }
         error = nil
-        save()
-        guard error == nil else { return }
-        do { session = try store.load(id); selectCurrentAudioSource(); status = "Saved session reopened." }
+        guard save() else { return }
+        do {
+            var reopened = try store.load(id)
+            reopened.recoverInterruptedTranscripts()
+            session = reopened
+            selectCurrentAudioSource()
+            status = "Saved session reopened."
+            save()
+        }
         catch { self.error = error.localizedDescription }
     }
     func apply(_ preset: YapPreset) { session.systemPrompt = preset.system; session.taskPrompt = preset.task }
@@ -112,6 +129,8 @@ final class YapLabModel {
         do {
             try store.prepare()
             let name = UUID().uuidString + ".m4a"
+            let priorSource = session.audioFilename
+            let priorSelection = selectedTranscriptID
             session.audioFilename = name
             let audioURL = try store.audioURL(name)
             let selected = session.asr
@@ -121,11 +140,18 @@ final class YapLabModel {
             case .parakeet: stream = ParakeetTranscriptStream(levels: nil)
             case .granite: stream = GraniteSpeechTranscriptStream()
             }
+            let rawID = addTranscript(selected, status: "Starting")
+            guard checkpoint(rawID) else {
+                session.audioFilename = priorSource
+                selectedTranscriptID = priorSelection
+                // No recorder opened this path. Retain the failed attempt,
+                // but do not link it to an audio file that was never created.
+                session.transcripts[session.transcripts.count - 1].audioFilename = nil
+                return
+            }
             capture = stream
             let token = gate.begin()
-            let rawID = addTranscript(selected, status: "Starting")
             busy = true; status = "Preparing \(selected.rawValue)…"
-            save()
             operation = Task {
                 var ordered: [UUID] = []
                 var texts: [UUID: String] = [:]
@@ -149,7 +175,7 @@ final class YapLabModel {
                             if texts[key] == nil { ordered.append(key) }
                             texts[key] = update.text
                             updateRaw(rawID, text: ordered.compactMap { texts[$0] }.joined(separator: "\n"), status: "Recording / incomplete")
-                            save()
+                            guard checkpointPartialEvidence() else { throw BackendError.generationFailed(saveError ?? "Evidence could not be saved.") }
                         }
                         if let termination = update.termination, termination != .finalized {
                             error = update.issue ?? "Recognition ended: \(termination.rawValue). Review partial text."
@@ -173,7 +199,7 @@ final class YapLabModel {
         do {
             session.audioFilename = try store.importAudio(url)
             selectCurrentAudioSource()
-            save()
+            guard save() else { return }
             transcribeFile(useSelectedSource: false)
         }
         catch { self.error = "Audio import failed: \(error.localizedDescription)" }
@@ -186,11 +212,11 @@ final class YapLabModel {
         }
         error = nil
         let selected = session.asr
-        let token = gate.begin()
         let rawID = addTranscript(selected, status: "Transcribing file", audioFilename: name)
+        guard checkpoint(rawID) else { return }
+        let token = gate.begin()
         let sessionID = session.id
         busy = true; status = "Transcribing saved audio with \(selected.rawValue)…"
-        save()
         operation = Task {
             do {
                 let url = try store.audioURL(name)
@@ -203,7 +229,7 @@ final class YapLabModel {
                     // Match the original session and row even after the run gate closes.
                     retainFileEvidence(completion, transcriptID: rawID, sessionID: sessionID)
                     if gate.accepts(token) {
-                        error = completion.failureReason
+                        error = session.transcripts.first(where: { $0.id == rawID })?.failureReason
                     }
                 } else {
                     let runtime = GraniteSpeechRuntime(resolver: GraniteSpeechModelResolver(hfCacheLookup: { modelID in
@@ -217,7 +243,10 @@ final class YapLabModel {
                             try Task.checkCancellation()
                             if case .token(let token) = event { text += token }
                             if case .result(let result) = event, !result.text.isEmpty { text = result.text }
-                            if gate.accepts(token) { updateRaw(rawID, text: text, status: "Transcribing / incomplete") }
+                            if gate.accepts(token) {
+                                updateRaw(rawID, text: text, status: "Transcribing / incomplete")
+                                guard checkpointPartialEvidence() else { throw BackendError.generationFailed(saveError ?? "Evidence could not be saved.") }
+                            }
                         }
                         if gate.accepts(token) { finishRaw(rawID, status: "Completed") }
                     } catch { await runtime.unload(); throw error }
@@ -228,8 +257,9 @@ final class YapLabModel {
         }
     }
     func generate() {
-        guard !busy, let raw = transcript, !raw.text.isEmpty else { return }
+        guard !busy, let raw = transcript, !raw.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         error = nil
+        guard save() else { return }
         let selected = session.llm, system = session.systemPrompt, task = session.taskPrompt
         let token = gate.begin()
         busy = true; status = "Generating separate \(selected.rawValue) draft…"
@@ -243,6 +273,9 @@ final class YapLabModel {
                 try Task.checkCancellation()
                 let output = try await backend.generate(instructions: system, prompt: YapPreset.prompt(task: task, transcript: raw.text))
                 guard gate.accepts(token), !Task.isCancelled else { return }
+                guard !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    throw BackendError.generationFailed("The model returned no draft text. Your source is unchanged; try another prompt or model.")
+                }
                 session.results.append(YapResult(transcriptID: raw.id, backend: selected, systemPrompt: system, taskPrompt: task, text: output, elapsedSeconds: Date().timeIntervalSince(started)))
             } catch { if gate.accepts(token) { self.error = error.localizedDescription } }
             if gate.accepts(token) { finishOperation() }
@@ -276,8 +309,31 @@ final class YapLabModel {
     }
     private func finishRaw(_ id: UUID, status: String, failureReason: String? = nil) {
         guard let index = session.transcripts.firstIndex(where: { $0.id == id }) else { return }
-        session.transcripts[index].status = status
-        session.transcripts[index].failureReason = failureReason
+        let emptyCompletion = status == "Completed"
+            && session.transcripts[index].text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        session.transcripts[index].status = emptyCompletion ? "No speech recognized" : status
+        session.transcripts[index].failureReason = emptyCompletion
+            ? "The recognizer ended without returning words. Listen to the source and try another recognizer; finalization alone does not prove speech coverage."
+            : failureReason
+        if emptyCompletion { error = session.transcripts[index].failureReason }
+    }
+    private func checkpointPartialEvidence() -> Bool {
+        // Persist partial evidence without rescanning every saved session for
+        // each token. Normal completion/cancellation still saves immediately.
+        let now = ContinuousClock.now
+        if let lastPartialCheckpoint, now - lastPartialCheckpoint < .seconds(1) { return true }
+        guard save(refreshLibrary: false) else { return false }
+        lastPartialCheckpoint = now
+        return true
+    }
+    private func checkpoint(_ rawID: UUID) -> Bool {
+        lastPartialCheckpoint = nil
+        guard save() else {
+            finishRaw(rawID, status: "Not started", failureReason: saveError)
+            status = "Not started. Save the session successfully before retrying."
+            return false
+        }
+        return true
     }
     private func finishOperation() {
         gate.cancel(); busy = false; recording = false; capture = nil; operation = nil

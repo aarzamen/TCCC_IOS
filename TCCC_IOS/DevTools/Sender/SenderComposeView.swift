@@ -5,16 +5,18 @@ struct SenderComposeView: View {
     let onBack: () -> Void
     let onSend: () -> Void
 
-    @State private var ambientMeter = AmbientMeter()
+    private let ambientMeter: AmbientMeter
     @Environment(\.palette) private var palette
     @Environment(\.scenePhase) private var scenePhase
 
     init(
         viewModel: SenderViewModel,
+        ambientMeter: AmbientMeter = AmbientMeter(),
         onBack: @escaping () -> Void = {},
         onSend: @escaping () -> Void = {}
     ) {
         self.viewModel = viewModel
+        self.ambientMeter = ambientMeter
         self.onBack = onBack
         self.onSend = onSend
     }
@@ -22,6 +24,7 @@ struct SenderComposeView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+                .fixedSize(horizontal: false, vertical: true)
 
             HStack(alignment: .top, spacing: Layout.gridGap) {
                 scriptPanel
@@ -35,17 +38,17 @@ struct SenderComposeView: View {
         }
         .background(palette.bg)
         .onDisappear {
-            ambientMeter.stop()
+            viewModel.endSurfaceActivity(stopAmbient: ambientMeter.stop)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { ambientMeter.stop() }
+            if phase != .active { viewModel.endSurfaceActivity(stopAmbient: ambientMeter.stop) }
         }
     }
 
     private var header: some View {
         HStack(spacing: 10) {
             Button {
-                ambientMeter.stop()
+                viewModel.endSurfaceActivity(stopAmbient: ambientMeter.stop)
                 onBack()
             } label: {
                 Image(systemName: "chevron.left")
@@ -144,54 +147,58 @@ struct SenderComposeView: View {
     private var controlsPanel: some View {
         Panel("Playback Setup", titleIcon: "speaker.wave.2", padded: true) {
             VStack(alignment: .leading, spacing: 12) {
-                ambientPanel
+                ScrollView(.vertical) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ambientPanel
 
-                Divider()
-                    .background(palette.line)
+                        Divider()
+                            .background(palette.line)
 
-                voicePicker
+                        voicePicker
 
-                sliderRow(
-                    label: "Speed",
-                    value: String(format: "%.2fx", viewModel.speed),
-                    binding: Binding(
-                        get: { viewModel.speed },
-                        set: { viewModel.setSpeed($0) }
-                    ),
-                    range: 0.7...1.3,
-                    step: 0.05
-                )
+                        sliderRow(
+                            label: "Speed",
+                            value: String(format: "%.2fx", viewModel.speed),
+                            binding: Binding(
+                                get: { viewModel.speed },
+                                set: { viewModel.setSpeed($0) }
+                            ),
+                            range: 0.7...1.3,
+                            step: 0.05
+                        )
 
-                sliderRow(
-                    label: "Pitch · Device Speech only",
-                    value: String(format: "%+.1f st", viewModel.pitchSemitones),
-                    binding: Binding(
-                        get: { viewModel.pitchSemitones },
-                        set: { viewModel.setPitchSemitones($0) }
-                    ),
-                    range: -2...2,
-                    step: 0.1
-                )
+                        sliderRow(
+                            label: "Pitch · Device Speech only",
+                            value: String(format: "%+.1f st", viewModel.pitchSemitones),
+                            binding: Binding(
+                                get: { viewModel.pitchSemitones },
+                                set: { viewModel.setPitchSemitones($0) }
+                            ),
+                            range: -2...2,
+                            step: 0.1
+                        )
 
-                sliderRow(
-                    label: "Volume",
-                    value: String(format: "%.0f%%", viewModel.volume * 100),
-                    binding: Binding(
-                        get: { viewModel.volume },
-                        set: { viewModel.setVolume($0) }
-                    ),
-                    range: 0...1,
-                    step: 0.05
-                )
+                        sliderRow(
+                            label: "Volume",
+                            value: String(format: "%.0f%%", viewModel.volume * 100),
+                            binding: Binding(
+                                get: { viewModel.volume },
+                                set: { viewModel.setVolume($0) }
+                            ),
+                            range: 0...1,
+                            step: 0.05
+                        )
 
-                Spacer(minLength: 8)
-
-                if let message = viewModel.errorMessage {
-                    Text(message)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(palette.warn)
-                        .fixedSize(horizontal: false, vertical: true)
+                        if let message = viewModel.errorMessage {
+                            Text(message)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(palette.warn)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(minHeight: 0, maxHeight: .infinity)
 
                 BigButton(
                     viewModel.isSending ? "Preparing" : "Send / Play",
@@ -200,14 +207,17 @@ struct SenderComposeView: View {
                 ) {
                     Task {
                         ambientMeter.stop()
-                        if await viewModel.send() != nil {
+                        if let result = await viewModel.send(),
+                           viewModel.consumeReadoutNavigation(for: result.id) {
                             onSend()
                         }
                     }
                 }
                 .disabled(!viewModel.canSend)
                 .opacity(viewModel.canSend ? 1.0 : 0.45)
+                .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxHeight: .infinity)
         }
     }
 

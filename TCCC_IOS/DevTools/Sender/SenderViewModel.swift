@@ -105,16 +105,24 @@ final class SenderViewModel {
 
     var script: String = ""
     var selectedVoiceID: String = KokoroEngine.defaultVoiceID
-    var speed: Double = 1.0 {
-        didSet { speed = Self.clamp(speed, to: 0.7...1.3) }
+    // Computed setters avoid re-entering @Observable's synthesized didSet accessors.
+    private var storedSpeed: Double = 1.0
+    private var storedPitchSemitones: Double = 0
+    private var storedVolume: Double = 0.8
+
+    var speed: Double {
+        get { storedSpeed }
+        set { storedSpeed = Self.clamp(newValue, to: 0.7...1.3) }
     }
-    var pitchSemitones: Double = 0 {
-        didSet { pitchSemitones = Self.clamp(pitchSemitones, to: -2...2) }
+    var pitchSemitones: Double {
+        get { storedPitchSemitones }
+        set { storedPitchSemitones = Self.clamp(newValue, to: -2...2) }
     }
-    var volume: Double = 0.8 {
-        didSet {
-            volume = Self.clamp(volume, to: 0...1)
-            audioPlayer?.volume = Float(volume)
+    var volume: Double {
+        get { storedVolume }
+        set {
+            storedVolume = Self.clamp(newValue, to: 0...1)
+            audioPlayer?.volume = Float(storedVolume)
         }
     }
 
@@ -129,6 +137,9 @@ final class SenderViewModel {
     @ObservationIgnored private let synthesizeHandler: SynthesisHandler
     @ObservationIgnored private var audioPlayer: AVAudioPlayer?
     @ObservationIgnored private var playbackTimer: Timer?
+    @ObservationIgnored private var synthesisTask: Task<SenderSynthesisResult, Error>?
+    private var synthesisID: UUID?
+    private var navigationReadoutID: UUID?
 
     init(synthesizeHandler: @escaping SynthesisHandler = SenderViewModel.deviceTTSHandler) {
         self.synthesizeHandler = synthesizeHandler
@@ -204,17 +215,29 @@ final class SenderViewModel {
 
     @discardableResult
     func send() async -> SenderReadoutState? {
+        guard !isSending, !Task.isCancelled else { return nil }
         let text = trimmedScript
         guard !text.isEmpty else {
             errorMessage = SenderSynthesisError.emptyScript.errorDescription
             return nil
         }
 
+        let id = UUID()
+        synthesisID = id
+        navigationReadoutID = nil
         isSending = true
+        readout = nil
         synthesisState = .synthesizing
         errorMessage = nil
         stopPlayback()
-        defer { isSending = false }
+        defer {
+            if synthesisID == id {
+                isSending = false
+                if synthesisState == .synthesizing { synthesisState = .idle }
+                synthesisTask = nil
+                synthesisID = nil
+            }
+        }
 
         let request = SenderSynthesisRequest(
             text: text,
@@ -224,19 +247,31 @@ final class SenderViewModel {
             volume: volume
         )
 
+        let handler = synthesizeHandler
+        let work = Task { try await handler(request) }
+        synthesisTask = work
         do {
-            let result = try await synthesizeHandler(request)
-            let state = makeReadout(script: text, result: result, errorMessage: nil)
+            let result = try await withTaskCancellationHandler {
+                try await work.value
+            } onCancel: {
+                work.cancel()
+            }
+            guard synthesisID == id, !Task.isCancelled, !work.isCancelled else { return nil }
+            let state = makeReadout(request: request, result: result, errorMessage: nil)
             readout = state
-            if prepareAudioPlayer(with: result) {
+            navigationReadoutID = state.id
+            if prepareAudioPlayer(with: result, volume: request.volume) {
                 synthesisState = .ready
             }
             return state
         } catch {
+            guard synthesisID == id, !Task.isCancelled, !work.isCancelled,
+                  !(error is CancellationError) else { return nil }
             let message = Self.message(for: error)
             errorMessage = message
-            let state = makeReadout(script: text, result: nil, errorMessage: message)
+            let state = makeReadout(request: request, result: nil, errorMessage: message)
             readout = state
+            navigationReadoutID = state.id
             audioPlayer = nil
             levelSamples = Array(repeating: 0, count: 48)
             currentTime = 0
@@ -245,7 +280,33 @@ final class SenderViewModel {
         }
     }
 
+    /// Cancellation invalidates publication even when a renderer ignores cancellation.
+    func cancelSynthesis() {
+        synthesisID = nil
+        navigationReadoutID = nil
+        synthesisTask?.cancel()
+        synthesisTask = nil
+        isSending = false
+        if synthesisState == .synthesizing { synthesisState = .idle }
+    }
+
+    /// Consume once, after the await, so a page change between completion and
+    /// the view's continuation cannot navigate back to an abandoned result.
+    func consumeReadoutNavigation(for id: UUID) -> Bool {
+        guard navigationReadoutID == id else { return false }
+        navigationReadoutID = nil
+        return true
+    }
+
+    /// Both paging and leaving the tool end work belonging to the old surface.
+    func endSurfaceActivity(stopAmbient: () -> Void) {
+        stopAmbient()
+        cancelSynthesis()
+        stopPlayback()
+    }
+
     func returnToCompose() {
+        cancelSynthesis()
         stopPlayback()
         readout = nil
         errorMessage = nil
@@ -293,23 +354,23 @@ final class SenderViewModel {
     }
 
     private func makeReadout(
-        script: String,
+        request: SenderSynthesisRequest,
         result: SenderSynthesisResult?,
         errorMessage: String?
     ) -> SenderReadoutState {
         SenderReadoutState(
-            script: script,
-            voiceID: selectedVoiceID,
-            speed: speed,
-            pitchSemitones: pitchSemitones,
-            volume: volume,
-            estimatedDuration: result?.duration ?? estimatedDuration,
+            script: request.text,
+            voiceID: request.voiceID,
+            speed: request.speed,
+            pitchSemitones: request.pitchSemitones,
+            volume: request.volume,
+            estimatedDuration: result?.duration ?? Double(max(1, request.text.split(whereSeparator: \.isWhitespace).count)) / Double(Self.readingWordsPerMinute) * 60,
             synthesisResult: result,
             errorMessage: errorMessage
         )
     }
 
-    private func prepareAudioPlayer(with result: SenderSynthesisResult) -> Bool {
+    private func prepareAudioPlayer(with result: SenderSynthesisResult, volume: Double) -> Bool {
         do {
             let player = try AVAudioPlayer(contentsOf: result.audioURL)
             player.isMeteringEnabled = true
@@ -393,7 +454,9 @@ final class SenderViewModel {
     }
 
     private static func clamp(_ value: Double, to range: ClosedRange<Double>) -> Double {
-        min(max(value, range.lowerBound), range.upperBound)
+        // NaN has no meaningful position on a slider. Keep published settings finite.
+        guard !value.isNaN else { return range.lowerBound }
+        return min(max(value, range.lowerBound), range.upperBound)
     }
 
     private static func normalizedPower(_ dBFS: Float) -> Double {
