@@ -39,7 +39,9 @@ encounter; they do not carry into the next casualty.
 
 1. Record, or import an audio file from Files. Choose speech recognition
    independently from the language model. Apple/Granite support file input;
-   Parakeet currently supports live capture in this interface.
+   Parakeet currently supports live capture in this interface. Import or
+   Re-transcribe while Parakeet is selected asks you to choose Apple or Granite;
+   the recognizer changes only after your explicit choice.
 2. Each raw result retains its source audio. Re-transcribe compares that selected
    source with another supported recognizer. Play the selected source to listen
    for missed or changed words. Playback stops before capture or generation.
@@ -51,6 +53,16 @@ encounter; they do not carry into the next casualty.
 5. Save/reopen sessions or share their text. Sessions and recordings remain in
    protected `Documents/YapLab`, separate from clinical records. Cancel retains
    incomplete recognition evidence and waits for active work to release resources.
+   Recognition failure details stay with the raw row after reopening and are
+   included when sharing. An unreadable session produces a warning without
+   hiding healthy sessions or removing the original file.
+
+If a permission is denied, the controls explain which access is missing and
+offer Open Settings. Permission state refreshes on return. System permission
+dialogs can finish without cancelling the pending operation; moving the app
+to the background still cancels lab work and saves retained evidence. Simulator
+Settings may open at its root; physical permission recovery requires a device
+check.
 
 Presets include punctuation cleanup, summaries, explicit action lists, fidelity
 review, verbatim checking and meeting notes. They do not infer missing facts.

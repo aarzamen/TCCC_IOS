@@ -9,9 +9,12 @@ struct YapLabView: View {
     @State private var model = YapLabModel()
     @State private var importing = false
     @State private var assetsOpen = false
+    @State private var choosingFileBackend = false
+    @State private var pendingFileImport = true
     @State private var search = ""
     @State private var playback = YapSourcePlayback()
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
 
     init(state: AppState, onBack: @escaping () -> Void) {
         self.state = state; self.onBack = onBack
@@ -76,6 +79,9 @@ struct YapLabView: View {
                                     }.frame(minHeight: 44)
                                 }.disabled(model.busy)
                                 Text("\(raw.status) · \(YapTextMetrics.wordCount(raw.text)) words").font(.caption).foregroundStyle(.secondary)
+                                if let reason = raw.failureReason {
+                                    Text(reason).font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+                                }
                                 Text(raw.text.isEmpty ? AttributedString("No text returned yet.") : highlighted(raw.text)).textSelection(.enabled)
                                 ForEach(model.session.results.filter { $0.transcriptID == raw.id }) { result in
                                     VStack(alignment: .leading, spacing: 8) {
@@ -106,6 +112,17 @@ struct YapLabView: View {
         .background(Color(uiColor: .systemBackground))
         .task { model.refresh(); await model.checkReadiness() }
         .sheet(isPresented: $assetsOpen) { OfflineModelPreparationView() }
+        .confirmationDialog("Choose a recognizer for this audio file", isPresented: $choosingFileBackend, titleVisibility: .visible) {
+            ForEach(YapASR.allCases.filter(\.supportsFile)) { backend in
+                Button("Use \(backend.rawValue)") {
+                    model.session.asr = backend
+                    performFileAction()
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Parakeet currently supports live recording here. Choose Apple Speech or Granite for file transcription.")
+        }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.audio]) { result in
             switch result {
             case .success(let url): playback.stop(); model.importAudio(url)
@@ -113,8 +130,13 @@ struct YapLabView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { playback.stop(); Task { await model.cancel() } }
+            // System permission dialogs make the app inactive. Cancelling then
+            // aborts the very operation whose permission the operator grants.
+            if phase == .background { playback.stop(); Task { await model.cancel() } }
+            if phase == .active { Task { await model.checkReadiness() } }
         }
+        .onChange(of: model.session.asr) { _, _ in model.refreshPermissions() }
+        .onChange(of: model.session.llm) { _, _ in Task { await model.checkReadiness() } }
         .onChange(of: model.busy) { _, busy in if busy { playback.stop() } }
         .onChange(of: model.session.id) { _, _ in playback.stop() }
         .onChange(of: model.selectedTranscriptID) { _, _ in playback.stop() }
@@ -137,18 +159,38 @@ struct YapLabView: View {
                     Button("Record") { playback.stop(); model.record(clinicalRecording: state.isRecording) }
                         .buttonStyle(.borderedProminent).frame(minHeight: 56).disabled(model.busy || state.isRecording)
                 }
-                Button("Import audio") { playback.stop(); importing = true }.frame(minHeight: 56).disabled(model.busy)
+                Button("Import audio") { beginFileAction(isImport: true) }.frame(minHeight: 56).disabled(model.busy)
             }
-            Button("Re-transcribe saved audio") { playback.stop(); model.transcribeFile() }
-                .frame(minHeight: 44).disabled(model.busy || model.session.audioFilename == nil)
+            Button("Re-transcribe saved audio") { beginFileAction(isImport: false) }
+                .frame(minHeight: 44).disabled(model.busy || model.sourceAudioFilename == nil)
+            if let guidance = model.permissionGuidance {
+                Text(guidance).font(.caption).foregroundStyle(.orange)
+                if model.canOpenPermissionSettings {
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    }.frame(minHeight: 44).disabled(model.busy)
+                }
+            }
             Button("Offline model assets") { assetsOpen = true }.frame(minHeight: 44).disabled(model.busy)
             playbackControls
             if !model.session.asr.supportsFile {
-                Text("Parakeet: live capture only in this lab. Imported audio is retained but requires an explicitly selected file-capable backend.").font(.caption)
+                Text("Parakeet: live capture only. Import and re-transcribe let you choose a recognizer for files.").font(.caption)
             }
             Button("Check models") { Task { await model.checkReadiness() } }.frame(minHeight: 44)
             Text(model.readiness).font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    private func beginFileAction(isImport: Bool) {
+        playback.stop()
+        pendingFileImport = isImport
+        if model.session.asr.supportsFile { performFileAction() }
+        else { choosingFileBackend = true }
+    }
+
+    private func performFileAction() {
+        if pendingFileImport { importing = true }
+        else { model.transcribeFile() }
     }
 
     private var searchBar: some View {
@@ -202,6 +244,10 @@ struct YapLabView: View {
         VStack(alignment: .leading, spacing: 4) {
             Divider()
             Text("SAVED LOCALLY").font(.caption.bold())
+            if model.unreadableSessionCount > 0 {
+                Text("\(model.unreadableSessionCount) saved session(s) could not be read. Their files are kept; other sessions remain available.")
+                    .font(.caption).foregroundStyle(.orange)
+            }
             ForEach(model.saved) { session in
                 Button { playback.stop(); model.reopen(session.id) } label: {
                     VStack(alignment: .leading) {

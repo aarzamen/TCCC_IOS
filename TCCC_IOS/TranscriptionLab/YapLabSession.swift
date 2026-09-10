@@ -21,6 +21,11 @@ struct YapTranscript: Codable, Identifiable, Equatable {
     var audioFilename: String? = nil
     var text: String
     var status: String
+    var failureReason: String? = nil
+
+    var isInProgress: Bool {
+        status.hasPrefix("Starting") || status.hasPrefix("Recording") || status.hasPrefix("Transcribing")
+    }
 }
 
 struct YapResult: Codable, Identifiable, Equatable {
@@ -84,6 +89,10 @@ struct YapRunGate {
 }
 
 struct YapLabStore {
+    struct Inventory {
+        var sessions: [YapLabSession] = []
+        var unreadableCount = 0
+    }
     let root: URL
     init(root: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("YapLab", isDirectory: true)) { self.root = root }
     func prepare() throws {
@@ -99,11 +108,29 @@ struct YapLabStore {
         try JSONDecoder().decode(YapLabSession.self, from: Data(contentsOf: url(id)))
     }
     func list() throws -> [YapLabSession] {
+        try inventory().sessions
+    }
+    func inventory() throws -> Inventory {
         try prepare()
-        return try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "json" }.map {
-                try JSONDecoder().decode(YapLabSession.self, from: Data(contentsOf: $0))
-            }.sorted { $0.createdAt > $1.createdAt }
+        let files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "json" }
+        var result = Inventory()
+        for file in files {
+            do {
+                let session = try JSONDecoder().decode(YapLabSession.self, from: Data(contentsOf: file))
+                guard file.lastPathComponent == url(session.id).lastPathComponent else {
+                    result.unreadableCount += 1
+                    continue
+                }
+                result.sessions.append(session)
+            } catch {
+                // Keep the original file. One unreadable record must not hide
+                // other sessions or turn every successful save into an error.
+                result.unreadableCount += 1
+            }
+        }
+        result.sessions.sort { $0.createdAt > $1.createdAt }
+        return result
     }
     func url(_ id: UUID) -> URL { root.appendingPathComponent(id.uuidString).appendingPathExtension("json") }
     func audioURL(_ name: String) throws -> URL {

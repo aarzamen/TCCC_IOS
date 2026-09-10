@@ -50,4 +50,41 @@ final class YapLabSessionTests: XCTestCase {
         XCTAssertThrowsError(try store.audioURL("/tmp/other.m4a"))
         XCTAssertEqual(try store.audioURL("clip.m4a").lastPathComponent, "clip.m4a")
     }
+
+    func testDamagedSessionDoesNotHideHealthySessionsOrDeleteEvidence() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = YapLabStore(root: root)
+        let healthy = YapLabSession()
+        try store.save(healthy)
+        let damagedURL = root.appendingPathComponent("damaged.json")
+        let damaged = Data("{\"transcripts\":".utf8)
+        try damaged.write(to: damagedURL)
+        XCTAssertEqual(try store.list().map(\.id), [healthy.id])
+        XCTAssertEqual(try store.inventory().unreadableCount, 1)
+        XCTAssertEqual(try Data(contentsOf: damagedURL), damaged)
+    }
+
+    func testTranscriptFromPreviousVersionDecodesWithoutFailureReason() throws {
+        let original = YapTranscript(backend: .apple, text: "original evidence", status: "Incomplete")
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+        object.removeValue(forKey: "failureReason")
+        let restored = try JSONDecoder().decode(YapTranscript.self, from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertEqual(restored.text, original.text)
+        XCTAssertNil(restored.failureReason)
+    }
+
+    func testMismatchedSessionIdentityIsRetainedButNotOfferedAsReopenable() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = YapLabStore(root: root)
+        try store.prepare()
+        let path = root.appendingPathComponent("wrong-id.json")
+        let data = try JSONEncoder().encode(YapLabSession())
+        try data.write(to: path)
+        let inventory = try store.inventory()
+        XCTAssertTrue(inventory.sessions.isEmpty)
+        XCTAssertEqual(inventory.unreadableCount, 1)
+        XCTAssertEqual(try Data(contentsOf: path), data)
+    }
 }

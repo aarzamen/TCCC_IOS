@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import Speech
+import AVFAudio
 import TCCCAudio
 
 @MainActor @Observable
@@ -13,12 +14,34 @@ final class YapLabModel {
     var status = "Ready. Models run on this device; install assets in Model Setup."
     var error: String?
     var readiness = "Check models to inspect availability."
+    var unreadableSessionCount = 0
+    var speechPermission = SFSpeechRecognizer.authorizationStatus()
+    var microphoneDenied = AVAudioApplication.shared.recordPermission == .denied
     private let store: YapLabStore
     private var gate = YapRunGate()
     private var operation: Task<Void, Never>?
     private var capture: (any TranscriptStream)?
 
     init(store: YapLabStore = YapLabStore()) { self.store = store }
+    var permissionGuidance: String? {
+        var messages: [String] = []
+        if microphoneDenied { messages.append("Microphone access is off. Enable it in Settings to record; audio import remains available.") }
+        if session.asr == .apple {
+            if speechPermission == .denied {
+                messages.append("Apple Speech access is off. Enable Speech Recognition in Settings, or choose another recognizer.")
+            } else if speechPermission == .restricted {
+                messages.append("Apple Speech is restricted on this device. Choose another recognizer.")
+            }
+        }
+        return messages.isEmpty ? nil : messages.joined(separator: "\n")
+    }
+    var canOpenPermissionSettings: Bool {
+        microphoneDenied || (session.asr == .apple && speechPermission == .denied)
+    }
+    func refreshPermissions() {
+        speechPermission = SFSpeechRecognizer.authorizationStatus()
+        microphoneDenied = AVAudioApplication.shared.recordPermission == .denied
+    }
     var transcript: YapTranscript? {
         session.transcripts.first { $0.id == selectedTranscriptID }
             ?? session.transcripts.last { $0.audioFilename == session.audioFilename }
@@ -37,13 +60,20 @@ final class YapLabModel {
         var parts = ["YAP LAB — \(session.title)", "Independent transcription experiment; generated text is unverified."]
         for raw in session.transcripts {
             parts.append("RAW · \(raw.backend.rawValue) · \(raw.status)\n\(raw.text)")
+            if let reason = raw.failureReason { parts.append("RECOGNITION ISSUE · \(reason)") }
             for result in session.results where result.transcriptID == raw.id {
                 parts.append("DRAFT · \(result.backend.rawValue)\nSYSTEM: \(result.systemPrompt)\nTASK: \(result.taskPrompt)\n\(result.text)")
             }
         }
         return parts.joined(separator: "\n\n")
     }
-    func refresh() { do { saved = try store.list() } catch { self.error = error.localizedDescription } }
+    func refresh() {
+        do {
+            let inventory = try store.inventory()
+            saved = inventory.sessions
+            unreadableSessionCount = inventory.unreadableCount
+        } catch { self.error = "Saved sessions could not be read: \(error.localizedDescription)" }
+    }
     func save() {
         do { try store.save(session); refresh() }
         catch { self.error = "Session save failed: \(error.localizedDescription)" }
@@ -65,13 +95,15 @@ final class YapLabModel {
     }
     func apply(_ preset: YapPreset) { session.systemPrompt = preset.system; session.taskPrompt = preset.task }
     func checkReadiness() async {
+        refreshPermissions()
         let selected = session.llm
         let availability = await selected.makeBackend().availability
         guard selected == session.llm else { return }
         let speech = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
         let appleReady = speech?.isAvailable == true && speech?.supportsOnDeviceRecognition == true
         let parakeetReady = OfflineModelAssets.parakeetDirectory != nil
-        readiness = "Parakeet local files: \(parakeetReady ? "installed" : "missing"). Apple Speech: \(appleReady ? "on-device supported; permission required" : "unavailable"). \(selected.rawValue): \(availability == .available ? "assets available" : availability.message(for: selected.rawValue)) Alternate ASR requires installed assets; Parakeet supports live capture here, Granite transcribes after Stop."
+        let speechAccess = speechPermission == .authorized ? "permission granted" : "check permission before use"
+        readiness = "Parakeet local files: \(parakeetReady ? "installed" : "missing"). Apple Speech: \(appleReady ? "on-device supported; \(speechAccess)" : "unavailable"). \(selected.rawValue): \(availability == .available ? "assets available" : availability.message(for: selected.rawValue)) Alternate ASR requires installed assets; Parakeet supports live capture here, Granite transcribes after Stop."
     }
     func record(clinicalRecording: Bool) {
         guard !busy else { return }
@@ -123,8 +155,8 @@ final class YapLabModel {
                             error = update.issue ?? "Recognition ended: \(termination.rawValue). Review partial text."
                         }
                     }
-                    if gate.accepts(token) { finishRaw(rawID, status: error == nil ? "Completed" : "Incomplete — see error") }
-                } catch { if gate.accepts(token) { self.error = error.localizedDescription; finishRaw(rawID, status: "Incomplete") } }
+                    if gate.accepts(token) { finishRaw(rawID, status: error == nil ? "Completed" : "Incomplete", failureReason: error) }
+                } catch { if gate.accepts(token) { self.error = error.localizedDescription; finishRaw(rawID, status: "Incomplete", failureReason: error.localizedDescription) } }
                 await stream.stopImmediate(); await stream.unprime()
                 if gate.accepts(token) { finishOperation() }
             }
@@ -191,7 +223,7 @@ final class YapLabModel {
                     } catch { await runtime.unload(); throw error }
                     await runtime.unload()
                 }
-            } catch { if gate.accepts(token) { self.error = error.localizedDescription; finishRaw(rawID, status: "Incomplete") } }
+            } catch { if gate.accepts(token) { self.error = error.localizedDescription; finishRaw(rawID, status: "Incomplete", failureReason: error.localizedDescription) } }
             if gate.accepts(token) { finishOperation() }
         }
     }
@@ -222,7 +254,9 @@ final class YapLabModel {
         status = "Cancelling; releasing audio and model resources…"
         if let capture { await capture.stopImmediate(); await capture.unprime() }
         await operation?.value
-        if let last = session.transcripts.last, last.status.contains("ing") { finishRaw(last.id, status: "Cancelled / incomplete") }
+        if let last = session.transcripts.last, last.isInProgress {
+            finishRaw(last.id, status: "Cancelled / incomplete", failureReason: error ?? "Transcription stopped before completion.")
+        }
         capture = nil; operation = nil; busy = false; status = "Cancelled. Retained transcript and prior results saved."; save()
     }
     private func addTranscript(_ backend: YapASR, status: String, audioFilename: String? = nil) -> UUID {
@@ -234,18 +268,21 @@ final class YapLabModel {
         let status = completion.termination == .cancelled
             ? "Cancelled / incomplete" : (completion.isComplete ? "Completed" : "Incomplete")
         updateRaw(transcriptID, text: completion.transcript, status: status)
+        finishRaw(transcriptID, status: status, failureReason: completion.failureReason)
     }
     private func updateRaw(_ id: UUID, text: String, status: String) {
         guard let index = session.transcripts.firstIndex(where: { $0.id == id }) else { return }
         session.transcripts[index].text = text; session.transcripts[index].status = status
     }
-    private func finishRaw(_ id: UUID, status: String) {
+    private func finishRaw(_ id: UUID, status: String, failureReason: String? = nil) {
         guard let index = session.transcripts.firstIndex(where: { $0.id == id }) else { return }
         session.transcripts[index].status = status
+        session.transcripts[index].failureReason = failureReason
     }
     private func finishOperation() {
         gate.cancel(); busy = false; recording = false; capture = nil; operation = nil
         status = error == nil ? "Finished. Raw recognition is preserved; drafts need review." : "Finished with an issue. Review retained evidence."
         save()
+        refreshPermissions()
     }
 }
