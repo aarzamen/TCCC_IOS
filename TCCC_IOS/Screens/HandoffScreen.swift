@@ -50,12 +50,6 @@ struct HandoffScreen: View {
             }
             .padding(Layout.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            FooterHints(
-                state: state,
-                leadingLabel: "MEDEVAC",
-                trailingLabel: nil
-            )
         }
         .background(palette.bg)
         .onReceive(timer) { _ in elapsedTick = Date() }

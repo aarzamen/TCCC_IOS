@@ -9,8 +9,6 @@ import SwiftUI
 ///   - settings + quick-actions buttons
 struct FooterHints: View {
     let state: AppState
-    let leadingLabel: String?
-    let trailingLabel: String?
 
     @Environment(\.palette) private var palette
 
@@ -19,14 +17,24 @@ struct FooterHints: View {
     @State private var wipeTask: Task<Void, Never>?
     private let wipeDuration: Double = 3.0
 
-    init(
-        state: AppState,
-        leadingLabel: String? = nil,
-        trailingLabel: String? = nil
-    ) {
-        self.state = state
-        self.leadingLabel = leadingLabel
-        self.trailingLabel = trailingLabel
+    private var leadingLabel: String? {
+        switch state.screen {
+        case .liveCapture: nil
+        case .vitals: "CAPTURE"
+        case .tcccCard: "VITALS"
+        case .medevac: "TCCC CARD"
+        case .handoff: "MEDEVAC"
+        }
+    }
+
+    private var trailingLabel: String? {
+        switch state.screen {
+        case .liveCapture: "VITALS"
+        case .vitals: "TCCC CARD"
+        case .tcccCard: "MEDEVAC"
+        case .medevac: "HANDOFF"
+        case .handoff: nil
+        }
     }
 
     var body: some View {

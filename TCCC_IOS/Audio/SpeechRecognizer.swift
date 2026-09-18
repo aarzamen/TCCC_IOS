@@ -63,6 +63,7 @@ actor SpeechRecognizer: TranscriptStream {
     private var queuedAudio: [CapturedPCM] = []
     private var queuedFrames = 0
     private var latestText = ""
+    private var hasFinalizedSpeech = false
     private var utterances = SpeechUtteranceAssembler()
     private var requestClock = SpeechBufferClock(openedAt: 0)
     private var requestBoundary = SpeechRequestBoundary(openedAt: 0)
@@ -70,6 +71,8 @@ actor SpeechRecognizer: TranscriptStream {
         let text: String?
         let final: Bool
         let issue: String?
+        let errorDomain: String?
+        let errorCode: Int?
         let speechStart: TimeInterval?
         let speechDuration: TimeInterval?
         let segmentStart: TimeInterval?
@@ -221,6 +224,7 @@ actor SpeechRecognizer: TranscriptStream {
         let (stream, continuation) = AsyncStream<RecognitionUpdate>.makeStream()
         self.continuation = continuation
         capture = CaptureRequestState()
+        hasFinalizedSpeech = false
         captureStartedAt = Date()
         queuedAudio.removeAll(); queuedFrames = 0
         isRecognizing = true
@@ -366,8 +370,10 @@ actor SpeechRecognizer: TranscriptStream {
             }
         }
         task = recognizer.recognitionTask(with: req) { result, error in
+            let nativeError = error.map { $0 as NSError }
             callbackContinuation.yield(Callback(text: result?.bestTranscription.formattedString,
                 final: result?.isFinal ?? false, issue: error?.localizedDescription,
+                errorDomain: nativeError?.domain, errorCode: nativeError?.code,
                 speechStart: result?.speechRecognitionMetadata?.speechStartTimestamp,
                 speechDuration: result?.speechRecognitionMetadata?.speechDuration,
                 segmentStart: result?.bestTranscription.segments.first?.timestamp,
@@ -382,14 +388,25 @@ actor SpeechRecognizer: TranscriptStream {
             segmentEnd: callback.segmentEnd)
         latestText = utterances.transcript
         requestBoundary.observeHypothesis(latestText, at: ProcessInfo.processInfo.systemUptime)
+        var completedEmptySuccessor = false
         if let issue = callback.issue {
-            finishCapture(.failed, issue: "Recognition incomplete: \(issue)")
-            return
+            completedEmptySuccessor = requestBoundary.canCompleteEmptySuccessor(
+                errorDomain: callback.errorDomain, errorCode: callback.errorCode, text: latestText,
+                hadFinalizedSpeech: hasFinalizedSpeech,
+                wasDeliberatelyEnded: capture?.awaitingFinal == true,
+                requiresReview: capture?.requestRequiresReview != false)
+            guard completedEmptySuccessor else {
+                finishCapture(.failed, issue: "Recognition incomplete: \(issue)")
+                return
+            }
         }
-        if callback.final {
+        if callback.final || completedEmptySuccessor {
             if capture?.requestRequiresReview == true {
                 emit(.failed, issue: "Speech crossed a recognition boundary without a pause; review the retained segment")
             } else {
+                if !latestText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    hasFinalizedSpeech = true
+                }
                 emit(.finalized)
             }
             drainTask?.cancel(); drainTask = nil

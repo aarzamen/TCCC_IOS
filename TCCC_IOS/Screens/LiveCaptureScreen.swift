@@ -88,6 +88,7 @@ struct LiveCaptureScreen: View {
                 trailingKickerLabel: trailingKickerLabel,
                 trailingKickerValue: trailingKickerValue
             )
+            .layoutPriority(1)
 
             HStack(spacing: Layout.gridGap) {
                 transcriptPanel
@@ -100,13 +101,7 @@ struct LiveCaptureScreen: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .padding(Layout.outerPadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            FooterHints(
-                state: state,
-                leadingLabel: "HANDOFF",
-                trailingLabel: "VITALS"
-            )
+            .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
         }
         .background(palette.bg)
         .task {
@@ -363,16 +358,21 @@ struct LiveCaptureScreen: View {
 
     private var capturePanel: some View {
         Panel("Capture", titleIcon: "record.circle", padded: true) {
-            VStack(alignment: .leading, spacing: 12) {
-                RecCapsule(isRecording: state.isRecording, elapsed: elapsedDisplay)
+            VStack(alignment: .leading, spacing: 8) {
+                // Auxiliary controls can scroll on short landscape screens;
+                // recording controls and capture errors must remain visible.
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        RecCapsule(isRecording: state.isRecording, elapsed: elapsedDisplay)
 
-                AudioMeterView(levels: state.audioLevels, isActive: state.isRecording)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                        AudioMeterView(levels: state.audioLevels, isActive: state.isRecording,
+                                       maxBarHeight: 18)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 2)
 
-                voiceCommandsBlock
-
-                Spacer(minLength: 4)
+                        voiceCommandsBlock
+                    }
+                }
 
                 bigButtonsRow
 
@@ -380,6 +380,7 @@ struct LiveCaptureScreen: View {
                     Text(error)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(palette.crit)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 4)
                 }
             }
@@ -388,12 +389,6 @@ struct LiveCaptureScreen: View {
 
     private var voiceCommandsBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Voice")
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(1.6)
-                .foregroundStyle(palette.fg2)
-                .textCase(.uppercase)
-
             LazyVGrid(
                 columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)],
                 spacing: 6

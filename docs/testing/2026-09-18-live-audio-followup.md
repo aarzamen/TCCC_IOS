@@ -94,6 +94,47 @@ No source behavior changed for this validation; the 918 package and 136 app
 test results above remain the checks for the installed source. Personal audio,
 raw event logs and device identifiers remain outside the repository.
 
+## Session closeout: footer and silent-tail status
+
+The operator's later screenshot showed five clipped footer controls and a
+"No speech detected" error after the successful read-aloud. The correct saved
+values above remain valid; the status error is a separate completion defect.
+
+The footer previously lived inside each clipped page. Capture content with a
+minimum height could displace both the page heading and footer outside the
+viewport. One shared footer now reserves its own height in the main shell,
+above the device's bottom safe area. Page navigation still updates with the
+selected screen. A compact meter and a scrollable auxiliary-control area keep
+the capture heading, Record/Mark buttons and actual error text visible on the
+iPhone landscape layout. All five footer controls retain 44-point hit targets.
+
+Apple's documented `kAFAssistantErrorDomain / 1110` means no recognized speech.
+The recognizer now accepts that as an empty completion only for a deliberately
+ended, entirely quiet successor after earlier successful speech. Retained text,
+unsafe-boundary quarantine, audible/invalid PCM, initial no-speech failures and
+other errors still fail truthfully. Empty completion follows the existing
+request lifecycle; it neither shortens the remaining recording tail nor erases
+earlier errors. See [Apple's error reference](https://developer.apple.com/documentation/speech/sfspeechrecognitiontask/error).
+
+Verification for these closeout corrections:
+
+- Full package suite: **926 tests passed**, zero failures.
+- **9 focused app tests passed**, covering capture lifecycle, request boundaries
+  and the two new quiet-successor completion cases.
+- The new empty-successor package regressions failed before the correction.
+- A temporary render probe reproduced the original clipping at the iPhone's
+  landscape content size. The updated footer was inspected on all five pages.
+  Hosted SwiftUI screenshots at 874 × 402 points also confirmed full visibility
+  of footer icons/labels, capture controls and error text, with real safe areas
+  and populated scrolling content. Probe source and images remain local; the
+  temporary test was removed from the shipping project.
+- Independent source reviews found no remaining actionable issue in the
+  footer/navigation/overlay behavior or the empty-successor correction.
+
+The signed closeout device update is pending. A fresh physical silent-tail
+status check and the earlier same-casualty sensor-recording resume acceptance
+remain separate from the completed two-volume value check.
+
 Native Claude Code contributed a scoped, source-only partial implementation of
 the numbering correction. It reached its turn limit; Codex completed, reviewed
 and tested the integrated change. Claude received no recordings or device data.

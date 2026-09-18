@@ -54,7 +54,11 @@ private struct MainAppShell: View {
                         .padding(.vertical, 4)
                 }
                 ScreenPager(state: state)
-                    .frame(maxHeight: .infinity)
+                    .frame(minHeight: 0, maxHeight: .infinity)
+                // Reserve chrome outside the clipped page viewport. A tall
+                // page must never push these controls below the safe area.
+                FooterHints(state: state)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if state.settingsOpen {

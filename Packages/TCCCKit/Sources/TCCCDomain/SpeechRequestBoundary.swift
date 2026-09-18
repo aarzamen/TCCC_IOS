@@ -17,6 +17,7 @@ public struct SpeechRequestBoundary: Sendable {
     private var quietDuration: TimeInterval = 0
     private var audioDuration: TimeInterval = 0
     private var lastAudioEnd: TimeInterval?
+    private var containsNonQuietOrInvalidAudio = false
 
     private static let quietRMS: Float = 0.008
     private static let requiredQuiet: TimeInterval = 1
@@ -41,6 +42,7 @@ public struct SpeechRequestBoundary: Sendable {
         rms: Float, duration: TimeInterval, capturedAt: TimeInterval
     ) {
         guard duration.isFinite, duration > 0 else {
+            containsNonQuietOrInvalidAudio = true
             quietDuration = 0
             lastAudioEnd = nil
             return
@@ -48,10 +50,12 @@ public struct SpeechRequestBoundary: Sendable {
         audioDuration += duration
         guard rms.isFinite, rms >= 0, capturedAt.isFinite, capturedAt >= 0,
               (capturedAt + duration).isFinite else {
+            containsNonQuietOrInvalidAudio = true
             quietDuration = 0
             lastAudioEnd = nil
             return
         }
+        if rms > Self.quietRMS { containsNonQuietOrInvalidAudio = true }
         // A gap or reordered buffer invalidates the contiguous quiet window.
         if let lastAudioEnd, abs(capturedAt - lastAudioEnd) > 0.1 {
             quietDuration = 0
@@ -70,5 +74,19 @@ public struct SpeechRequestBoundary: Sendable {
         }
         if audioDuration >= Self.maximumAudio { return .incomplete }
         return .keepListening
+    }
+
+    /// Apple documents domain/code 1110 as no recognized speech. A deliberately
+    /// ended, entirely quiet successor is an empty completion, not a failure of
+    /// earlier successful speech. Missing/unrecognized audible input still fails.
+    /// https://developer.apple.com/documentation/speech/sfspeechrecognitiontask/error
+    public func canCompleteEmptySuccessor(
+        errorDomain: String?, errorCode: Int?, text: String,
+        hadFinalizedSpeech: Bool, wasDeliberatelyEnded: Bool, requiresReview: Bool
+    ) -> Bool {
+        errorDomain == "kAFAssistantErrorDomain" && errorCode == 1110
+            && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && hadFinalizedSpeech && wasDeliberatelyEnded && !requiresReview
+            && audioDuration > 0 && !containsNonQuietOrInvalidAudio
     }
 }

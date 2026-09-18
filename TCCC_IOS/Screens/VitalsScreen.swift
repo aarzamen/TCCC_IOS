@@ -50,12 +50,6 @@ struct VitalsScreen: View {
             }
             .padding(Layout.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            FooterHints(
-                state: state,
-                leadingLabel: "CAPTURE",
-                trailingLabel: "TCCC CARD"
-            )
         }
         .background(palette.bg)
     }
