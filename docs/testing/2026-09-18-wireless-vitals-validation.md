@@ -168,11 +168,16 @@ Verification after this refinement:
   the verifier again confirmed 5,749,589,446 asset bytes.
 
 The earlier operator-confirmed automatic radio reconnection is distinct from
-this refined recording-resume behavior. Installation of the updated build is
-underway; the physical recheck remains pending at this checkpoint.
+this refined recording-resume behavior. `devicectl` successfully updated the
+iPhone 17 Pro in place and launched the new build at 10:28 local; a subsequent
+process query confirmed TCCC remained running. The physical recording-resume
+recheck remains pending. The update restarts the process, so the first sensor
+association must be made once before testing subsequent automatic resumes.
 
 ## Repository delivery
 
 The reviewed implementation is committed and pushed to `main` as `d71ca27`
 (`feat: integrate local pulse oximeter vitals`). Private captures, identifiers,
 model weights and worker logs remain outside the repository.
+The recording-resume refinement is committed and pushed as `1aaacbb`
+(`fix: resume sensor recording after transient reconnect`).
