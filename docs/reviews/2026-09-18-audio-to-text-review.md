@@ -82,7 +82,7 @@ results. Only successful final text enters extraction; retained incomplete text
 remains evidence. No unprotected-file fallback is used.
 
 **Tests:** real synthetic 44.1/48 kHz audio is converted and written to temporary
-AAC files; decoded duration, ordered drain, suspended writes, queue overflow,
+AAC files; archive duration, ordered drain, suspended writes, queue overflow,
 writer failure and cancelled-waiter drain are checked. App-level tests check
 failed/cancelled text, replay, source attribution and manual corrections.
 
@@ -95,8 +95,13 @@ failed/cancelled text, replay, source attribution and manual corrections.
   was not treated as proof of an iOS failure or success.
 - Independent source review covered gain/buffer handling, backend lifecycle and
   Granite stop/cancellation. The issues it identified were corrected and retested.
-- Signed iPhone build passes with the complete offline model payload.
-  In-place deployment is recorded after verification.
+- Signed iPhone build `f0b3b99` passes. The embedded offline payload contains
+  154 files (5,749,615,321 bytes).
+- Updated the connected iPhone 17 Pro in place on 18 September 2026 at 11:05
+  local time. Installation and launch succeeded; device process inspection
+  confirms the app is running. No uninstall or data wipe was performed.
+- Source commit `f0b3b99` is pushed to `main`. The physical quiet/normal/loud
+  read-aloud check has been requested; no result is claimed yet.
 
 Synthetic PCM and controlled streams establish the tested data/lifecycle
 behavior. They do not establish improved word accuracy in field noise, acoustic
