@@ -39,7 +39,7 @@ struct WirelessSensorsSettings: View {
                     }
                     Text("Operator corrections stay in control until you re-associate.")
                         .font(.system(size: 11)).foregroundStyle(palette.fg2)
-                } else {
+                } else if session.resumableAssociation == nil {
                     Button(session.bindingInProgress ? "Associating…" : "Use this sensor for \(state.casualtyId)") {
                         Task { await state.associateConnectedSensorWithCurrentEncounter() }
                     }
@@ -49,6 +49,12 @@ struct WirelessSensorsSettings: View {
                     Text("Confirm the sensor is attached to this casualty before recording.")
                         .font(.system(size: 11)).foregroundStyle(palette.fg2)
                 }
+            }
+            if session.association == nil, session.resumableAssociation != nil {
+                Text("Recording paused · resumes for \(state.casualtyId) when this sensor reconnects")
+                    .font(.system(size: 13, weight: .semibold))
+                Button("Stop recording sensor") { state.invalidateWirelessSensorAssociation() }
+                    .frame(minHeight: 44)
             }
             if case .selectionRequired = transport.status {
                 Text("Choose the sensor attached to your casualty.").font(.system(size: 12))

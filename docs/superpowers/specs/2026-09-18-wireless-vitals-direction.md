@@ -63,6 +63,15 @@ casualty. Record the operator's device-to-encounter association before adding
 readings to the clinical record; an unbound connected sensor may show a clearly
 labeled preview without populating patient state.
 
+Reconnect refinement (2026-09-18): after one explicit association, a transient
+disconnect pauses recording. The same sensor may automatically resume for the
+same active casualty within the current app process. Keep the original consent
+and operator-correction protections across the pause, while giving the new
+connection a fresh ingestion identity. Stop recording, switching auto-connect
+off, changing/ending the casualty, or restarting the app clears that authority.
+Another sensor must never inherit it. Settings shows the paused association and
+offers Stop while waiting for the sensor to return.
+
 Reset or explicitly rebind ingestion when the active casualty changes, and
 reject delayed data from the previous encounter or connection. Do not assign
 a reading across casualties merely because a BLE connection remained open.

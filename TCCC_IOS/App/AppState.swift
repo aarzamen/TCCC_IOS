@@ -198,7 +198,8 @@ final class AppState {
     /// when iOS reports critical pressure mid-90-min recording.
     private var memoryPressureSource: DispatchSourceMemoryPressure?
 
-    init() {
+    init(wirelessSensors: WirelessSensorSession? = nil) {
+        self.wirelessSensors = wirelessSensors ?? WirelessSensorSession()
         parakeetStatus = OfflineModelAssets.parakeetDirectory != nil ? .ready : .notDownloaded
         // L1.3 — AudioSessionCoordinator closures. AudioSessionCoordinator
         // is itself @MainActor-isolated; its closures run on MainActor,
@@ -659,7 +660,7 @@ final class AppState {
     var clinicalEntrySheet: ClinicalEntryKind?
     var operatorMetadata = EncounterOperatorMetadata()
     var encounterIdentity = UUID()
-    let wirelessSensors = WirelessSensorSession()
+    let wirelessSensors: WirelessSensorSession
     var sensorVitalOrigins: [String: SensorObservationPayload] = [:]
     var clinicalAudioRelease: (@MainActor () async -> Void)?
     var nineLineValues: [Int: String] { operatorMetadata.nineLineValues }
@@ -836,11 +837,12 @@ final class AppState {
     func refreshPatientSnapshot(persist: Bool = true, recordVitals: Bool = true) async {
         let origin = engine
         let encounter = encounterIdentity
-        let sensorAssociationID = wirelessSensors.association?.id
+        let sensorAssociationID = (wirelessSensors.association ?? wirelessSensors.resumableAssociation)?.id
         let sensorGeneration = wirelessSensors.generation
         let combined = await origin.snapshotWithSensorOrigins()
         guard engine === origin, encounterIdentity == encounter else { return }
         reconcileWirelessSensorAssociation(activeAssociation: combined.activeSensorAssociation,
+            suspendedAssociation: combined.suspendedSensorAssociation,
             expectedAssociationID: sensorAssociationID, generation: sensorGeneration)
         sensorVitalOrigins = combined.sensorOrigins
         let previousPatient = primaryPatient

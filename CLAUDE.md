@@ -129,7 +129,10 @@ simulator.
   raw-frame evidence, and enter state only through logged engine mutations.
   `PulseOximeter.swift` decodes the observed S5W stream, and `SensorEvidence`
   events retain frozen applied deltas for replay. Only explicit association
-  permits clinical ingestion; disconnects and encounter changes revoke it.
+  permits clinical ingestion. A transient disconnect pauses the association;
+  the same sensor can resume for the same casualty within the current process,
+  preserving manual corrections. Stop/Off, encounter changes and app restart
+  clear this authority.
   One latest automatic Section C column preserves operator-entered columns;
   the encounter log retains the full stream. No generic `VitalsSensor`
   protocol exists; other sensor families are not implemented.

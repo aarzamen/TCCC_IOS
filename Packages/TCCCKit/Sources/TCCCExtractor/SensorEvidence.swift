@@ -4,9 +4,16 @@ import TCCCDomain
 /// An operator's association applies only to one live connection and encounter.
 /// Restoring its audit record never restores permission to ingest new readings.
 public struct SensorAssociationPayload: Sendable, Codable, Equatable {
-    public enum Kind: String, Sendable, Codable { case associated, revoked }
+    /// `suspended`/`resumed` bracket a transport drop of an otherwise unchanged
+    /// consent: the operator was never asked again, so they stay distinguishable
+    /// from the explicit `associated`/`revoked` decisions in the audit trail.
+    public enum Kind: String, Sendable, Codable { case associated, revoked, suspended, resumed }
 
+    /// Identity used by every API call and ingestion callback. A resumed binding
+    /// gets a fresh one so callbacks of the dropped connection cannot ingest.
     public let id: String
+    /// Identity of the explicit operator consent this record belongs to. Retained
+    /// unchanged across suspension/resumption so the chain stays one decision.
     public let associationID: String
     public let patientId: String
     public let timestampUnix: Double

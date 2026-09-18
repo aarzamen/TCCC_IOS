@@ -6,6 +6,8 @@ import TCCCDomain
 final class SensorEvidenceTests: XCTestCase {
     private let connection = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     private let encounter = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+    /// The link a transport reconnect brings up; always distinct from `connection`.
+    private let reconnection = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
     private func date(_ time: Double) -> Date { Date(timeIntervalSince1970: time) }
 
     private func reading(id: UUID = UUID(), time: Double = 102,
@@ -17,18 +19,44 @@ final class SensorEvidenceTests: XCTestCase {
             protocolVersion: "synthetic-test-v1", quality: quality)
     }
 
-    private func bind(_ engine: PatientStateEngine, time: Double = 100) async throws -> SensorAssociationPayload {
+    private func bind(_ engine: PatientStateEngine, time: Double = 100,
+                      on connectionID: UUID? = nil) async throws -> SensorAssociationPayload {
         let binding = await engine.associateSensor(deviceID: "synthetic-device", deviceName: "Synthetic oximeter",
-            connectionID: connection, encounterID: encounter, timestamp: date(time))
+            connectionID: connectionID ?? connection, encounterID: encounter, timestamp: date(time))
         return try XCTUnwrap(binding)
     }
 
+    /// Ingests on the binding's own connection unless a caller names another one.
     private func ingest(_ sample: PulseOximeterReading, engine: PatientStateEngine,
                         binding: SensorAssociationPayload, now: Double = 103,
-                        waveforms: [PulseOximeterWaveform] = []) async -> SensorObservationPayload? {
+                        waveforms: [PulseOximeterWaveform] = [],
+                        on connectionID: UUID? = nil) async -> SensorObservationPayload? {
         await engine.recordSensorObservation(reading: sample, waveforms: waveforms,
-            associationID: binding.id, connectionID: connection, encounterID: encounter,
-            timestamp: date(now))
+            associationID: binding.id, connectionID: connectionID ?? binding.connectionID,
+            encounterID: encounter, timestamp: date(now))
+    }
+
+    private func suspend(_ engine: PatientStateEngine, _ binding: SensorAssociationPayload,
+                         time: Double) async {
+        await engine.suspendSensorAssociation(associationID: binding.id, timestamp: date(time))
+    }
+
+    /// Reconnect of the same device on a new link, unless a case overrides a field.
+    private func resume(_ engine: PatientStateEngine, _ binding: SensorAssociationPayload,
+                        token: String? = nil, device: String = "synthetic-device",
+                        on connectionID: UUID? = nil, encounterID: UUID? = nil,
+                        time: Double = 103) async -> SensorAssociationPayload? {
+        await engine.resumeSensorAssociation(associationID: token ?? binding.id, deviceID: device,
+            connectionID: connectionID ?? reconnection, encounterID: encounterID ?? encounter,
+            timestamp: date(time))
+    }
+
+    private func associations(_ log: EncounterLog,
+                              kind: SensorAssociationPayload.Kind) -> [SensorAssociationPayload] {
+        log.events.compactMap {
+            if case .sensorAssociation(let association) = $0, association.kind == kind { return association }
+            return nil
+        }
     }
 
     func testBoundUnknownQualityNumericReadingRetainsEvidenceAndReplaysExactly() async throws {
@@ -398,5 +426,433 @@ final class SensorEvidenceTests: XCTestCase {
         let after = await engine.snapshotWithSensorOrigins()
         XCTAssertNil(after.activeSensorAssociation)
         XCTAssertEqual(after.patients["PATIENT_2"]?.vitals.hr, 90)
+    }
+
+    // MARK: - Transport drop: suspension and resumption of the same consent
+
+    func testSuspendedConsentResumesOnNewConnectionWithFreshIdAndOriginalConsentChain() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        let sampleID = UUID()
+        let first = await ingest(reading(id: sampleID, time: 101), engine: engine, binding: binding, now: 101)
+        XCTAssertEqual(first?.disposition, .recorded)
+
+        await suspend(engine, binding, time: 102)
+        let duringOutage = await engine.snapshotWithSensorOrigins()
+        XCTAssertNil(duringOutage.activeSensorAssociation, "A suspended consent is not an active binding")
+        XCTAssertEqual(duringOutage.suspendedSensorAssociation?.id, binding.id)
+        let queued = await ingest(reading(time: 102.5, pulse: 150), engine: engine, binding: binding, now: 103)
+        XCTAssertNil(queued, "Suspension removes ingestion authority immediately")
+
+        let reconnected = await resume(engine, binding, time: 103)
+        let resumed = try XCTUnwrap(reconnected)
+        XCTAssertNotEqual(resumed.id, binding.id, "The dropped connection's token must be dead")
+        XCTAssertEqual(resumed.associationID, binding.associationID, "One operator consent, one chain")
+        XCTAssertEqual(resumed.eventFence, binding.eventFence, "Reconnect is not a new consent decision")
+        XCTAssertEqual(resumed.patientId, binding.patientId)
+        XCTAssertEqual(resumed.deviceID, binding.deviceID)
+        XCTAssertEqual(resumed.deviceName, binding.deviceName)
+        XCTAssertEqual(resumed.encounterID, binding.encounterID)
+        XCTAssertEqual(resumed.connectionID, reconnection)
+        XCTAssertEqual(resumed.kind, .resumed)
+        XCTAssertEqual(resumed.timestampUnix, 103)
+        let live = await engine.snapshotWithSensorOrigins()
+        XCTAssertEqual(live.activeSensorAssociation?.id, resumed.id)
+        XCTAssertNil(live.suspendedSensorAssociation)
+
+        let oldToken = await ingest(reading(time: 104), engine: engine, binding: binding,
+            now: 104, on: reconnection)
+        XCTAssertNil(oldToken)
+        let oldConnection = await ingest(reading(time: 104), engine: engine, binding: resumed,
+            now: 104, on: connection)
+        XCTAssertNil(oldConnection)
+        let beforeResume = await ingest(reading(time: 102.5, pulse: 150), engine: engine,
+            binding: resumed, now: 104)
+        XCTAssertNil(beforeResume, "Frames buffered during the outage are pre-association")
+        let duplicate = await ingest(reading(id: sampleID, time: 104), engine: engine,
+            binding: resumed, now: 104)
+        XCTAssertNil(duplicate, "Sample-id dedup is encounter-wide, not per connection")
+
+        let accepted = await ingest(reading(time: 104, spo2: 96, pulse: 88), engine: engine,
+            binding: resumed, now: 104)
+        XCTAssertEqual(accepted?.disposition, .recorded, "Receipt ordering restarts with the new connection")
+        XCTAssertEqual(accepted?.associationID, resumed.id)
+        let twice = await resume(engine, binding, on: UUID(), time: 105)
+        XCTAssertNil(twice, "A consumed suspension cannot be resumed twice")
+
+        let log = await engine.snapshotLog()
+        let snapshot = await engine.snapshot()
+        XCTAssertEqual(snapshot["PATIENT_1"]?.vitals, Vitals(hr: 88, spo2: 96))
+        XCTAssertEqual(associations(log, kind: .suspended).count, 1)
+        XCTAssertEqual(associations(log, kind: .resumed).count, 1)
+        XCTAssertEqual(associations(log, kind: .suspended).first?.associationID, binding.associationID)
+        XCTAssertEqual(PatientStateEngine.project(log), snapshot)
+    }
+
+    func testOperatorProtectionsBeforeAndDuringOutageSurviveResumeUntilExplicitRebind() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await engine.recordOperatorAcceptedFact(write: .heartRate(70), factId: nil,
+            domain: "manual", field: "operator entry", rawValue: nil, to: "PATIENT_1", timestamp: date(101))
+        await suspend(engine, binding, time: 102)
+        // Another casualty's decision never protects this patient's fields.
+        await engine.recordOperatorRejectedFact(factId: nil, domain: "vitals", field: "SpO₂",
+            rawValue: "97", to: "PATIENT_2", timestamp: date(103))
+
+        let reconnected = await resume(engine, binding, time: 104)
+        let resumed = try XCTUnwrap(reconnected)
+        let afterOutage = await ingest(reading(time: 105), engine: engine, binding: resumed, now: 105)
+        XCTAssertEqual(afterOutage?.disposition, .partiallyProtected,
+            "A correction made before the outage still outranks the sensor")
+        XCTAssertEqual(afterOutage?.protectedFields, [.pulseRate])
+        XCTAssertTrue(afterOutage?.appliedDeltas.contains(.vitalsSpO2(97)) == true)
+        var patient = await engine.snapshot(of: "PATIENT_1")
+        XCTAssertEqual(patient?.vitals, Vitals(hr: 70, spo2: 97))
+
+        // A decision taken while the link is down is protected on the next resume.
+        await suspend(engine, resumed, time: 106)
+        await engine.recordOperatorRejectedFact(factId: nil, domain: "vitals", field: "SpO₂",
+            rawValue: "97", to: "PATIENT_1", timestamp: date(107))
+        let secondReconnect = await resume(engine, resumed, on: connection, time: 108)
+        let again = try XCTUnwrap(secondReconnect)
+        XCTAssertEqual(again.associationID, binding.associationID)
+        let protected = await ingest(reading(time: 109, spo2: 99, pulse: 81), engine: engine,
+            binding: again, now: 109)
+        XCTAssertEqual(protected?.disposition, .operatorProtected)
+        XCTAssertEqual(protected?.appliedDeltas, [])
+
+        // Only an explicit rebind releases the protections.
+        let rebound = try await bind(engine, time: 110, on: reconnection)
+        let fresh = await ingest(reading(time: 111, spo2: 95, pulse: 82), engine: engine,
+            binding: rebound, now: 111)
+        XCTAssertEqual(fresh?.disposition, .recorded)
+        patient = await engine.snapshot(of: "PATIENT_1")
+        XCTAssertEqual(patient?.vitals, Vitals(hr: 82, spo2: 95))
+        let log = await engine.snapshotLog()
+        let snapshot = await engine.snapshot()
+        XCTAssertEqual(PatientStateEngine.project(log), snapshot)
+    }
+
+    func testMismatchedOrCanceledResumeIsRejectedWithoutConsumingSuspendedConsent() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await suspend(engine, binding, time: 101)
+        let afterSuspension = await engine.snapshotLog().events.count
+
+        let wrongToken = await resume(engine, binding, token: "sensor-association-other", time: 102)
+        XCTAssertNil(wrongToken)
+        let wrongDevice = await resume(engine, binding, device: "other-device", time: 102)
+        XCTAssertNil(wrongDevice)
+        let wrongEncounter = await resume(engine, binding, encounterID: UUID(), time: 102)
+        XCTAssertNil(wrongEncounter)
+        let sameConnection = await resume(engine, binding, on: connection, time: 102)
+        XCTAssertNil(sameConnection, "The dropped connection cannot resume itself")
+        let invalidTime = await resume(engine, binding, time: .infinity)
+        XCTAssertNil(invalidTime)
+        let token = binding.id, device = binding.deviceID
+        let link = reconnection, encounterID = encounter, when = date(102)
+        let canceled = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await engine.resumeSensorAssociation(associationID: token, deviceID: device,
+                connectionID: link, encounterID: encounterID, timestamp: when)
+        }
+        let canceledResult = await canceled.value
+        XCTAssertNil(canceledResult, "A canceled reconnect task gains no authority")
+
+        let unchanged = await engine.snapshotLog().events.count
+        XCTAssertEqual(unchanged, afterSuspension, "Rejected resume attempts are nonmutating")
+        let stillInactive = await engine.snapshotWithSensorOrigins()
+        XCTAssertNil(stillInactive.activeSensorAssociation)
+        let reconnected = await resume(engine, binding, time: 103)
+        let resumed = try XCTUnwrap(reconnected,
+            "Rejections must not consume the valid suspended consent")
+        let accepted = await ingest(reading(time: 104), engine: engine, binding: resumed, now: 104)
+        XCTAssertEqual(accepted?.disposition, .recorded)
+    }
+
+    func testWrongTokenSuspensionDoesNothingAndRepeatedSuspensionIsIdempotent() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await engine.recordOperatorAcceptedFact(write: .heartRate(70), factId: nil,
+            domain: "manual", field: "operator entry", rawValue: nil, to: "PATIENT_1", timestamp: date(101))
+        await engine.suspendSensorAssociation(associationID: "sensor-association-other", timestamp: date(102))
+        let stillLive = await ingest(reading(time: 102), engine: engine, binding: binding, now: 102)
+        XCTAssertEqual(stillLive?.disposition, .partiallyProtected,
+            "A stale token must not suspend the live binding")
+
+        await suspend(engine, binding, time: 103)
+        let afterFirst = await engine.snapshotLog().events.count
+        await suspend(engine, binding, time: 104)
+        await suspend(engine, binding, time: 105)
+        let afterRepeats = await engine.snapshotLog().events.count
+        XCTAssertEqual(afterRepeats, afterFirst, "Repeated disconnect callbacks append one record")
+
+        let reconnected = await resume(engine, binding, time: 106)
+        let resumed = try XCTUnwrap(reconnected)
+        let observation = await ingest(reading(time: 107), engine: engine, binding: resumed, now: 107)
+        XCTAssertEqual(observation?.disposition, .partiallyProtected,
+            "Idempotent suspension loses neither the consent nor its protections")
+        let log = await engine.snapshotLog()
+        XCTAssertEqual(associations(log, kind: .suspended).count, 1)
+    }
+
+    func testRevocationWhileSuspendedEndsConsentAndCannotBeResumed() async throws {
+        for targeted in [false, true] {
+            let engine = PatientStateEngine.standard()
+            let binding = try await bind(engine)
+            await suspend(engine, binding, time: 101)
+            await engine.revokeSensorAssociation(associationID: targeted ? binding.id : nil,
+                timestamp: date(102))
+            let denied = await resume(engine, binding, time: 103)
+            XCTAssertNil(denied, "Revocation during an outage is an explicit end of consent")
+            let log = await engine.snapshotLog()
+            let revocations = associations(log, kind: .revoked)
+            XCTAssertEqual(revocations.count, 1)
+            XCTAssertEqual(revocations.first?.associationID, binding.associationID)
+            let snapshot = await engine.snapshot()
+            XCTAssertEqual(PatientStateEngine.project(log), snapshot)
+        }
+    }
+
+    func testDelayedRevocationOfAnOldTokenCannotCancelAResumedOrNewerBinding() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await suspend(engine, binding, time: 101)
+        let reconnected = await resume(engine, binding, time: 102)
+        let resumed = try XCTUnwrap(reconnected)
+        // The disconnect handler of the dropped link finally fires.
+        await engine.revokeSensorAssociation(associationID: binding.id, timestamp: date(103))
+        let accepted = await ingest(reading(time: 104), engine: engine, binding: resumed, now: 104)
+        XCTAssertEqual(accepted?.disposition, .recorded, "A stale token cannot revoke the resumed binding")
+
+        await suspend(engine, resumed, time: 105)
+        await engine.revokeSensorAssociation(associationID: binding.id, timestamp: date(106))
+        let secondReconnect = await resume(engine, resumed, on: connection, time: 107)
+        let stillSuspended = try XCTUnwrap(secondReconnect,
+            "A stale token cannot revoke a newer suspended consent either")
+        XCTAssertEqual(stillSuspended.associationID, binding.associationID)
+        let log = await engine.snapshotLog()
+        XCTAssertTrue(associations(log, kind: .revoked).isEmpty)
+    }
+
+    func testExplicitAssociationWhileSuspendedSupersedesTheOldConsent() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await engine.recordOperatorAcceptedFact(write: .heartRate(70), factId: nil,
+            domain: "manual", field: "operator entry", rawValue: nil, to: "PATIENT_1", timestamp: date(101))
+        await suspend(engine, binding, time: 102)
+        let rebound = try await bind(engine, time: 103, on: reconnection)
+        XCTAssertNotEqual(rebound.associationID, binding.associationID)
+        let denied = await resume(engine, binding, on: UUID(), time: 104)
+        XCTAssertNil(denied, "A new explicit consent supersedes the suspended one")
+        let observation = await ingest(reading(time: 104), engine: engine, binding: rebound, now: 104)
+        XCTAssertEqual(observation?.disposition, .recorded, "Rebinding releases the prior protections")
+        let log = await engine.snapshotLog()
+        XCTAssertEqual(associations(log, kind: .revoked).first?.associationID, binding.associationID)
+        let snapshot = await engine.snapshot()
+        XCTAssertEqual(snapshot["PATIENT_1"]?.vitals.hr, 81)
+        XCTAssertEqual(PatientStateEngine.project(log), snapshot)
+    }
+
+    func testLifecycleEndOrArchiveWhileSuspendedDisallowsResume() async throws {
+        for kind in [LifecyclePayload.Kind.encounterEnded, .archived] {
+            let engine = PatientStateEngine.standard()
+            let binding = try await bind(engine)
+            await suspend(engine, binding, time: 101)
+            await engine.recordLifecycle(kind, timestamp: date(102))
+            let denied = await resume(engine, binding, time: 103)
+            XCTAssertNil(denied)
+            let log = await engine.snapshotLog()
+            XCTAssertEqual(associations(log, kind: .revoked).count, 1)
+        }
+    }
+
+    func testPatientSwitchAwayAndBackWhileSuspendedDisallowsResume() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await suspend(engine, binding, time: 101)
+        await engine.processTranscript("patient two heart rate 90", timestamp: date(102))
+        let switched = await engine.snapshotWithSensorOrigins()
+        XCTAssertNil(switched.suspendedSensorAssociation,
+            "The app must immediately discard paused intent when the patient changes")
+        let whileAway = await resume(engine, binding, time: 103)
+        XCTAssertNil(whileAway, "The consent belongs to the other casualty")
+        await engine.processTranscript("patient one airway patent", timestamp: date(104))
+        let afterReturning = await resume(engine, binding, time: 105)
+        XCTAssertNil(afterReturning, "Switching back cannot resurrect consent")
+        let log = await engine.snapshotLog()
+        let revocations = associations(log, kind: .revoked)
+        XCTAssertEqual(revocations.count, 1)
+        XCTAssertEqual(revocations.first?.associationID, binding.associationID)
+        let snapshot = await engine.snapshot()
+        XCTAssertEqual(PatientStateEngine.project(log), snapshot)
+    }
+
+    func testRestoringALogWithSuspensionAndResumptionConfersNoAuthority() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await suspend(engine, binding, time: 101)
+        let reconnected = await resume(engine, binding, time: 102)
+        let resumed = try XCTUnwrap(reconnected)
+        _ = await ingest(reading(time: 103), engine: engine, binding: resumed, now: 103)
+        let log = await engine.snapshotLog()
+        let snapshot = await engine.snapshot()
+
+        let replay = PatientStateEngine.standard()
+        await replay.restore(log)
+        let replayedResume = await resume(replay, resumed, on: UUID(), time: 104)
+        XCTAssertNil(replayedResume, "A replayed resumption record is history, not permission")
+        let replayedOriginal = await resume(replay, binding, on: UUID(), time: 104)
+        XCTAssertNil(replayedOriginal)
+        let ingestAfterRestore = await ingest(reading(time: 104), engine: replay, binding: resumed, now: 104)
+        XCTAssertNil(ingestAfterRestore)
+        let replayed = await replay.snapshot()
+        XCTAssertEqual(replayed, snapshot)
+        XCTAssertEqual(replayed["PATIENT_1"]?.vitals, Vitals(hr: 81, spo2: 97))
+        let replayedLog = await replay.snapshotLog()
+        XCTAssertEqual(replayedLog, log, "Restore appends nothing to the audit trail")
+    }
+
+    func testSuspendedAndResumedAuditEventsRoundTripAndReplayEquivalently() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await suspend(engine, binding, time: 101)
+        let reconnected = await resume(engine, binding, time: 102)
+        let resumed = try XCTUnwrap(reconnected)
+        _ = await ingest(reading(time: 103), engine: engine, binding: resumed, now: 103)
+        let log = await engine.snapshotLog()
+        let snapshot = await engine.snapshot()
+
+        let decoded = try JSONDecoder().decode(EncounterLog.self, from: JSONEncoder().encode(log))
+        XCTAssertEqual(decoded, log)
+        XCTAssertEqual(PatientStateEngine.project(decoded), snapshot)
+        let suspension = try XCTUnwrap(associations(decoded, kind: .suspended).first)
+        let resumption = try XCTUnwrap(associations(decoded, kind: .resumed).first)
+        XCTAssertEqual(suspension.connectionID, connection)
+        XCTAssertEqual(resumption.connectionID, reconnection)
+        let suspensionJSON = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(suspension)) as? [String: Any])
+        XCTAssertEqual(suspensionJSON["kind"] as? String, "suspended")
+        let resumptionJSON = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(resumption)) as? [String: Any])
+        XCTAssertEqual(resumptionJSON["kind"] as? String, "resumed")
+
+        let replay = PatientStateEngine.standard()
+        await replay.restore(decoded)
+        let replayed = await replay.snapshot()
+        XCTAssertEqual(replayed, snapshot)
+    }
+
+    func testSuspensionAndResumptionSettleProvisionalSpeechSoRevisionCannotRemoveThem() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await engine.commitProvisional("respiratory rate 20", timestamp: date(101))
+        await suspend(engine, binding, time: 102)
+        let afterSuspension = await engine.snapshotLog().events.count
+        await engine.reviseProvisional("respiratory rate 30", timestamp: date(103))
+        var log = await engine.snapshotLog()
+        var snapshot = await engine.snapshot()
+        XCTAssertEqual(log.events.count, afterSuspension)
+        XCTAssertEqual(associations(log, kind: .suspended).count, 1)
+        XCTAssertEqual(snapshot["PATIENT_1"]?.vitals.rr, 20)
+        XCTAssertEqual(PatientStateEngine.project(log), snapshot)
+
+        await engine.commitProvisional("respiratory rate 22", timestamp: date(104))
+        let reconnected = await resume(engine, binding, time: 105)
+        let resumed = try XCTUnwrap(reconnected)
+        let afterResumption = await engine.snapshotLog().events.count
+        await engine.reviseProvisional("respiratory rate 33", timestamp: date(106))
+        log = await engine.snapshotLog()
+        snapshot = await engine.snapshot()
+        XCTAssertEqual(log.events.count, afterResumption)
+        XCTAssertEqual(associations(log, kind: .resumed).first?.id, resumed.id)
+        XCTAssertEqual(snapshot["PATIENT_1"]?.vitals.rr, 22)
+        XCTAssertEqual(PatientStateEngine.project(log), snapshot)
+    }
+
+    func testProvisionalPatientSwitchCannotEraseRevocationOfASuspendedConsent() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await suspend(engine, binding, time: 101)
+        await engine.commitProvisional("patient two heart rate 90", timestamp: date(102))
+        await engine.reviseProvisional("patient one heart rate 91", timestamp: date(103))
+        let log = await engine.snapshotLog()
+        let revocations = associations(log, kind: .revoked)
+        XCTAssertEqual(revocations.count, 1, "Revisable speech cannot remove a consent decision")
+        XCTAssertEqual(revocations.first?.associationID, binding.associationID)
+        let denied = await resume(engine, binding, time: 104)
+        XCTAssertNil(denied)
+        let snapshot = await engine.snapshot()
+        XCTAssertEqual(PatientStateEngine.project(log), snapshot)
+    }
+
+    func testRefinementIntroducingAPatientSwitchKeepsItsRevocationThroughAFurtherRefinement() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await suspend(engine, binding, time: 101)
+        await engine.commitProvisional("airway is patent", timestamp: date(102))
+        // The refinement itself is what gives up the consent...
+        await engine.reviseProvisional("patient two heart rate 90", timestamp: date(103))
+        // ...so a further refinement must not truncate that decision away.
+        await engine.reviseProvisional("patient two heart rate 95", timestamp: date(104))
+        let log = await engine.snapshotLog()
+        let revocations = associations(log, kind: .revoked)
+        XCTAssertEqual(revocations.count, 1)
+        XCTAssertEqual(revocations.first?.associationID, binding.associationID)
+        let denied = await resume(engine, binding, time: 105)
+        XCTAssertNil(denied)
+        let snapshot = await engine.snapshot()
+        XCTAssertEqual(snapshot["PATIENT_2"]?.vitals.hr, 95)
+        XCTAssertEqual(PatientStateEngine.project(log), snapshot)
+    }
+
+    func testTypedOperatorCorrectionDuringSuspensionSurvivesResume() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await suspend(engine, binding, time: 101)
+        await engine.recordOperatorAcceptedFact(write: .heartRate(68), factId: nil,
+            domain: "manual", field: "operator entry", rawValue: nil,
+            to: "PATIENT_1", timestamp: date(102))
+        let result = await resume(engine, binding, time: 103)
+        let resumed = try XCTUnwrap(result)
+        let observed = await ingest(reading(time: 104, pulse: 140), engine: engine,
+            binding: resumed, now: 104)
+        XCTAssertEqual(observed?.disposition, .partiallyProtected)
+        XCTAssertEqual(observed?.protectedFields, [.pulseRate])
+        let patient = await engine.snapshot(of: "PATIENT_1")
+        XCTAssertEqual(patient?.vitals, Vitals(hr: 68, spo2: 97))
+        let log = await engine.snapshotLog()
+        let snapshot = await engine.snapshot()
+        XCTAssertEqual(PatientStateEngine.project(log), snapshot)
+    }
+
+    func testRestoreClearsExistingInMemorySuspendedConsent() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        await suspend(engine, binding, time: 101)
+        let log = await engine.snapshotLog()
+        await engine.restore(log)
+        let restored = await engine.snapshotWithSensorOrigins()
+        XCTAssertNil(restored.activeSensorAssociation)
+        XCTAssertNil(restored.suspendedSensorAssociation)
+        let result = await resume(engine, binding, time: 103)
+        XCTAssertNil(result)
+        let unchanged = await engine.snapshotLog()
+        XCTAssertEqual(unchanged, log)
+    }
+
+    func testResumeResetsConnectionOrderingAfterWallClockMovesBack() async throws {
+        let engine = PatientStateEngine.standard()
+        let binding = try await bind(engine)
+        _ = await ingest(reading(time: 110, pulse: 90), engine: engine, binding: binding, now: 110)
+        await suspend(engine, binding, time: 111)
+        let result = await resume(engine, binding, time: 105)
+        let resumed = try XCTUnwrap(result)
+        let fresh = await ingest(reading(time: 106, pulse: 85), engine: engine,
+            binding: resumed, now: 106)
+        XCTAssertEqual(fresh?.disposition, .recorded,
+            "Ordering timestamps belong to a connection, not the retained consent chain")
+        let patient = await engine.snapshot(of: "PATIENT_1")
+        XCTAssertEqual(patient?.vitals.hr, 85)
     }
 }

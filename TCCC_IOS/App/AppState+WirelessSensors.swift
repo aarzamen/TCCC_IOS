@@ -3,6 +3,27 @@ import Observation
 import TCCCDomain
 import TCCCExtractor
 
+/// The app consumes connection events independently of Core Bluetooth hardware.
+@MainActor
+protocol PulseOximeterTransport: AnyObject {
+    var status: PulseOximeterBluetooth.Status { get }
+    var devices: [PulseOximeterBluetooth.Device] { get }
+    var connectedDevice: PulseOximeterBluetooth.Device? { get }
+    var connectionID: UUID? { get }
+    var autoConnectEnabled: Bool { get }
+    var onNotification: (@MainActor (Data, PulseOximeterBluetooth.Device, UUID, Date) -> Void)? { get set }
+    var onSessionInvalidated: (@MainActor () -> Void)? { get set }
+    func start()
+    func setEnabled(_ enabled: Bool)
+    func selectDevice(_ id: UUID)
+    func applicationDidBecomeActive()
+    func applicationDidEnterBackground()
+    func markValidReadingReceived(connectionID: UUID)
+    func markReadingUnavailable(connectionID: UUID)
+}
+
+extension PulseOximeterBluetooth: PulseOximeterTransport {}
+
 /// Derived display/export metadata. Raw device identity and frames stay in the
 /// protected encounter events rather than the ordinary CSV/QR handoff.
 struct SensorReadingSource: Codable, Hashable, Sendable {
@@ -15,9 +36,11 @@ struct SensorReadingSource: Codable, Hashable, Sendable {
 
 @MainActor @Observable
 final class WirelessSensorSession {
-    let transport: PulseOximeterBluetooth
+    let transport: any PulseOximeterTransport
     var preview: PulseOximeterReading?
     var association: SensorAssociationPayload?
+    /// In-memory operator consent survives only transient transport loss.
+    var resumableAssociation: SensorAssociationPayload?
     var message: String?
     var bindingInProgress = false
     var encounterTransitionInProgress = false
@@ -30,9 +53,14 @@ final class WirelessSensorSession {
     var ingestionTask: Task<Void, Never>?
     var ingestionTasks: [UUID: Task<Void, Never>] = [:]
     var revocationTask: Task<Void, Never>?
+    var resumeTask: Task<Void, Never>?
 
     init(defaults: UserDefaults = .standard) {
         transport = PulseOximeterBluetooth(defaults: defaults)
+    }
+
+    init(transport: any PulseOximeterTransport) {
+        self.transport = transport
     }
 
     var previewIsFresh: Bool {
@@ -59,7 +87,7 @@ extension AppState {
         }
         wirelessSensors.transport.onSessionInvalidated = { [weak self] in
             guard let self else { return }
-            self.invalidateWirelessSensorAssociation(clearPreview: true)
+            self.invalidateWirelessSensorAssociation(clearPreview: true, preservingAssociation: true)
             self.wirelessSensors.decoder.reset()
         }
         wirelessSensors.transport.start()
@@ -73,13 +101,20 @@ extension AppState {
     /// Invalidate synchronously before the first lifecycle await. A queued old
     /// callback keeps its original engine and can never target the new casualty.
     @discardableResult
-    func invalidateWirelessSensorAssociation(clearPreview: Bool = false) -> Task<Void, Never>? {
+    func invalidateWirelessSensorAssociation(clearPreview: Bool = false,
+                                            preservingAssociation: Bool = false) -> Task<Void, Never>? {
         let session = wirelessSensors
         session.generation = UUID()
-        let binding = session.association
+        let binding = session.association ?? session.resumableAssociation
+        let preserve = preservingAssociation && session.transport.autoConnectEnabled
+            && !session.encounterTransitionInProgress
+        session.resumableAssociation = preserve ? binding : nil
         session.association = nil
         session.directory = nil
         session.bindingInProgress = false
+        let pendingResume = session.resumeTask
+        pendingResume?.cancel()
+        session.resumeTask = nil
         let pendingIngestions = Array(session.ingestionTasks.values)
         session.ingestionTasks.removeAll()
         for task in pendingIngestions { task.cancel() }
@@ -92,16 +127,23 @@ extension AppState {
             session.preview = nil
             session.decoder.reset()
         }
-        guard binding != nil || drain != nil || !pendingIngestions.isEmpty else { return session.revocationTask }
+        guard binding != nil || drain != nil || pendingResume != nil || !pendingIngestions.isEmpty else {
+            return session.revocationTask
+        }
         let origin = engine
         let encounter = encounterIdentity
         let priorRevocation = session.revocationTask
         let task = Task { @MainActor [weak self] in
             await priorRevocation?.value
+            await pendingResume?.value
             await drain?.value
             for task in pendingIngestions { await task.value }
             guard let binding else { return }
-            await origin.revokeSensorAssociation(associationID: binding.id)
+            if preserve {
+                await origin.suspendSensorAssociation(associationID: binding.id)
+            } else {
+                await origin.revokeSensorAssociation(associationID: binding.id)
+            }
             guard let self, self.engine === origin, self.encounterIdentity == encounter else { return }
             await self.persistNewEvents()
         }
@@ -151,20 +193,111 @@ extension AppState {
             return
         }
         session.association = binding
+        session.resumableAssociation = nil
         session.directory = directory
         session.bindingInProgress = false
         session.message = nil
         await persistNewEvents()
     }
 
+    /// A fresh connection may continue the same in-process operator consent.
+    /// The engine owns the authority and preserves corrections made while paused.
+    func resumeWirelessSensorAssociationIfNeeded(device: PulseOximeterBluetooth.Device,
+                                                connectionID: UUID) {
+        let session = wirelessSensors
+        guard session.association == nil, !session.bindingInProgress,
+              !session.encounterTransitionInProgress,
+              let intent = session.resumableAssociation else { return }
+        guard intent.deviceID == device.id.uuidString,
+              intent.encounterID == encounterIdentity else {
+            invalidateWirelessSensorAssociation()
+            return
+        }
+        guard session.transport.autoConnectEnabled,
+              session.transport.connectionID == connectionID,
+              session.transport.connectedDevice?.id == device.id,
+              let store = encounterStore else { return }
+        let generation = session.generation
+        let encounter = encounterIdentity
+        let origin = engine
+        let suspension = session.revocationTask
+        session.bindingInProgress = true
+        session.resumeTask = Task { @MainActor [weak self] in
+            defer {
+                if session.generation == generation {
+                    session.bindingInProgress = false
+                    session.resumeTask = nil
+                }
+            }
+            await suspension?.value
+            guard let self else { return }
+            @MainActor func isCurrent() -> Bool {
+                !Task.isCancelled && !session.encounterTransitionInProgress
+                    && session.generation == generation && self.engine === origin
+                    && self.encounterIdentity == encounter
+                    && session.resumableAssociation?.id == intent.id
+                    && session.transport.autoConnectEnabled
+                    && session.transport.connectionID == connectionID
+                    && session.transport.connectedDevice?.id == device.id
+            }
+            guard isCurrent() else { return }
+            await self.settleCaptureBeforeOperatorEntry()
+            guard isCurrent() else { return }
+            let directory = await store.activeDirectoryName()
+            guard let directory, isCurrent() else { return }
+            guard let binding = await origin.resumeSensorAssociation(associationID: intent.id,
+                deviceID: device.id.uuidString, connectionID: connectionID, encounterID: encounter) else {
+                guard isCurrent() else { return }
+                session.resumableAssociation = nil
+                session.message = "Sensor association ended. Confirm the current casualty before recording again."
+                return
+            }
+            guard isCurrent() else {
+                // A second transport interruption can race this actor return.
+                // Carry the same consent forward only if no explicit stop or
+                // encounter transition cleared it while the call was pending.
+                await self.handleInterruptedWirelessSensorResume(binding, intent: intent,
+                    origin: origin, encounter: encounter)
+                return
+            }
+            session.association = binding
+            session.resumableAssociation = nil
+            session.directory = directory
+            session.message = nil
+            await self.persistNewEvents()
+        }
+    }
+
+    func handleInterruptedWirelessSensorResume(_ binding: SensorAssociationPayload,
+                                              intent: SensorAssociationPayload,
+                                              origin: PatientStateEngine, encounter: UUID) async {
+        let session = wirelessSensors
+        if session.resumableAssociation?.id == intent.id,
+           engine === origin, encounterIdentity == encounter,
+           !session.encounterTransitionInProgress, session.transport.autoConnectEnabled {
+            session.resumableAssociation = binding
+            await origin.suspendSensorAssociation(associationID: binding.id)
+        } else {
+            await origin.revokeSensorAssociation(associationID: binding.id)
+        }
+    }
+
     /// A snapshot may resume after a new operator association. Reconcile only
     /// the local binding and generation captured before that snapshot await.
     func reconcileWirelessSensorAssociation(activeAssociation: SensorAssociationPayload?,
+                                            suspendedAssociation: SensorAssociationPayload? = nil,
                                             expectedAssociationID: String?, generation: UUID) {
         let session = wirelessSensors
         guard let expectedAssociationID, session.generation == generation,
-              session.association?.id == expectedAssociationID,
-              activeAssociation?.id != expectedAssociationID else { return }
+              let local = session.association ?? session.resumableAssociation,
+              local.id == expectedAssociationID else { return }
+        // An actor may already have renewed the connection binding while its
+        // MainActor publication/second-disconnect cleanup is still pending.
+        // Match the original consent chain, not that transient connection ID.
+        if let authority = activeAssociation ?? suspendedAssociation,
+           authority.associationID == local.associationID,
+           authority.deviceID == local.deviceID, authority.encounterID == local.encounterID,
+           authority.patientId == local.patientId { return }
         invalidateWirelessSensorAssociation()
         session.message = "Sensor association ended. Confirm the current casualty before recording again."
     }
@@ -185,6 +318,7 @@ extension AppState {
                 session.auxiliaryFrames = Array(session.auxiliaryFrames.suffix(40))
             case .reading(let reading):
                 session.preview = reading
+                resumeWirelessSensorAssociationIfNeeded(device: device, connectionID: connectionID)
                 if reading.quality == .unknown, reading.spo2 != nil, reading.pulseRate != nil {
                     session.transport.markValidReadingReceived(connectionID: connectionID)
                 } else {

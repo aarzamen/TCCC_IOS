@@ -34,6 +34,145 @@ final class WirelessSensorIntegrationTests: XCTestCase {
         XCTAssertNil(restored.connectedDevice)
     }
 
+    func testTransientDisconnectSuspendsConsentUntilExplicitStop() async throws {
+        let state = AppState(wirelessSensors: WirelessSensorSession(transport: SyntheticPulseTransport()))
+        state.startWirelessSensorsIfNeeded()
+        let binding = await state.engine.associateSensor(deviceID: "synthetic-unit", deviceName: "Synthetic",
+            connectionID: UUID(), encounterID: state.encounterIdentity)
+        state.wirelessSensors.association = try XCTUnwrap(binding)
+        state.wirelessSensors.transport.onSessionInvalidated?()
+        await state.wirelessSensors.revocationTask?.value
+        XCTAssertNil(state.wirelessSensors.association, "Old-connection ingestion must stop immediately")
+        let suspendedLog = await state.engine.snapshotLog()
+        let kinds = suspendedLog.events.compactMap { event -> String? in
+            if case .sensorAssociation(let payload) = event { return payload.kind.rawValue }
+            return nil
+        }
+        XCTAssertEqual(kinds, ["associated", "suspended"])
+
+        await state.invalidateWirelessSensorAssociation()?.value
+        let stoppedLog = await state.engine.snapshotLog()
+        let stoppedKinds = stoppedLog.events.compactMap { event -> String? in
+            if case .sensorAssociation(let payload) = event { return payload.kind.rawValue }
+            return nil
+        }
+        XCTAssertEqual(stoppedKinds, ["associated", "suspended", "revoked"])
+    }
+
+    private func connectedSensor() async throws -> (AppState, SyntheticPulseTransport, URL) {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let transport = SyntheticPulseTransport()
+        let state = AppState(wirelessSensors: WirelessSensorSession(transport: transport))
+        let store = EncounterStore(baseURL: base)
+        try await store.startNewCasualty(id: "SYNTHETIC", startUnix: Date().timeIntervalSince1970)
+        state.encounterStore = store
+        state.startWirelessSensorsIfNeeded()
+        transport.connect()
+        await state.associateConnectedSensorWithCurrentEncounter()
+        XCTAssertNotNil(state.wirelessSensors.association)
+        return (state, transport, base)
+    }
+
+    func testSameSensorReconnectResumesRecordingWithoutAnotherTap() async throws {
+        let (state, transport, base) = try await connectedSensor()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let old = try XCTUnwrap(state.wirelessSensors.association)
+        transport.sendReading()
+        await state.wirelessSensors.ingestionTask?.value
+        transport.disconnect()
+        transport.connect()
+        transport.sendReading()
+        await state.wirelessSensors.resumeTask?.value
+        let resumed = try XCTUnwrap(state.wirelessSensors.association)
+        XCTAssertNotEqual(resumed.id, old.id)
+        XCTAssertEqual(resumed.associationID, old.associationID)
+        XCTAssertEqual(resumed.eventFence, old.eventFence)
+        transport.sendReading()
+        await state.wirelessSensors.ingestionTask?.value
+        XCTAssertEqual(state.primaryPatient?.vitals.hr, 62)
+        XCTAssertEqual(state.primaryPatient?.vitals.spo2, 96)
+        let log = await state.engine.snapshotLog()
+        let recorded = log.events.compactMap { event -> SensorObservationPayload? in
+            if case .sensorObservation(let observation) = event { return observation }
+            return nil
+        }
+        XCTAssertEqual(recorded.count, 2)
+        XCTAssertEqual(recorded.last?.associationID, resumed.id)
+        // A delayed notification from the previous connection cannot enter.
+        state.receiveWirelessData(SyntheticPulseTransport.frame, device: transport.device,
+            connectionID: old.connectionID, receivedAt: Date())
+        let afterStale = await state.engine.snapshotLog()
+        XCTAssertEqual(afterStale.events.count, log.events.count)
+        let stored = try await EncounterStore(baseURL: base).loadActiveEncounter()
+        XCTAssertEqual(try XCTUnwrap(stored).log.events.count, log.events.count)
+    }
+
+    func testReconnectKeepsCorrectionsMadeBeforeAndDuringOutage() async throws {
+        let (state, transport, base) = try await connectedSensor()
+        defer { try? FileManager.default.removeItem(at: base) }
+        await state.engine.recordOperatorAcceptedFact(write: .heartRate(88), factId: nil,
+            domain: "vitals", field: "hr", rawValue: "88", to: "PATIENT_1")
+        transport.disconnect()
+        await state.wirelessSensors.revocationTask?.value
+        await state.engine.recordOperatorAcceptedFact(write: .spo2(99), factId: nil,
+            domain: "vitals", field: "spo2", rawValue: "99", to: "PATIENT_1")
+        transport.connect()
+        transport.sendReading()
+        await state.wirelessSensors.resumeTask?.value
+        transport.sendReading()
+        await state.wirelessSensors.ingestionTask?.value
+        XCTAssertEqual(state.primaryPatient?.vitals.hr, 88)
+        XCTAssertEqual(state.primaryPatient?.vitals.spo2, 99)
+        let log = await state.engine.snapshotLog()
+        let sample = log.events.compactMap { event -> SensorObservationPayload? in
+            if case .sensorObservation(let observation) = event { return observation }
+            return nil
+        }.last
+        XCTAssertEqual(sample?.disposition, .operatorProtected)
+    }
+
+    func testDifferentSensorCannotInheritPausedAssociation() async throws {
+        let (state, transport, base) = try await connectedSensor()
+        defer { try? FileManager.default.removeItem(at: base) }
+        transport.disconnect()
+        transport.connect(deviceID: UUID())
+        transport.sendReading()
+        await state.wirelessSensors.revocationTask?.value
+        XCTAssertNil(state.wirelessSensors.association)
+        XCTAssertNil(state.wirelessSensors.resumableAssociation)
+        let log = await state.engine.snapshotLog()
+        XCTAssertFalse(log.events.contains { if case .sensorObservation = $0 { true } else { false } })
+    }
+
+    func testExplicitOffClearsPausedConsentAcrossReconnect() async throws {
+        let (state, transport, base) = try await connectedSensor()
+        defer { try? FileManager.default.removeItem(at: base) }
+        transport.disconnect()
+        state.setPulseOximeterAutoConnect(false)
+        await state.wirelessSensors.revocationTask?.value
+        state.setPulseOximeterAutoConnect(true)
+        transport.connect()
+        transport.sendReading()
+        XCTAssertNil(state.wirelessSensors.association)
+        XCTAssertNil(state.wirelessSensors.resumableAssociation)
+        let snapshot = await state.engine.snapshotWithSensorOrigins()
+        XCTAssertNil(snapshot.suspendedSensorAssociation)
+        XCTAssertNil(snapshot.activeSensorAssociation)
+    }
+
+    func testSpokenPatientChangeClearsPausedAssociationImmediately() async throws {
+        let (state, transport, base) = try await connectedSensor()
+        defer { try? FileManager.default.removeItem(at: base) }
+        transport.disconnect()
+        await state.wirelessSensors.revocationTask?.value
+        await state.refreshPatientSnapshot(persist: false, recordVitals: false)
+        XCTAssertNotNil(state.wirelessSensors.resumableAssociation)
+        await state.engine.processTranscript("patient two heart rate 90")
+        await state.refreshPatientSnapshot(persist: false, recordVitals: false)
+        XCTAssertNil(state.wirelessSensors.resumableAssociation)
+        await state.wirelessSensors.revocationTask?.value
+    }
+
     func testSensorColumnDoesNotRetimestampOtherVitalsAndExportsProvenance() async throws {
         let state = AppState()
         let time = Date(timeIntervalSince1970: 100)
@@ -211,6 +350,47 @@ final class WirelessSensorIntegrationTests: XCTestCase {
         XCTAssertTrue(firstWasCanceled,
             "Canceling only the tail leaves an earlier actor-bound ingestion task live")
         XCTAssertTrue(tailWasCanceled)
+    }
+}
+
+/// Only the radio is substituted; parsing, association, event ingestion and
+/// protected storage above all use their real production implementations.
+@MainActor
+private final class SyntheticPulseTransport: PulseOximeterTransport {
+    static let frame = Data([0xAA, 0x55, 0x0F, 0x08, 0x01, 0x60, 0x3E, 0x00, 0x50, 0x00, 0xC0, 0x08])
+    var device = PulseOximeterBluetooth.Device(id: UUID(), name: "S5W synthetic")
+    var status: PulseOximeterBluetooth.Status = .disconnected
+    var devices: [PulseOximeterBluetooth.Device] { [device] }
+    var connectedDevice: PulseOximeterBluetooth.Device?
+    var connectionID: UUID?
+    var autoConnectEnabled = true
+    var onNotification: (@MainActor (Data, PulseOximeterBluetooth.Device, UUID, Date) -> Void)?
+    var onSessionInvalidated: (@MainActor () -> Void)?
+    func start() {}
+    func setEnabled(_ enabled: Bool) {
+        autoConnectEnabled = enabled
+        if !enabled { disconnect() }
+    }
+    func selectDevice(_ id: UUID) {}
+    func applicationDidBecomeActive() {}
+    func applicationDidEnterBackground() {}
+    func markValidReadingReceived(connectionID: UUID) { status = .receiving }
+    func markReadingUnavailable(connectionID: UUID) { status = .connectedAwaitingData }
+    func connect(deviceID: UUID? = nil) {
+        if let deviceID { device = .init(id: deviceID, name: "S5W other synthetic") }
+        connectedDevice = device
+        connectionID = UUID()
+        status = .connectedAwaitingData
+    }
+    func disconnect() {
+        connectedDevice = nil
+        connectionID = nil
+        status = .disconnected
+        onSessionInvalidated?()
+    }
+    func sendReading() {
+        guard let connectionID else { return }
+        onNotification?(Self.frame, device, connectionID, Date())
     }
 }
 

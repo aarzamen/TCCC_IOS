@@ -59,10 +59,21 @@ public actor PatientStateEngine {
     private var lifecycleCount = 1   // init seeds "lc-1"
 
     private var sensorAssociation: SensorAssociationPayload?
+    /// A still-valid operator consent whose transport dropped. It holds no
+    /// authority to ingest; only a reconnect of the same device/encounter/patient
+    /// can turn it back into an active binding. Memory only — never reconstructed
+    /// from the log, so a restored audit record confers nothing.
+    private var suspendedSensorAssociation: SensorAssociationPayload?
     private var sensorProtectedFields: Set<SensorVitalField> = []
     private var sensorReadingIDs: Set<UUID> = []
     private var lastSensorReceipt: Date?
     private var lastSensorObservationTime: Date?
+
+    /// The single binding that currently carries operator consent, whether it is
+    /// live or waiting out a transport drop. At most one of the two is non-nil.
+    private var sensorAuthority: SensorAssociationPayload? {
+        sensorAssociation ?? suspendedSensorAssociation
+    }
 
     // MARK: - Dependencies
 
@@ -157,19 +168,12 @@ public actor PatientStateEngine {
         let cursor = log.events.count
         let priorPatients = patients
         let priorPatientID = currentPatientID
-        let priorAssociationID = sensorAssociation?.id
+        let priorAuthorityID = sensorAuthority?.id
         processTranscript(text, timestamp: timestamp)
         // A spoken patient switch revokes sensor ownership immediately. Keep
         // that audit decision before the revisable speech tail even if a later
         // ASR refinement changes the patient-switch words.
-        var rollbackCursor = cursor
-        if priorAssociationID != sensorAssociation?.id,
-           let revocationIndex = log.events[cursor...].lastIndex(where: {
-               if case .sensorAssociation(let association) = $0 { return association.kind == .revoked }
-               return false
-           }) {
-            rollbackCursor = revocationIndex + 1
-        }
+        let rollbackCursor = revocationFence(from: cursor, priorAuthorityID: priorAuthorityID)
         // Record `tail` AFTER extraction so reviseProvisional can detect whether
         // a foreign event was appended between commit and revise.
         provisionalBoundary = (cursor: rollbackCursor,
@@ -231,11 +235,28 @@ public actor PatientStateEngine {
         let newCursor = log.events.count
         let priorPatients = b.patients
         let priorPatientID = b.currentPatientID
+        let priorAuthorityID = sensorAuthority?.id
         processTranscript(refinedText, timestamp: timestamp)
-        provisionalBoundary = (cursor: newCursor,
+        // Same rule as commitProvisional: if THIS refinement is what gave up
+        // connection ownership, a further refinement must not truncate that
+        // revocation away while the engine stays unbound.
+        provisionalBoundary = (cursor: revocationFence(from: newCursor, priorAuthorityID: priorAuthorityID),
                                tail: log.events.count,
                                patients: priorPatients,
                                currentPatientID: priorPatientID)
+    }
+
+    /// Index just past the revocation a just-extracted chunk caused, so that
+    /// decision sits before the revisable tail; `cursor` when consent (active or
+    /// suspended) is unchanged. Revocations are inert in `project`, so keeping
+    /// them while rolling patient state back to `cursor` stays equivalent.
+    private func revocationFence(from cursor: Int, priorAuthorityID: String?) -> Int {
+        guard priorAuthorityID != sensorAuthority?.id,
+              let revocationIndex = log.events[cursor...].lastIndex(where: {
+                  if case .sensorAssociation(let association) = $0 { return association.kind == .revoked }
+                  return false
+              }) else { return cursor }
+        return revocationIndex + 1
     }
 
     /// Settle the outstanding provisional: it is now permanent. No state change.
@@ -329,7 +350,9 @@ public actor PatientStateEngine {
         domain: String, field: String, rawValue: String?, to patientId: String,
         timestamp: Date = Date()) {
         lastOperatorDecisionUptime = ProcessInfo.processInfo.systemUptime
-        if sensorAssociation?.patientId == patientId, let field = SensorVitalField.matching(write) {
+        // A dropped connection does not end the operator's authority over the
+        // fields they corrected, so a suspended binding protects them too.
+        if sensorAuthority?.patientId == patientId, let field = SensorVitalField.matching(write) {
             sensorProtectedFields.insert(field)
         }
         let unix = timestamp.timeIntervalSince1970
@@ -350,7 +373,7 @@ public actor PatientStateEngine {
     public func recordOperatorRejectedFact(factId: String?, domain: String, field: String,
         rawValue: String?, to patientId: String, timestamp: Date = Date()) {
         lastOperatorDecisionUptime = ProcessInfo.processInfo.systemUptime
-        if sensorAssociation?.patientId == patientId {
+        if sensorAuthority?.patientId == patientId {
             if let protected = SensorVitalField.matching(alias: field) {
                 sensorProtectedFields.insert(protected)
             } else if let factId,
@@ -376,7 +399,10 @@ public actor PatientStateEngine {
         log = restoredLog
         patients = Self.project(restoredLog)
         provisionalBoundary = nil
+        // Audit records of association, suspension or resumption are history, not
+        // permission: a replayed log never grants ingest or resume authority.
         sensorAssociation = nil
+        suspendedSensorAssociation = nil
         sensorProtectedFields.removeAll()
         sensorReadingIDs.removeAll()
         lastSensorReceipt = nil
@@ -412,7 +438,8 @@ public actor PatientStateEngine {
 
     /// Explicit operator association. The default matches the single-casualty
     /// UI; speech may select another engine patient, so check focus atomically.
-    /// Rebinding is the operator action that releases prior vital protections.
+    /// Rebinding is the operator action that releases prior vital protections,
+    /// and it supersedes any consent still suspended by a transport drop.
     public func associateSensor(deviceID: String, deviceName: String,
         connectionID: UUID, encounterID: UUID, patientId: String = "PATIENT_1",
         timestamp: Date = Date()) -> SensorAssociationPayload? {
@@ -435,21 +462,91 @@ public actor PatientStateEngine {
     }
 
     /// Match a disconnect to its association so an old connection cannot revoke
-    /// a later operator binding. Passing nil is the lifecycle/off revoke-all path.
+    /// a later operator binding. Passing nil is the lifecycle/off revoke-all path,
+    /// which must also end a consent that is merely waiting out a transport drop.
     public func revokeSensorAssociation(associationID: String? = nil, timestamp: Date = Date()) {
-        guard let association = sensorAssociation,
+        guard let association = sensorAuthority,
               associationID == nil || associationID == association.id else { return }
         settleProvisional()
         log.append(.sensorAssociation(.init(
-            id: "sensor-revocation-" + UUID().uuidString, associationID: association.id,
+            id: "sensor-revocation-" + UUID().uuidString, associationID: association.associationID,
             patientId: association.patientId, timestampUnix: timestamp.timeIntervalSince1970,
             deviceID: association.deviceID, deviceName: association.deviceName,
             connectionID: association.connectionID, encounterID: association.encounterID,
             eventFence: association.eventFence, kind: .revoked)))
         sensorAssociation = nil
+        suspendedSensorAssociation = nil
         sensorProtectedFields.removeAll()
         lastSensorReceipt = nil
         lastSensorObservationTime = nil
+    }
+
+    /// A transport drop suspends the binding instead of ending it: ingestion
+    /// authority is removed at once, while the operator's consent for this exact
+    /// device/encounter/patient waits in memory for a reconnect. Protected vitals
+    /// and the association's event fence survive; the operator is not re-asked.
+    ///
+    /// `associationID` is the current binding's `id`. A stale token does nothing,
+    /// and repeating the call on an already-suspended binding is idempotent.
+    public func suspendSensorAssociation(associationID: String, timestamp: Date = Date()) {
+        // Idempotent: a repeated disconnect callback must not append a second
+        // record, and must not cost the consent or its field protections.
+        if suspendedSensorAssociation?.id == associationID { return }
+        guard let association = sensorAssociation, association.id == associationID,
+              timestamp.timeIntervalSince1970.isFinite else { return }
+        settleProvisional()
+        log.append(.sensorAssociation(.init(
+            id: "sensor-suspension-" + UUID().uuidString, associationID: association.associationID,
+            patientId: association.patientId, timestampUnix: timestamp.timeIntervalSince1970,
+            deviceID: association.deviceID, deviceName: association.deviceName,
+            connectionID: association.connectionID, encounterID: association.encounterID,
+            eventFence: association.eventFence, kind: .suspended)))
+        // Atomic within this actor turn: the retained binding carries consent only,
+        // and nothing can ingest between dropping `sensorAssociation` and a resume.
+        suspendedSensorAssociation = association
+        sensorAssociation = nil
+        lastSensorReceipt = nil
+        lastSensorObservationTime = nil
+    }
+
+    /// Reconnect of the same device to the same encounter and patient resumes the
+    /// suspended consent. This is not a new operator decision: the original
+    /// consent chain, event fence and protected vitals are carried over.
+    ///
+    /// Returns a binding with a FRESH `id` bound to the new connection — callers
+    /// must ingest with it, because the dropped connection's token is now dead.
+    /// Anything that does not match exactly returns nil without mutating state,
+    /// leaving the suspended consent intact for the correct reconnect.
+    public func resumeSensorAssociation(associationID: String, deviceID: String,
+        connectionID: UUID, encounterID: UUID, timestamp: Date = Date()) -> SensorAssociationPayload? {
+        if #available(macOS 10.15, *) {
+            guard !Task.isCancelled else { return nil }
+        }
+        guard sensorAssociation == nil,                       // never displace a live binding
+              let suspended = suspendedSensorAssociation,
+              suspended.id == associationID,
+              suspended.deviceID == deviceID,
+              suspended.encounterID == encounterID,
+              suspended.connectionID != connectionID,         // the old link is gone
+              suspended.patientId == currentPatientID,
+              patients[suspended.patientId] != nil,
+              timestamp.timeIntervalSince1970.isFinite else { return nil }
+        settleProvisional()
+        let resumed = SensorAssociationPayload(
+            id: "sensor-resumption-" + UUID().uuidString, associationID: suspended.associationID,
+            patientId: suspended.patientId, timestampUnix: timestamp.timeIntervalSince1970,
+            deviceID: suspended.deviceID, deviceName: suspended.deviceName,
+            connectionID: connectionID, encounterID: suspended.encounterID,
+            eventFence: suspended.eventFence, kind: .resumed)
+        log.append(.sensorAssociation(resumed))
+        sensorAssociation = resumed
+        suspendedSensorAssociation = nil
+        // Ordering belongs to the new connection; the binding time is now, so
+        // frames buffered during the outage are pre-association and cannot apply.
+        // `sensorProtectedFields` and `sensorReadingIDs` deliberately survive.
+        lastSensorReceipt = nil
+        lastSensorObservationTime = nil
+        return resumed
     }
 
     /// Record a bound sample and its exact applied deltas in one actor turn.
@@ -585,9 +682,10 @@ public actor PatientStateEngine {
     /// provenance of a later snapshot.
     public func snapshotWithSensorOrigins(patientId: String = "PATIENT_1") -> (
         patients: [String: PatientState], sensorOrigins: [String: SensorObservationPayload],
-        activeSensorAssociation: SensorAssociationPayload?
+        activeSensorAssociation: SensorAssociationPayload?,
+        suspendedSensorAssociation: SensorAssociationPayload?
     ) {
-        (patients, sensorVitalOrigins(patientId: patientId), sensorAssociation)
+        (patients, sensorVitalOrigins(patientId: patientId), sensorAssociation, suspendedSensorAssociation)
     }
 
     // MARK: - Internal helpers

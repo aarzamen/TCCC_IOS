@@ -120,7 +120,7 @@ Remaining physical checks are:
 
 - Default-on discovery and OS permission flow, explicit off across relaunch,
   unbound preview, and the detailed casualty-association flow.
-- Finger-out unavailability, reinsert/restart and reconnect.
+- Finger-out unavailability and the refined automatic association-resume flow.
 - Rebinding across encounters, cancellation during connection, and actual
   background behavior within iOS scheduling limits.
 - Persistence after relaunch and export round trips for a recorded sensor
@@ -128,6 +128,48 @@ Remaining physical checks are:
 
 The Mac frame checks and finger-out observation above remain separate evidence;
 they do not establish the remaining iPhone behaviors.
+
+The operator subsequently reported that the installed build reconnects and
+picks up the data source without intervention, but requires an awkward manual
+patient re-association. This confirms operator-observed transport reconnection
+for that run; it is the motivation for retaining same-sensor, same-casualty
+consent across transient interruptions. The refined automatic recording-resume
+behavior requires its own software and updated-device verification.
+
+## Same-casualty recording resume refinement
+
+The revised implementation suspends the original in-memory association on a
+transport interruption and resumes it only for the same sensor and active
+casualty. Every connection receives a fresh ingestion token. Manual corrections
+before and during the pause remain protected. Stop/Off, patient or encounter
+changes, and process restart clear the retained authority. Settings shows the
+paused recording and retains its Stop action.
+
+Native Claude Code contributed the engine suspension/resumption implementation
+in a bounded isolated run. Codex reviewed and integrated it, added the atomic
+suspended-state snapshot, and implemented and verified app coordination. Only
+curated source and synthetic fixtures were provided to the worker.
+
+Verification after this refinement:
+
+- The regression first reproduced the old disconnect-to-revocation behavior.
+- All **897 package tests passed**, including **39 sensor-evidence tests**.
+- **35 focused app tests passed**, covering reconnect, corrections, old
+  callbacks, alternate sensors, Off, persistence, provisional speech and exports.
+- After the final snapshot timing correction, all **20 wireless app tests
+  passed** (16 integration tests and four controlled interruption-race tests).
+  These runs are separate, not additive test totals.
+- The app tests substitute only the Bluetooth transport; the decoder, engine,
+  event persistence and resume orchestration use production code. The race
+  tests explicitly interrupt a resume after the engine creates the new binding
+  but before the app publishes it, including a second loss, Stop, a newer
+  explicit association and a patient-switch snapshot.
+- The signed iPhone build succeeded with complete offline assets enabled;
+  the verifier again confirmed 5,749,589,446 asset bytes.
+
+The earlier operator-confirmed automatic radio reconnection is distinct from
+this refined recording-resume behavior. Installation of the updated build is
+underway; the physical recheck remains pending at this checkpoint.
 
 ## Repository delivery
 

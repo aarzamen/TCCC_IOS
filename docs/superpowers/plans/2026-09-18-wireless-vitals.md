@@ -113,5 +113,12 @@ are tracked separately; the report does not establish clinical accuracy.
 
 ## Execution notes
 
+- Same-casualty reconnect refinement: one explicit association survives a
+  transient link loss within the current process, preserving manual decisions.
+  Stop/Off, casualty change and relaunch still clear it. Engine/app changes and
+  independent review are complete; 897 package tests, 35 focused app tests and
+  the final 20 wireless tests pass. See the validation record for the separate
+  updated-build and physical acceptance status.
+
 - Raw status bits, high pulse extension, waveform flag meanings, and device acquisition time are not verified. Preserve evidence and unknowns; unsupported encoding must not fabricate values.
 - No promise of first-time background discovery or continuous execution after force-quit. Hardware checks remain separate from source/build validation.

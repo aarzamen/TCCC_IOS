@@ -83,6 +83,7 @@
 		4F75F5B02F6AC561F07B7D83 /* GraniteRealModelFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75B6C5790C9B8A862E9688FE /* GraniteRealModelFixtures.swift */; };
 		4FA58F736746F6C6335237B6 /* HandoffData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EE8A25877D44D109385309C /* HandoffData.swift */; };
 		50174CB5268A251D2A879676 /* KokoroEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DA03C697E26D4FE70B0144B /* KokoroEngine.swift */; };
+		50776D352AA2B018AB764AA1 /* WirelessSensorResumeRaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E26FB13F51D6455A067E9B65 /* WirelessSensorResumeRaceTests.swift */; };
 		5106047406B29E674C0161CD /* BenchStateMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE3724F2D2E53604D4AA8E1 /* BenchStateMapper.swift */; };
 		5194C389A069FE2C254042BB /* PlaybackVisualizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB23DCCB7B28461988442861 /* PlaybackVisualizer.swift */; };
 		528C8815CE702DE7102FA54B /* OperatorAcceptedFact.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C16458322E673EC32093E89 /* OperatorAcceptedFact.swift */; };
@@ -406,6 +407,7 @@
 		DDAFA9B2EA3CCFF87951FD0A /* GraniteRealModelRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraniteRealModelRunner.swift; sourceTree = "<group>"; };
 		DEE4CC7C5566DCA8747A8375 /* AppleSpeechFileTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSpeechFileTranscriber.swift; sourceTree = "<group>"; };
 		DF2D07A8FA768E52A148F809 /* TCCC_IOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCC_IOSApp.swift; sourceTree = "<group>"; };
+		E26FB13F51D6455A067E9B65 /* WirelessSensorResumeRaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WirelessSensorResumeRaceTests.swift; sourceTree = "<group>"; };
 		E2FE58F83E5CABF70A1598BE /* DD1380PDFRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DD1380PDFRenderer.swift; sourceTree = "<group>"; };
 		E353D7D5CFBBD897E0505457 /* test_5min.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = test_5min.wav; sourceTree = "<group>"; };
 		E680A74CB426D300859C9E7C /* AppleCaptureLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCaptureLifecycleTests.swift; sourceTree = "<group>"; };
@@ -851,6 +853,7 @@
 				5880A1DBC9BB96454DC624AA /* SpeechUtteranceAssemblerTests.swift */,
 				77172C1FDE135370A2934BB7 /* TranscriptSegmentLedgerTests.swift */,
 				829CE4578D88400A40437CC1 /* WirelessSensorIntegrationTests.swift */,
+				E26FB13F51D6455A067E9B65 /* WirelessSensorResumeRaceTests.swift */,
 				B6EEA9776A6E3FDFE347E9AB /* YapLabEvidenceTests.swift */,
 				281AD628D287FC0554268E19 /* YapLabSessionTests.swift */,
 			);
@@ -1231,6 +1234,7 @@
 				3CCA1290005562B18A147E75 /* SpeechUtteranceAssemblerTests.swift in Sources */,
 				02CC048641A4480724BA6208 /* TranscriptSegmentLedgerTests.swift in Sources */,
 				4316890223352CD1620462A7 /* WirelessSensorIntegrationTests.swift in Sources */,
+				50776D352AA2B018AB764AA1 /* WirelessSensorResumeRaceTests.swift in Sources */,
 				96C9407787A6B3BBEFC78E02 /* YapLabEvidenceTests.swift in Sources */,
 				AE77797350044CE13C036EE3 /* YapLabSessionTests.swift in Sources */,
 			);
