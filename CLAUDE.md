@@ -10,7 +10,13 @@ development gate. The user authorizes routine commits, pushes, merges to main
 and repository publication. Earlier read-only and approval-only recovery rules
 are superseded by the 2026-09-08 policy.
 
-Active priority: capture reliability plus removal of fabricated export values.
+Active priority (2026-09-18): local wireless vitals, beginning with the Vibeat
+S5W pulse oximeter. Preserve capture reliability and truthful export values.
+The owner authorizes work on the existing default `main` branch for this
+direction. Quiet auto-connect enabled by default, a persistent Settings/options
+toggle, and connection status are approved requirements awaiting implementation
+and physical-device verification. See the
+[wireless vitals direction](docs/superpowers/specs/2026-09-18-wireless-vitals-direction.md).
 
 Native SwiftUI port of the `TCCC_FEB_2026` Python prototype. Combat-medic
 documentation app for field use: iPhone, landscape, chest-mounted, fully
@@ -27,8 +33,9 @@ offline. Voice intake → on-device ASR → deterministic state extraction
 - **Rubric ground-truth** (`reference/rubric/extracted/`): `dd1380_field_inventory.json`
   (50 DD 1380 fields, §A–H) and `march_paws_vocabulary_2026.json` (verbatim
   findings/interventions/thresholds per 01 May 2026 TCCC Guidelines).
-  Extracted verbatim from JTS/CoTCCC sources. **New UI elements must trace
-  to a field here or to a MARCH/PAWS phase-status change — or they don't ship.**
+  Extracted verbatim from JTS/CoTCCC sources. **New clinical display elements
+  must trace to a field here or to a MARCH/PAWS phase-status change — or they
+  don't ship.** Operational wireless controls follow PROJECT_POLICY.md.
 - **Design brief**: `reference/design_mockup/design_handoff_tccc_ios/README.md`.
 - **Port notes**: `reference/python_source_notes.md`.
 
@@ -36,11 +43,16 @@ offline. Voice intake → on-device ASR → deterministic state extraction
 
 Check any new package/framework/import against these first:
 
-1. **RF Ghost** — no Wi-Fi/Bluetooth/Cellular/UWB/NFC clients, no analytics,
-   crash reporting, telemetry, or auto-update SDKs. ASR is on-device only
-   (`requiresOnDeviceRecognition = true`); any LLM is on-device only. The
-   *only* network calls in the app are operator-gated one-time model
-   downloads for the alternate backends.
+1. **Offline runtime with local sensors** — local Bluetooth vitals clients are
+   authorized as of 2026-09-18; the former blanket RF Ghost prohibition is
+   superseded. Capture and sensor use have no internet dependency or vendor
+   cloud. No analytics, crash reporting, telemetry, auto-update SDKs, or
+   automatic uploads. ASR is on-device only (`requiresOnDeviceRecognition =
+   true`); any LLM is on-device only. Existing operator-gated model downloads
+   remain allowed. Unrelated Wi-Fi/cellular/UWB/NFC clients remain outside this
+   authorization. Respect OS Bluetooth permissions and background limits;
+   switching auto-connect off must cancel scanning, connection/retry work,
+   and ingestion. Keep device selection unambiguous and Settings status truthful.
 2. **Landscape-only, iPhone-only**, locked in `project.yml`. Do not regress.
 3. **Data-at-rest protection** via `NSFileProtectionComplete` on the data
    directory (code-set on every write; not independently audited).
@@ -105,8 +117,14 @@ simulator.
   chunk via log-tail truncate-and-reapply (refined words win, originally-heard
   text retained for audit). No lexical de-dup heuristic. Spec/plan:
   `docs/superpowers/{specs,plans}/2026-06-28-asr-provisional-replace*`.
-- **DD 1380 is the deliverable** (2026 §19), not a feature. Every shipping UI
+- **DD 1380 is the deliverable** (2026 §19), not a feature. Every clinical display
   element populates a DD 1380 field or drives a MARCH/PAWS phase-status change.
+- **Wireless sensor controls** are permitted operational UI for connection,
+  device selection, and provenance. Clinical displays still follow the DD 1380
+  / MARCH / PAWS rubric. Sensor readings remain unvalidated, retain device and
+  raw-frame evidence, and enter state only through logged engine mutations.
+  No Swift `VitalsSensor` protocol currently exists; do not assume the dated
+  architecture notes describe implemented sensor support.
 - **Backend defaults are load-bearing.** Apple Speech ASR + Apple Foundation
   Models are the validated runtime defaults. Alt backends (Parakeet + Granite
   Speech ASR; LFM2.5 + Qwen 3 LLM) are functional but **experimental**,
@@ -267,8 +285,9 @@ Priority order; each item is roughly its own session.
 8. **Real audio export bundle** — zip `.wav` + `.txt` + a manifest.
 9. **Alt-backend field validation** — Parakeet/Granite ASR + LFM2/Qwen LLM are
    wired and functional but only lightly tested; WER + generation-quality passes.
-10. **Real ECG/sensor stream** — needs ANT+ chest strap → Jetson companion
-    hardware (does not exist); `VitalsSensor` protocol is scaffolded.
+10. **Real ECG stream** — the historical ANT+ chest strap → Jetson companion
+    proposal is separate from the current direct-BLE pulse-oximeter priority.
+    No Swift `VitalsSensor` scaffold currently exists.
 11. **Engineering hygiene** — swift-format/SwiftLint, DocC pass, coverage
     report, CI (`swift test` on push; the rubric drift tests load JSON via
     `#filePath`-relative paths — verify on a fresh CI checkout).

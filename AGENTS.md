@@ -7,7 +7,13 @@ GPT-6 in the lead Codex conversation owns engineering direction and delivery,
 including implementation, verification, commits, pushes, merges and repository
 publication. Native Claude Code is an optional scoped worker. The completed
 read-only recovery phase and earlier native-Claude-only implementation rule are
-retired. First priority: capture reliability and truthful export values.
+retired. As authorized on 2026-09-18, the next main development priority is
+local wireless vitals, starting with the Vibeat S5W pulse oximeter. Preserve
+capture reliability and truthful export values. Approved required behavior is
+quiet auto-connect enabled by default, with a persistent Settings/options
+control and connection status. This direction may be integrated directly into
+the existing `main` branch; it is not a claim that sensor support is implemented.
+See [the current wireless direction](docs/superpowers/specs/2026-09-18-wireless-vitals-direction.md).
 
 The historical roadmap and test counts below are dated reference material.
 Use current code, test results and the active sprint plan for present state;
@@ -44,7 +50,7 @@ specifications and plans remain in `docs/superpowers/`.
 
 If you're about to add a package, framework, or import, check it against these first:
 
-1. **RF Ghost** — no Wi-Fi, Bluetooth, Cellular, UWB, NFC. No analytics, no crash reporting, no telemetry, no auto-update SDKs. ASR is on-device only (`requiresOnDeviceRecognition = true`). Any LLM is on-device only.
+1. **Offline runtime with local sensors** — local Bluetooth vitals communication is authorized as of 2026-09-18. Capture and sensor use must have no internet dependency, vendor cloud, analytics, crash reporting, telemetry, auto-update SDKs, or automatic uploads. ASR is on-device only (`requiresOnDeviceRecognition = true`); any LLM is on-device only. Existing operator-gated model preparation is preserved. Unrelated Wi-Fi, cellular, UWB, and NFC features remain outside this authorization. Respect OS Bluetooth permissions and the persistent auto-connect setting.
 2. **Landscape-only, iPhone-only**, locked in `project.yml`. Do not regress.
 3. **AES-256 at rest** via Apple Data Protection (`NSFileProtectionComplete` on the data directory).
 4. **Gloved-hand input** — minimum hit target 44pt, primary actions 56–64pt. No pinch, no fine drag. Long-press only for destructive actions with visual progress fill.
@@ -81,7 +87,7 @@ App target depends only on `TCCCKit`. All logic, all reports, all design tokens 
 - **Vitals are typed structs**, not dicts (departing from Python).
 - **SF Symbols are temporary** for medical/MEDEVAC iconography. Final polish replaces them with custom stroke icons per design package §7. Don't invest deep work in SF Symbols compositions.
 - **Custom fonts**: Inter Tight + JetBrains Mono in `TCCC_IOS/Fonts/`, registered via `UIAppFonts`.
-- **Sensor data sources**: a `VitalsSensor` protocol abstracts manual entry, voice dictation, and (future) ANT+/Jetson companion — all conform to the same stream.
+- **Sensor data sources**: no Swift `VitalsSensor` protocol currently exists. Build the verified pulse-oximeter transport and decoding path around the existing event-sourced engine, preserving device/raw-frame provenance. Do not assume the historical ANT+/Jetson scaffold is implemented.
 - **Test parity**: when porting a Python test, copy the assertions verbatim. Add Swift-only tests on top.
 
 ## Phasing
@@ -123,7 +129,7 @@ App layer:
 
 - **Custom stroke icon library** per design package §7. Replace SF Symbols on medical/MEDEVAC iconography. Each icon is a small SwiftUI `Shape` or `Path`. Probably 20+ icons. Consider dispatching as a parallel agent task.
 - **Inter Tight + JetBrains Mono** font registration. Bundle the OFL TTFs into `TCCC_IOS/Fonts/`, add `UIAppFonts` entries to `project.yml`. Update `Typography.swift` to use them.
-- **Real ECG sensor stream.** The synthetic PQRST in `ECGWave.swift` is a placeholder. Real integration needs the ANT+ chest strap → Jetson Nano companion (paired-only sub-second burst per RF Ghost rules) → BLE/USB-C bridge into the iPhone. The `VitalsSensor` protocol is scaffolded.
+- **Real ECG sensor stream (historical proposal).** The original concept used an ANT+ chest strap → Jetson Nano companion → BLE/USB-C bridge. Correction, 2026-09-18: no Swift `VitalsSensor` scaffold exists; the current direct-BLE pulse-oximeter direction does not depend on this hardware chain.
 - **Real audio export bundle.** Currently the Audio + Transcript card shares the .wav and a .txt separately. A proper bundle would zip them with metadata and a manifest.
 - **Multi-casualty UI.** Engine already handles multiple patients (`PatientStateEngine.snapshot()` returns a dict). UI is single-casualty per design §9. Adding a casualty switcher in the status strip would expose multi-casualty workflows for IED-blast scenarios.
 - **Validator path for SLM-generated reports.** The Python prototype's `validate_medevac_against_state` / `validate_zmist_against_state` functions exist to clean up SLM hallucinations. Now that we have SLM output, port these validators and run them between SLM generation and display.
@@ -170,8 +176,10 @@ Ground-truth references:
 Both extracted directly from JTS/CoTCCC sources (DD 1380 form, Skill
 Card SC-55, 2026 TCCC Guidelines HTML chapters). Verbatim — not
 RAG-paraphrased. **These are the audit reference for what stays, what
-goes, and what gets added in this codebase. New UI elements must trace
-to a field in one of these two files, or they don't ship.**
+goes, and what gets added in clinical displays. New clinical UI elements
+must trace to a field in one of these two files, or they don't ship.**
+Operational sensor connection, selection, and provenance controls are
+permitted by the 2026-09-18 wireless policy.
 
 Phase 1 deletions: ECGWave, MapPlotView, GCS / CAP RE / TEMP tiles, the
 15-min trend graph (and `VitalsHistory`), GHOST branding (renamed to
@@ -212,11 +220,11 @@ verbatim callout. CSV export converted to current-snapshot stub
 (deferred until §C grid persistence has columns to emit).
 
 **Principle.** The DD 1380 is not a feature. It is the deliverable per
-2026 §19 Documentation of Care. Every shipping UI element either
+2026 §19 Documentation of Care. Every clinical display element either
 populates a DD 1380 field or drives a phase-status change in MARCH /
 PAWS. If it does neither, it is decoration and decoration borrows
 authority from medical-monitor / EHR aesthetics that this device
-cannot actually claim.
+cannot actually claim. Operational wireless controls follow PROJECT_POLICY.md.
 
 Out of Phase 4 scope (intentional, deferred):
   - Tap-to-edit cells on the §C grid (read-only for now; engine snapshots
@@ -368,9 +376,9 @@ session.
 
 ### Bigger lifts (out of normal session scope)
 
-14. **Real ECG sensor stream.** Needs the ANT+ chest strap →
-    Jetson Nano companion → USB-C bridge into the iPhone. The
-    `VitalsSensor` protocol is scaffolded but no hardware exists.
+14. **Real ECG sensor stream (historical proposal).** The ANT+ chest strap →
+    Jetson companion concept is separate from the current direct-BLE oximeter
+    priority. Correction, 2026-09-18: no Swift `VitalsSensor` scaffold exists.
 15. **Engine-on-partial-text experiment.** Run the extractor on
     partial transcripts (before debounce-commit) to surface
     tentative facts faster. Adds UI flicker; needs A/B testing.

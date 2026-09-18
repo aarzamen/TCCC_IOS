@@ -29,9 +29,46 @@ integration review, expanding validation only for actual failures or material
 unresolved risks. Reuse existing preservation and evidence; do not repeat
 inventories, backups or approval ceremonies by default. Favor working progress.
 
-The active first sprint is capture reliability plus removal of fabricated export values, including the persistence repairs needed for trustworthy capture. Establish regression evidence, implement the fix, independently review the change, verify it, and carry it through integration.
+Current direction (2026-09-18): local wireless vitals integration, starting with
+the Vibeat S5W pulse oximeter, is the next main development priority. Capture
+reliability, truthful export values, and their persistence protections remain
+requirements throughout this work. Establish regression evidence, implement
+the change, independently review it, verify it, and carry it through integration.
 
-Preserve on-device runtime, complete file protection, event-sourced clinical state, operator review authority and truthful unknown values. Model/backend expansion and optional hardware experiments follow a reliable capture-to-documentation path. The iPhone remains a primary development target; the pocket Constellation experiment is out of scope.
+Preserve on-device runtime, complete file protection, event-sourced clinical state, operator review authority and truthful unknown values. Wireless sensor work must use the reliable capture-to-documentation path. The iPhone remains a primary development target; the pocket Constellation experiment is out of scope.
+
+## Local wireless vitals (2026-09-18)
+
+The owner explicitly authorizes local Bluetooth sensor communication on iOS,
+superseding the former blanket no-Bluetooth / RF Ghost constraint. Offline now
+means no internet dependency for capture and sensor use, not that every radio
+is disabled. This does not authorize cloud services, vendor accounts or apps
+at runtime, telemetry, analytics, automatic uploads, or unrelated wireless
+features. ASR and language-model inference remain on-device; existing
+operator-gated model preparation remains unchanged.
+
+Required behavior: Settings/options includes a persistent pulse-oximeter
+auto-connect control, enabled by default. When enabled, quietly discover and
+attempt connection to a supported oximeter and reconnect after recoverable
+disconnects. Respect OS permissions, Bluetooth state, and actual iOS
+background-execution limits. Avoid alert spam and ambiguous device selection;
+expose connection and data status in Settings. Turning the control off stops
+scanning, pending connections, retries, and sensor ingestion. Required sensor
+connection, selection, and provenance controls are permitted operational UI;
+clinical displays still follow the DD 1380 / MARCH / PAWS rubric.
+
+Sensor facts must retain device/raw-frame provenance in the event-sourced
+encounter, preserve unknown and invalid values truthfully, and remain labeled
+as unvalidated consumer-sensor measurements. A connection is not proof of a
+valid reading. Keep private bench captures and personal readings outside Git.
+
+The owner authorizes updating the default branch directly for this direction.
+Its actual name is `main` (the owner referred to it as master); no branch rename
+is requested. Scoped worker isolation remains available when useful.
+
+These are approved requirements, not a claim of implemented or device-verified
+support. Follow the [wireless vitals direction](docs/superpowers/specs/2026-09-18-wireless-vitals-direction.md)
+for protocol verification, integration boundaries, and acceptance evidence.
 
 ## Continuation
 
