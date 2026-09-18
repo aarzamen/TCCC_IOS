@@ -131,9 +131,13 @@ Verification for these closeout corrections:
 - Independent source reviews found no remaining actionable issue in the
   footer/navigation/overlay behavior or the empty-successor correction.
 
-The signed closeout device update is pending. A fresh physical silent-tail
-status check and the earlier same-casualty sensor-recording resume acceptance
-remain separate from the completed two-volume value check.
+Signed build **32f67cd** passed with all 154 offline-model files
+(5,749,615,321 bytes). It was installed in place on the connected iPhone 17 Pro
+at approximately 12:52 local time on 18 September 2026. Launch and process
+inspection succeeded; the previous encounter/recording paths remained present.
+Source is pushed to `main`. A fresh physical silent-tail status check and the
+earlier same-casualty sensor-recording resume acceptance remain separate from
+the completed two-volume value check; neither is claimed from simulator tests.
 
 Native Claude Code contributed a scoped, source-only partial implementation of
 the numbering correction. It reached its turn limit; Codex completed, reviewed
