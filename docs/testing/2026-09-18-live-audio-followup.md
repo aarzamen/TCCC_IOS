@@ -53,8 +53,8 @@ this source correction does not silently rewrite their history.
 Boundary tuning is conservative: one second of continuous quiet PCM, a
 hypothesis stable for 2.5 seconds, and fresh audio are required for requested
 rotation. At 55 seconds of supplied audio, an unsafe request is retained for
-review. These thresholds passed deterministic regressions; a fresh on-device
-read-aloud is still needed to measure acoustic behavior in the operator's room.
+review. These thresholds passed deterministic regressions. The subsequent
+on-device read-aloud result is recorded below.
 
 - Signed generic iOS build **bfdbfb2** passed with the complete offline payload:
   154 files, 5,749,615,321 bytes. The embedded build stamp identifies a clean
@@ -63,9 +63,36 @@ read-aloud is still needed to measure acoustic behavior in the operator's room.
   time on 18 September 2026. Installation and launch succeeded; process
   inspection confirmed the app running. File metadata confirmed the test
   recording, encounter event log, Section C data and manifest remained present.
-- Source commit **bfdbfb2** is pushed to `main`. The operator has been asked to
-  verify the next casualty label and repeat the fictional read-aloud on this
-  build. That new physical recognition check is pending.
+- Source commit **bfdbfb2** is pushed to `main`. The operator subsequently
+  completed the requested two-volume test on this build.
+
+## Physical retest
+
+The new recording and encounter artifacts were retrieved directly from the
+connected iPhone after the operator finished the test. The durable manifest
+confirmed that New Casualty advanced beyond the previously saved labels.
+
+Both volume passes produced separate, successful Apple Speech final segments.
+Each contained all four requested fictional values correctly: pulse 120,
+blood pressure 90/60, respiratory rate 22 and oxygen saturation 96%. The
+persisted Section C data matched those values. There were no incomplete
+segments and no hemorrhage deltas from the blood-pressure phrase.
+
+The repeated identical values intentionally produced one Section C row. Both
+spoken observations remain in the event log; the second advances the update
+time without duplicating unchanged vital-value deltas. This matches the current
+engine and Section C deduplication behavior.
+
+The 72.8-second AAC file decoded successfully (16 kHz mono). Decoded audio had
+zero full-scale samples and a peak of approximately -2.5 dBFS. Both the quieter
+and louder speech intervals were present. This establishes a successful local
+capture-to-persisted-values check for the requested phrase, not general speech
+accuracy or performance in field noise. A nonclinical introductory word was
+still misrecognized; the requested vital values were correct in both passes.
+
+No source behavior changed for this validation; the 918 package and 136 app
+test results above remain the checks for the installed source. Personal audio,
+raw event logs and device identifiers remain outside the repository.
 
 Native Claude Code contributed a scoped, source-only partial implementation of
 the numbering correction. It reached its turn limit; Codex completed, reviewed
