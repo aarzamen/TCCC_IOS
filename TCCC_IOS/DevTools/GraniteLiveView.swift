@@ -350,6 +350,14 @@ struct GraniteLiveView: View {
                         await MainActor.run {
                             self.transcriptText = update.text
                             if update.isFinal {
+                                if let termination = update.termination, termination != .finalized {
+                                    let message = update.issue ?? "Granite capture ended before transcription completed."
+                                    self.lastError = message
+                                    self.recordingStartedAt = nil
+                                    self.phase = .failed(message: message)
+                                    self.csvLogger?.append(self.monitor.current, pressure: self.monitor.pressure, event: "failed")
+                                    return
+                                }
                                 self.csvLogger?.append(self.monitor.current, pressure: self.monitor.pressure, event: "transcribe_complete")
                                 self.recordingStartedAt = nil
                                 self.phase = .complete

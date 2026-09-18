@@ -196,7 +196,12 @@ struct SettingsOverlay: View {
                 }
             }
 
-            // ── Mic gain slider ────────────────────────────────────
+            if let active = state.activeCaptureBackend, let pending = state.pendingASRBackend {
+                Text("Recording with \(active.displayName). \(pending.displayName) applies after this capture finishes.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(palette.fg2)
+            }
+
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Microphone Gain")
@@ -205,39 +210,27 @@ struct SettingsOverlay: View {
                         .foregroundStyle(palette.fg2)
                         .textCase(.uppercase)
                     Spacer(minLength: 0)
-                    Text(String(format: "%+.1f dB", state.audioGainDb))
+                    Text("AUTOMATIC")
                         .font(.system(size: 12, weight: .semibold, design: .monospaced))
                         .foregroundStyle(palette.fg)
-                        .monospacedDigit()
                 }
-                Slider(
-                    value: Binding(
-                        get: { state.audioGainDb },
-                        set: { state.audioGainDb = $0 }
-                    ),
-                    in: -20.0...20.0,
-                    step: 0.5
-                )
-                HStack {
-                    Text("-20 dB · quiet")
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundStyle(palette.fg3)
-                    Spacer(minLength: 0)
-                    Button("Reset") {
-                        state.audioGainDb = 0
-                    }
-                    .font(.system(size: 9, weight: .heavy))
-                    .tracking(1.4)
-                    .textCase(.uppercase)
-                    .foregroundStyle(palette.fg2)
-                    Spacer(minLength: 0)
-                    Text("+20 dB · loud")
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundStyle(palette.fg3)
-                }
+                Text(microphoneGainStatus)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(palette.fg3)
             }
         }
         .padding(16)
+    }
+
+    private var microphoneGainStatus: String {
+        switch state.audioLevels.gainMode {
+        case .systemAutomatic:
+            return "iPhone voice gain active · peak protection on"
+        case .softwareAutomatic:
+            return String(format: "Adaptive gain active · %+.1f dB · peak protection on", state.audioLevels.gainDb)
+        case nil:
+            return "Adjusts automatically when the microphone is active."
+        }
     }
 
     private func asrBackendRow(_ backend: AppState.ASRBackend) -> some View {

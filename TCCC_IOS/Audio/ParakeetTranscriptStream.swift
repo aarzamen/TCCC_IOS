@@ -47,10 +47,7 @@ actor ParakeetTranscriptStream: TranscriptStream {
     /// assets. Only explicit ensureModelsLoaded() preparation may download.
     private var modelDirectory: URL?
 
-    /// Provider for the current dynamic gain multiplier (linear, not
-    /// dB). Snapshotted on every audio buffer so a Settings slider
-    /// change takes effect on the next sample.
-    private let gainProvider: @Sendable () -> Float
+    private var inputProcessor = MicrophoneInputProcessor()
 
     /// FluidAudio streaming chunk size. Each value corresponds to a
     /// distinct CoreML model variant on Hugging Face — switching this
@@ -154,12 +151,10 @@ actor ParakeetTranscriptStream: TranscriptStream {
 
     init(
         levels: AudioLevels?,
-        gainProvider: @escaping @Sendable () -> Float = { 1.0 },
         chunkSize: StreamingChunkSize = .ms160,
         eouDebounceMs: Int = 2000
     ) {
         self.levels = levels
-        self.gainProvider = gainProvider
         self.chunkSize = chunkSize
         self.eouDebounceMs = eouDebounceMs
     }
@@ -253,22 +248,7 @@ actor ParakeetTranscriptStream: TranscriptStream {
 
         let inputNode = engine.inputNode
 
-        // iOS Voice Processing IO Unit: AGC + AEC + noise suppression on
-        // the input node, applied BEFORE the tap fires. iOS tracks ambient
-        // RMS and pushes speech toward ~-16 dBFS with attack/release tuned
-        // for voice. The manual gain slider still applies as a trim on
-        // top. Must run BEFORE the format read and tap install. See the
-        // matching comment in SpeechRecognizer.prime() for full reasoning.
-        do {
-            try inputNode.setVoiceProcessingEnabled(true)
-            inputNode.isVoiceProcessingAGCEnabled = true
-            DiagnosticsLogger.shared.log("prime · voice processing AGC enabled", category: "lifecycle")
-        } catch {
-            DiagnosticsLogger.shared.log(
-                "prime · voice processing enable failed: \(error.localizedDescription) — falling back to unity-gain capture",
-                category: "lifecycle"
-            )
-        }
+        inputProcessor = .configured(for: inputNode)
 
         let format = inputNode.outputFormat(forBus: 0)
         self.inputFormat = format
@@ -293,7 +273,6 @@ actor ParakeetTranscriptStream: TranscriptStream {
             )
         }
 
-        let weakLevels = self.levels
         let arrivalCounter = self.bufferCounter
         let (audioStream, audioContinuation) = AsyncStream<CapturedPCM>.makeStream(bufferingPolicy: .bufferingOldest(128))
         self.audioContinuation = audioContinuation
@@ -317,7 +296,6 @@ actor ParakeetTranscriptStream: TranscriptStream {
                 - Double(buffer.frameLength) / buffer.format.sampleRate
             let rms = Self.computeRMS(buffer)
             arrivalCounter.record(frames: Int(buffer.frameLength), rms: rms)
-            if let weakLevels { Task { @MainActor in weakLevels.ingest(rms) } }
             guard let copy = Self.copyBuffer(buffer) else {
                 Task { [weak self] in await self?.audioOverrun(generation: generation) }
                 return
@@ -525,14 +503,8 @@ actor ParakeetTranscriptStream: TranscriptStream {
         // A converter can legitimately buffer its initial input before emitting PCM.
         guard working.frameLength > 0 else { return }
 
-        // Apply variable dynamic gain BEFORE storing/streaming so the
-        // ring buffer, level meter, and ASR all see the post-gain
-        // signal. The gainProvider closure reads the current Settings
-        // slider value on every tick.
-        let gain = gainProvider()
-        if gain != 1.0 {
-            Self.applyGain(working, gain: gain)
-        }
+        let report = inputProcessor.process(working)
+        if report.shouldPublish, let levels { Task { @MainActor in levels.ingest(report) } }
 
         // Always: maintain the ring buffer (now in target format).
         ringBuffer.append(TimedPCM(buffer: working, capturedAt: captured.capturedAt))
@@ -577,30 +549,6 @@ actor ParakeetTranscriptStream: TranscriptStream {
             continuation?.yield(RecognitionUpdate(text: "", isFinal: false, timestamp: Date(),
                 captureID: captureID, issue: "Audio recording failed: \(error.localizedDescription)",
                 audioUnavailable: true))
-        }
-    }
-
-    /// In-place sample-level gain. Float buffers (the iOS engine's
-    /// default format) get a multiply pass; Int16 buffers (uncommon
-    /// in our pipeline) are saturated to ±32767 to avoid wrap.
-    private static func applyGain(_ buffer: AVAudioPCMBuffer, gain: Float) {
-        let frames = Int(buffer.frameLength)
-        let channels = Int(buffer.format.channelCount)
-        if let data = buffer.floatChannelData {
-            for ch in 0..<channels {
-                let p = data[ch]
-                for i in 0..<frames {
-                    p[i] *= gain
-                }
-            }
-        } else if let data = buffer.int16ChannelData {
-            for ch in 0..<channels {
-                let p = data[ch]
-                for i in 0..<frames {
-                    let scaled = Float(p[i]) * gain
-                    p[i] = Int16(max(-32767, min(32767, scaled)))
-                }
-            }
         }
     }
 

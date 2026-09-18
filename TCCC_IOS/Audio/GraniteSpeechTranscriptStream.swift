@@ -28,16 +28,24 @@ import TCCCAudio
 actor GraniteSpeechTranscriptStream: TranscriptStream {
     private let runtime: GraniteSpeechRuntime
     private weak var levels: AudioLevels?
-    private let gainProvider: @Sendable () -> Float
+    private var inputProcessor = MicrophoneInputProcessor()
 
     private let engine = AVAudioEngine()
-    private var inputFormat: AVAudioFormat?
-    private var audioFile: AVAudioFile?
+    private var writer: PCMArchiveWriter?
+    private var audioCapture: GraniteAudioCapture?
+    private var captureID: UUID?
+    /// Recognition can be invalidated immediately; admitted archive writes
+    /// retain their authority until the capture consumer has drained.
+    private var writerGeneration: UUID?
+    private var requestID = UUID()
+    private var isStarting = false
+    private var isFinishing = false
     private var recordedURL: URL?
     private var continuation: AsyncStream<RecognitionUpdate>.Continuation?
     private var isPrimed: Bool = false
     private var isRecording: Bool = false
     private var transcribeTask: Task<Void, Never>?
+    private var teardownTask: Task<Void, Never>?
 
     init(
         runtime: GraniteSpeechRuntime = GraniteSpeechRuntime(
@@ -49,12 +57,10 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
                 }
             )
         ),
-        levels: AudioLevels? = nil,
-        gainProvider: @escaping @Sendable () -> Float = { 1.0 }
+        levels: AudioLevels? = nil
     ) {
         self.runtime = runtime
         self.levels = levels
-        self.gainProvider = gainProvider
     }
 
     // MARK: - TranscriptStream
@@ -111,74 +117,54 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
     }
 
     func start(audioURL: URL?) async throws -> AsyncStream<RecognitionUpdate> {
+        guard !isStarting, !isRecording, !isFinishing else { throw TranscriptStreamError.alreadyRunning }
+        isStarting = true
+        defer { isStarting = false }
+        let generation = UUID()
+        captureID = generation
+        requestID = UUID()
         if !isPrimed { try await prime() }
-        guard !isRecording else { throw TranscriptStreamError.alreadyRunning }
+        guard captureID == generation, !Task.isCancelled else { throw CancellationError() }
 
         try configureSession()
 
         let inputNode = engine.inputNode
 
-        // iOS Voice Processing IO Unit: AGC + AEC + noise suppression on
-        // the input node, applied BEFORE the tap fires. iOS tracks ambient
-        // RMS and pushes speech toward ~-16 dBFS with attack/release tuned
-        // for voice. The manual gain slider still applies as a trim on
-        // top. Must run BEFORE the format read and tap install. See the
-        // matching comment in SpeechRecognizer.prime() for full reasoning.
-        do {
-            try inputNode.setVoiceProcessingEnabled(true)
-            inputNode.isVoiceProcessingAGCEnabled = true
-        } catch {
-            // Best-effort — capture continues at hardware unity gain.
-        }
+        inputProcessor = .configured(for: inputNode)
 
         let format = inputNode.outputFormat(forBus: 0)
-        self.inputFormat = format
-
+        guard format.sampleRate.isFinite, format.sampleRate > 0, format.channelCount > 0 else {
+            throw TranscriptStreamError.engineFailed("Microphone audio format is unavailable")
+        }
         let url = audioURL ?? FileManager.default.temporaryDirectory
             .appendingPathComponent("granite-live-\(UUID().uuidString).m4a")
-        recordedURL = url
-
-        // AVAudioFile writes inherit Data Protection from the file we
-        // pre-create with NSFileProtectionComplete. Mirrors the path
-        // SpeechRecognizer + ParakeetTranscriptStream already use.
+        // Failure to create the protected archive must stop capture. Never fall
+        // back to an unprotected file or decode an empty recording as success.
         do {
             try ProtectedWrite.createEmpty(at: url)
-            let file = try AVAudioFile(
-                forWriting: url,
+            let file = try AVAudioFile(forWriting: url,
                 settings: AudioCaptureConfig.aacOutputSettings,
-                commonFormat: format.commonFormat,
-                interleaved: format.isInterleaved
-            )
-            self.audioFile = file
+                commonFormat: .pcmFormatFloat32, interleaved: false)
+            writer = try PCMArchiveWriter(inputFormat: format, audioFile: file)
+            writerGeneration = generation
+            recordedURL = url
         } catch {
-            // Non-fatal — we can still transcribe live audio out of a
-            // temp WAV if AAC setup failed. Fall back to a temp WAV.
-            let tempURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("granite-live-\(UUID().uuidString).wav")
-            recordedURL = tempURL
-            self.audioFile = try? AVAudioFile(
-                forWriting: tempURL,
-                settings: format.settings,
-                commonFormat: format.commonFormat,
-                interleaved: format.isInterleaved
-            )
+            throw TranscriptStreamError.engineFailed("Audio recording could not start: \(error.localizedDescription)")
         }
 
-        let weakLevels = self.levels
-        let gain = gainProvider
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            guard let copy = Self.copyBuffer(buffer) else { return }
-            let g = gain()
-            if g != 1.0 {
-                Self.applyGain(copy, gain: g)
+        let capture = GraniteAudioCapture(maxQueuedFrames: Int(format.sampleRate * 5)) { [weak self] buffer in
+            guard let self else { throw CancellationError() }
+            try await self.ingestBuffer(buffer, generation: generation)
+        }
+        audioCapture = capture
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+            let capturedAt = ProcessInfo.processInfo.systemUptime
+                - Double(buffer.frameLength) / buffer.format.sampleRate
+            guard let copy = Self.copyBuffer(buffer) else {
+                capture.fail("Could not copy microphone audio; recording is incomplete")
+                return
             }
-            let rms = Self.computeRMS(copy)
-            if let weakLevels {
-                Task { @MainActor in weakLevels.ingest(rms) }
-            }
-            Task { [weak self] in
-                await self?.ingestBuffer(copy)
-            }
+            capture.enqueue(copy, capturedAt: capturedAt)
         }
 
         engine.prepare()
@@ -186,7 +172,11 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
             try engine.start()
         } catch {
             inputNode.removeTap(onBus: 0)
-            audioFile = nil
+            capture.closeAdmission()
+            _ = await capture.closeAndDrain()
+            audioCapture = nil
+            writer = nil
+            writerGeneration = nil
             recordedURL = nil
             throw TranscriptStreamError.engineFailed(error.localizedDescription)
         }
@@ -198,99 +188,118 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
     }
 
     func stop() async {
-        guard isRecording else { return }
-        engine.stop()
-        engine.inputNode.removeTap(onBus: 0)
+        guard isRecording, let generation = captureID, let capture = audioCapture else { return }
         isRecording = false
-        try? AVAudioSession.sharedInstance().setActive(
-            false, options: .notifyOthersOnDeactivation
-        )
-
-        // Close the file before MLXAudio reads it.
+        isFinishing = true
+        // No task-per-buffer: close admission first, then wait for its one
+        // consumer before releasing the file and starting model inference.
+        capture.closeAdmission()
+        stopMicrophone()
+        let outcome = await capture.closeAndDrain()
+        guard captureID == generation else { return }
+        audioCapture = nil
+        writer = nil
+        writerGeneration = nil
         let url = recordedURL
-        audioFile = nil
-        if let url {
-            try? ProtectedWrite.markProtected(at: url)
-        }
-
-        if let weakLevels = self.levels {
-            Task { @MainActor in weakLevels.reset() }
-        }
-
-        // Spin up record-then-transcribe. The continuation is the only
-        // path RecognitionUpdates flow back to the caller — emit the
-        // final transcript here, then finish the stream.
-        let runtimeRef = runtime
+        recordedURL = nil
         let cont = continuation
+        continuation = nil
+        let request = requestID
+        var captureIssue = outcome.issue
+        if let url {
+            do { try ProtectedWrite.markProtected(at: url) }
+            catch { captureIssue = "Audio protection failed: \(error.localizedDescription)" }
+        }
+        guard let url, let cont, let startedAt = outcome.requestStartedAt, captureIssue == nil else {
+            cont?.yield(RecognitionUpdate(text: "", isFinal: true, timestamp: Date(),
+                captureID: generation, requestID: request, termination: .failed,
+                issue: captureIssue ?? "No microphone audio was captured", audioUnavailable: true,
+                requestStartedAt: outcome.requestStartedAt))
+            cont?.finish()
+            isFinishing = false
+            return
+        }
+
+        let runtimeRef = runtime
         transcribeTask = Task {
-            guard let url, let cont else {
-                cont?.finish()
-                return
-            }
+            var accumulator = ""
             do {
                 let stream = try await runtimeRef.transcribe(audioURL: url)
-                var accumulator = ""
                 for try await event in stream {
                     try Task.checkCancellation()
                     if case .token(let token) = event {
                         accumulator += token
-                    } else if case .result(let output) = event {
-                        if !output.text.isEmpty {
-                            accumulator = output.text
-                        }
+                    } else if case .result(let output) = event, !output.text.isEmpty {
+                        accumulator = output.text
                     }
                 }
                 try Task.checkCancellation()
-                cont.yield(RecognitionUpdate(
-                    text: accumulator,
-                    isFinal: true,
-                    timestamp: Date()
-                ))
+                cont.yield(RecognitionUpdate(text: accumulator, isFinal: true, timestamp: Date(),
+                    captureID: generation, requestID: request, termination: .finalized,
+                    requestStartedAt: startedAt))
             } catch is CancellationError {
-                // Cancellation is teardown, not a successful final transcript.
+                cont.yield(RecognitionUpdate(text: accumulator, isFinal: true, timestamp: Date(),
+                    captureID: generation, requestID: request, termination: .cancelled,
+                    issue: "Granite transcription was cancelled", requestStartedAt: startedAt))
             } catch {
-                cont.yield(RecognitionUpdate(
-                    text: "[Granite Speech: \(error.localizedDescription)]",
-                    isFinal: true,
-                    timestamp: Date()
-                ))
+                cont.yield(RecognitionUpdate(text: accumulator, isFinal: true, timestamp: Date(),
+                    captureID: generation, requestID: request, termination: .failed,
+                    issue: "Granite Speech: \(error.localizedDescription)", requestStartedAt: startedAt))
             }
             cont.finish()
+            if captureID == generation {
+                isFinishing = false
+                transcribeTask = nil
+            }
         }
-
-        recordedURL = nil
-        continuation = nil
     }
 
     func stopImmediate() async {
-        // Stop may already have released the microphone and started decoding.
-        // Always cancel and join that task before unloading its model or starting
-        // another lab session, even when recording has ended.
-        transcribeTask?.cancel()
-        if isRecording {
-            engine.stop()
-            engine.inputNode.removeTap(onBus: 0)
-            isRecording = false
-            try? AVAudioSession.sharedInstance().setActive(
-                false, options: .notifyOthersOnDeactivation
-            )
+        if let teardownTask { await teardownTask.value; return }
+        let generation = captureID
+        captureID = nil // invalidates a start or normal stop suspended at an await
+        isFinishing = true
+        let task = transcribeTask
+        task?.cancel()
+        let capture = audioCapture
+        capture?.closeAdmission()
+        if isRecording { stopMicrophone() }
+        isRecording = false
+        let teardown = Task {
+            let outcome = await capture?.closeAndDrain()
+            audioCapture = nil
+            writer = nil
+            writerGeneration = nil
+            recordedURL = nil
+            continuation?.yield(RecognitionUpdate(text: "", isFinal: true, timestamp: Date(),
+                captureID: generation, requestID: requestID, termination: .cancelled,
+                issue: "Granite capture was cancelled", requestStartedAt: outcome?.requestStartedAt))
+            continuation?.finish()
+            continuation = nil
+            if let task { await task.value }
+            transcribeTask = nil
+            teardownTask = nil
+            isFinishing = false
         }
-        audioFile = nil
-        recordedURL = nil
-        continuation?.finish()
-        continuation = nil
-        if let transcribeTask { await transcribeTask.value }
-        transcribeTask = nil
-        if let weakLevels = self.levels {
-            Task { @MainActor in weakLevels.reset() }
-        }
+        teardownTask = teardown
+        await teardown.value
     }
 
-    // MARK: - Tap-callback path
+    private func stopMicrophone() {
+        engine.stop()
+        engine.inputNode.removeTap(onBus: 0)
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if let levels { Task { @MainActor in levels.reset() } }
+    }
 
-    private func ingestBuffer(_ buffer: AVAudioPCMBuffer) {
-        guard isRecording else { return }
-        try? audioFile?.write(from: buffer)
+    // MARK: - Ordered capture-consumer path
+
+    private func ingestBuffer(_ captured: GraniteAudioCapture.PCM, generation: UUID) throws {
+        guard generation == writerGeneration, let writer else { throw CancellationError() }
+        try writer.append(captured.buffer) { converted in
+            let report = inputProcessor.process(converted)
+            if report.shouldPublish, let levels { Task { @MainActor in levels.ingest(report) } }
+        }
     }
 
     // MARK: - Resolver-source query (for GraniteLiveView's status line)
@@ -313,56 +322,20 @@ actor GraniteSpeechTranscriptStream: TranscriptStream {
         try session.setActive(true, options: .notifyOthersOnDeactivation)
     }
 
-    private static func applyGain(_ buffer: AVAudioPCMBuffer, gain: Float) {
-        let frames = Int(buffer.frameLength)
-        let channels = Int(buffer.format.channelCount)
-        if let data = buffer.floatChannelData {
-            for ch in 0..<channels {
-                let p = data[ch]
-                for i in 0..<frames {
-                    p[i] *= gain
-                }
-            }
-        } else if let data = buffer.int16ChannelData {
-            for ch in 0..<channels {
-                let p = data[ch]
-                for i in 0..<frames {
-                    let scaled = Float(p[i]) * gain
-                    p[i] = Int16(max(-32767, min(32767, scaled)))
-                }
-            }
-        }
-    }
-
     private static func copyBuffer(_ b: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
         guard let copy = AVAudioPCMBuffer(pcmFormat: b.format, frameCapacity: b.frameCapacity) else {
             return nil
         }
         copy.frameLength = b.frameLength
-        let frames = Int(b.frameLength)
-        let channels = Int(b.format.channelCount)
-        if let src = b.floatChannelData, let dst = copy.floatChannelData {
-            for ch in 0..<channels {
-                memcpy(dst[ch], src[ch], frames * MemoryLayout<Float>.size)
-            }
-        } else if let src = b.int16ChannelData, let dst = copy.int16ChannelData {
-            for ch in 0..<channels {
-                memcpy(dst[ch], src[ch], frames * MemoryLayout<Int16>.size)
-            }
+        let source = UnsafeMutableAudioBufferListPointer(b.mutableAudioBufferList)
+        let destination = UnsafeMutableAudioBufferListPointer(copy.mutableAudioBufferList)
+        guard source.count == destination.count else { return nil }
+        for index in source.indices {
+            guard let src = source[index].mData, let dst = destination[index].mData,
+                  source[index].mDataByteSize <= destination[index].mDataByteSize else { return nil }
+            memcpy(dst, src, Int(source[index].mDataByteSize))
         }
         return copy
     }
 
-    private static func computeRMS(_ buffer: AVAudioPCMBuffer) -> Float {
-        guard let channelData = buffer.floatChannelData else { return 0 }
-        let frameLength = Int(buffer.frameLength)
-        guard frameLength > 0 else { return 0 }
-        let samples = channelData[0]
-        var sum: Float = 0
-        for i in 0..<frameLength {
-            let s = samples[i]
-            sum += s * s
-        }
-        return sqrtf(sum / Float(frameLength))
-    }
 }

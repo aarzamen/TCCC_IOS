@@ -10,11 +10,12 @@ struct LiveCaptureScreen: View {
     /// reachable but requires the operator to provide a model
     /// directory in Settings before `start()` will succeed.
     @State private var primingTask: Task<Void, Never>?
-    @State private var recognizer: (any TranscriptStream)?
+    private var recognizer: (any TranscriptStream)? { state.captureBackendCoordinator.recognizer }
     @State private var streamingTask: Task<Void, Never>?
     @State private var activeGeneration: UUID?
     @State private var isTailing = false
     @State private var isChangingEncounter = false
+    @State private var isStartingCapture = false
     @State private var resumeAfterInterruption = false
     @State private var partialCommitTask: Task<Void, Never>?
     /// Watchdog that force-commits the in-flight partial during CONTINUOUS speech,
@@ -27,11 +28,10 @@ struct LiveCaptureScreen: View {
     @State private var elapsedDisplay: String = "00:00:00"
     @State private var elapsedTickerTask: Task<Void, Never>?
 
-    /// Apple and Parakeet identify finalized requests explicitly. Their partials
-    /// stay previews; only successful completion enters extraction. Granite keeps
-    /// the existing provisional replacement path until it supplies that contract.
+    /// All installed backends identify finalized requests explicitly. Their
+    /// partials stay previews; only successful completion enters extraction.
     private var usesRequestScopedCapture: Bool {
-        recognizer is SpeechRecognizer || recognizer is ParakeetTranscriptStream
+        true
     }
 
     /// Auto-scroll-to-latest gating. Flips off when the operator drags the
@@ -61,31 +61,17 @@ struct LiveCaptureScreen: View {
     /// and the partial cell stays small. Tunable.
     private let maxCommitInterval: Double = 8.0
 
-    /// Factory: returns the configured ASR backend per `state.asrBackend`.
-    /// Both backends receive a `gainProvider` closure that reads the
-    /// live Settings slider value on every audio buffer — so changing
-    /// the slider takes effect on the next sample, no restart needed.
-    private func makeRecognizer() -> any TranscriptStream {
-        // Capture the gain box (Sendable, nonisolated). The audio tap
-        // callback runs on AVAudioEngine's render thread; we MUST NOT
-        // touch MainActor-isolated AppState properties from there.
-        // The box is updated by AppState.audioGainDb's didSet on the
-        // MainActor side; the audio thread reads `linear` directly.
+    /// Each backend owns automatic gain and reports its processed microphone level.
+    private func makeRecognizer(_ backend: AppState.ASRBackend) -> any TranscriptStream {
         let appState = state
-        let gainBox = state.audioGainBox
-        let gainProvider: @Sendable () -> Float = {
-            gainBox.linear
-        }
-        switch state.asrBackend {
+        switch backend {
         case .appleSpeech:
             return SpeechRecognizer(
-                levels: state.audioLevels,
-                gainProvider: gainProvider
+                levels: state.audioLevels
             )
         case .parakeet:
             let p = ParakeetTranscriptStream(
-                levels: state.audioLevels,
-                gainProvider: gainProvider
+                levels: state.audioLevels
             )
             if let dir = state.parakeetModelDirectory {
                 Task { await p.setModelDirectory(dir) }
@@ -101,7 +87,7 @@ struct LiveCaptureScreen: View {
             }
             return p
         case .graniteSpeech:
-            return GraniteSpeechTranscriptStream()
+            return GraniteSpeechTranscriptStream(levels: state.audioLevels)
         }
     }
 
@@ -138,18 +124,17 @@ struct LiveCaptureScreen: View {
             state.clinicalAudioRelease = {
                 primingTask?.cancel()
                 await primingTask?.value
-                await recognizer?.stopImmediate()
+                await state.captureBackendCoordinator.shutdown(factory: makeRecognizer)
                 await streamingTask?.value
-                await recognizer?.unprime()
-                recognizer = nil
                 state.clinicalAudioRelease = nil
             }
-            if recognizer == nil { recognizer = makeRecognizer() }
+            await state.captureBackendCoordinator.select(state.asrBackend, factory: makeRecognizer)
+            let primingRecognizer = recognizer
             primingTask = Task {
                 do {
-                    try await recognizer?.authorize()
+                    try await primingRecognizer?.authorize()
                     guard !Task.isCancelled else { return }
-                    try await recognizer?.prime()
+                    try await primingRecognizer?.prime()
                 } catch { }
             }
             await primingTask?.value
@@ -170,13 +155,19 @@ struct LiveCaptureScreen: View {
                 periodicCommitTask?.cancel()
                 elapsedTickerTask?.cancel()
                 let pendingPrime = primingTask
-                let retiringRecognizer = recognizer
                 pendingPrime?.cancel()
                 Task {
                     await pendingPrime?.value
-                    await retiringRecognizer?.stopImmediate()
-                    await retiringRecognizer?.unprime()
+                    await state.captureBackendCoordinator.shutdown(factory: makeRecognizer)
                 }
+            }
+        }
+        .onChange(of: state.asrBackend) { _, _ in
+            let pendingPrime = primingTask
+            if state.activeCaptureBackend == nil { pendingPrime?.cancel() }
+            Task {
+                if state.activeCaptureBackend == nil { await pendingPrime?.value }
+                await state.captureBackendCoordinator.select(state.asrBackend, factory: makeRecognizer)
             }
         }
         // L1.3 — AVAudioSession interruption handlers. AppState's
@@ -205,8 +196,6 @@ struct LiveCaptureScreen: View {
                 resumeAfterInterruption = false
                 Task {
                     await streamingTask?.value
-                    await recognizer?.unprime()
-                    try? await recognizer?.prime()
                     await beginRecordingAfterInterruption()
                 }
             }
@@ -217,8 +206,7 @@ struct LiveCaptureScreen: View {
             periodicCommitTask?.cancel(); partialCommitTask?.cancel()
             resumeAfterInterruption = false
             Task {
-                await recognizer?.stopImmediate()
-                await recognizer?.unprime() // old casualty speech must not become new pre-roll
+                await state.captureBackendCoordinator.shutdown(factory: makeRecognizer)
                 guard state.captureGeneration == generation else { return }
                 isTailing = false
                 isChangingEncounter = false
@@ -446,7 +434,7 @@ struct LiveCaptureScreen: View {
             ) {
                 Task { await toggleRecording() }
             }
-            .disabled(isTailing || isChangingEncounter)
+            .disabled(isTailing || isChangingEncounter || isStartingCapture)
 
             BigButton("Mark", systemImage: "bookmark.fill", style: .accent) {
                 state.clinicalEntrySheet = .mark
@@ -525,33 +513,15 @@ struct LiveCaptureScreen: View {
             }
             isTailing = true
             state.isRecording = false
+            let backend = state.activeCaptureBackend
             await recognizer?.stop()
-            state.appendSystem("RECORDING TAIL · 30s capture continuing")
+            state.appendSystem(backend == .graniteSpeech
+                ? "PROCESSING · transcribing recorded audio"
+                : "RECORDING TAIL · 30s capture continuing")
             return
         }
-        guard !isTailing, !isChangingEncounter else { return }
-
-        guard let recognizer else { return }
-        state.clearError()
-
-        do {
-            try await recognizer.authorize()
-        } catch {
-            state.recognitionError = error.localizedDescription
-            return
-        }
-
-        do {
-            let url = state.newAudioCaptureURL()
-            let stream = try await recognizer.start(audioURL: url)
-            state.isRecording = true
-            state.sessionStart = Date()
-            await consume(stream, requestedURL: url)
-
-        } catch {
-            state.recognitionError = error.localizedDescription
-            state.isRecording = false
-        }
+        guard !isTailing, !isChangingEncounter, !isStartingCapture else { return }
+        await startRecording(resetElapsedTime: true)
     }
 
     /// Restart the streaming pipeline after an iOS interruption clears
@@ -564,24 +534,57 @@ struct LiveCaptureScreen: View {
     /// alone so the elapsed clock stays continuous across the
     /// interruption.
     private func beginRecordingAfterInterruption() async {
-        guard let recognizer else { return }
-        do {
-            let url = state.newAudioCaptureURL()
-            let stream = try await recognizer.start(audioURL: url)
-            state.isRecording = true
-            await consume(stream, requestedURL: url)
+        guard !isChangingEncounter, !isStartingCapture else { return }
+        await startRecording(resetElapsedTime: false)
+    }
 
+    private func startRecording(resetElapsedTime: Bool) async {
+        isStartingCapture = true
+        defer { isStartingCapture = false }
+        state.clearError()
+        let generationBeforeStart = state.captureGeneration
+        let coordinator = state.captureBackendCoordinator
+        var reservedLease: CaptureBackendCoordinator.Lease?
+        do {
+            // Finish old warm-up before replacement; reserve the latest choice
+            // before the new backend's authorize/prime/start can suspend.
+            let lease = try await coordinator.acquireAfterWarmup(primingTask,
+                selectedBackend: { state.asrBackend },
+                isValid: { state.captureGeneration == generationBeforeStart && !isChangingEncounter },
+                factory: makeRecognizer)
+            reservedLease = lease
+            let startingRecognizer = try await coordinator.prepare(lease,
+                restartingAfterInterruption: !resetElapsedTime,
+                isValid: { state.captureGeneration == generationBeforeStart && !isChangingEncounter })
+            guard coordinator.isCurrent(lease.id), state.captureGeneration == generationBeforeStart,
+                  !Task.isCancelled else { throw CancellationError() }
+            let url = state.newAudioCaptureURL()
+            let stream = try await startingRecognizer.start(audioURL: url)
+            guard coordinator.isCurrent(lease.id), state.captureGeneration == generationBeforeStart,
+                  !Task.isCancelled else {
+                await startingRecognizer.stopImmediate()
+                throw CancellationError()
+            }
+            state.isRecording = true
+            if resetElapsedTime { state.sessionStart = Date() }
+            await consume(stream, requestedURL: url, lease: lease, recognizer: startingRecognizer)
+        } catch is CancellationError {
+            if let reservedLease { await coordinator.finish(reservedLease.id, factory: makeRecognizer) }
         } catch {
-            state.recognitionError = error.localizedDescription
-            state.isRecording = false
+            if let reservedLease, coordinator.isCurrent(reservedLease.id) {
+                state.recognitionError = error.localizedDescription
+                state.isRecording = false
+                await coordinator.finish(reservedLease.id, factory: makeRecognizer)
+            }
         }
     }
 
     @MainActor
-    private func consume(_ stream: AsyncStream<RecognitionUpdate>, requestedURL: URL) async {
+    private func consume(_ stream: AsyncStream<RecognitionUpdate>, requestedURL: URL,
+                         lease: CaptureBackendCoordinator.Lease, recognizer: any TranscriptStream) async {
         streamingTask?.cancel()
         partialCommitTask?.cancel()
-        let generation = state.beginCapture()
+        let generation = state.beginCapture(backend: lease.backend)
         activeGeneration = generation
         isTailing = false
         let apple = recognizer as? SpeechRecognizer
@@ -621,6 +624,7 @@ struct LiveCaptureScreen: View {
             isTailing = false
             streamingTask = nil
             activeGeneration = nil
+            await state.captureBackendCoordinator.finish(lease.id, factory: makeRecognizer)
         }
     }
 

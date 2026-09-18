@@ -47,7 +47,7 @@ actor SpeechRecognizer: TranscriptStream {
 
     // MARK: - Pre-roll ring buffer (last 30s of PCM — see leadDuration)
 
-    private var ringBuffer: [AVAudioPCMBuffer] = []
+    private var ringBuffer: [CapturedPCM] = []
     private var ringBufferFrames: Int = 0
 
     // MARK: - Recognition
@@ -59,11 +59,11 @@ actor SpeechRecognizer: TranscriptStream {
     private var capture: CaptureRequestState?
     private var tailTask: Task<Void, Never>?
     private var drainTask: Task<Void, Never>?
-    private var queuedAudio: [AVAudioPCMBuffer] = []
+    private var queuedAudio: [CapturedPCM] = []
     private var queuedFrames = 0
     private var latestText = ""
     private var utterances = SpeechUtteranceAssembler()
-    private var requestStartedAt: TimeInterval = 0
+    private var requestClock = SpeechBufferClock(openedAt: 0)
     private struct Callback: Sendable {
         let text: String?
         let final: Bool
@@ -83,29 +83,25 @@ actor SpeechRecognizer: TranscriptStream {
     /// Each tap buffer is copied once and then owned by the serial consumer.
     private struct CapturedPCM: @unchecked Sendable {
         let buffer: AVAudioPCMBuffer
+        let capturedAt: TimeInterval
     }
 
     // MARK: - Audio file capture
 
-    private var audioFile: AVAudioFile?
+    private var audioWriter: PCMArchiveWriter?
     public private(set) var lastRecordingURL: URL?
 
     // MARK: - Init
 
     init(
         locale: Locale = Locale(identifier: "en-US"),
-        levels: AudioLevels?,
-        gainProvider: @escaping @Sendable () -> Float = { 1.0 }
+        levels: AudioLevels?
     ) {
         self.recognizer = SFSpeechRecognizer(locale: locale)
         self.levels = levels
-        self.gainProvider = gainProvider
     }
 
-    /// Provider for the current dynamic gain multiplier (linear, not
-    /// dB). Read on every audio buffer so a Settings slider change
-    /// takes effect on the next sample.
-    private let gainProvider: @Sendable () -> Float
+    private var inputProcessor = MicrophoneInputProcessor()
 
     // MARK: - Authorization
 
@@ -134,28 +130,11 @@ actor SpeechRecognizer: TranscriptStream {
 
         let inputNode = engine.inputNode
 
-        // iOS Voice Processing IO Unit: AGC + AEC + noise suppression on
-        // the input node, applied BEFORE the tap fires. This is the
-        // adaptive-gain layer the operator asked for — iOS tracks ambient
-        // RMS and pushes speech toward ~-16 dBFS with attack/release tuned
-        // for voice. The manual gain slider (`gainProvider`) still applies
-        // as a multiplicative trim on top, so a quiet medic in a noisy
-        // field gets boosted automatically without fighting a Settings
-        // slider mid-narration. setVoiceProcessingEnabled must run BEFORE
-        // installTap and BEFORE engine.start, and is documented to throw
-        // on some devices/sessions — fall back silently to hardware-unity
-        // capture if it fails.
-        do {
-            try inputNode.setVoiceProcessingEnabled(true)
-            inputNode.isVoiceProcessingAGCEnabled = true
-        } catch {
-            // Best-effort — capture continues at hardware unity gain.
-        }
+        inputProcessor = .configured(for: inputNode)
 
         let format = inputNode.outputFormat(forBus: 0)
         self.inputFormat = format
 
-        let weakLevels = self.levels
         let (audioStream, audioContinuation) = AsyncStream<CapturedPCM>.makeStream(bufferingPolicy: .bufferingOldest(128))
         self.audioContinuation = audioContinuation
         let generation = UUID()
@@ -163,16 +142,14 @@ actor SpeechRecognizer: TranscriptStream {
         audioConsumer = Task { [weak self] in
             for await frame in audioStream {
                 guard !Task.isCancelled else { break }
-                await self?.ingestBuffer(frame.buffer, generation: generation)
+                await self?.ingestBuffer(frame, generation: generation)
             }
         }
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            let capturedAt = ProcessInfo.processInfo.systemUptime
+                - Double(buffer.frameLength) / buffer.format.sampleRate
             guard let copy = Self.copyBuffer(buffer) else { return }
-            let rms = Self.computeRMS(buffer)
-            if let weakLevels {
-                Task { @MainActor in weakLevels.ingest(rms) }
-            }
-            if case .dropped = audioContinuation.yield(CapturedPCM(buffer: copy)) {
+            if case .dropped = audioContinuation.yield(CapturedPCM(buffer: copy, capturedAt: capturedAt)) {
                 let droppedAt = Date()
                 Task { [weak self] in await self?.audioOverrun(generation: generation, at: droppedAt) }
             }
@@ -224,15 +201,17 @@ actor SpeechRecognizer: TranscriptStream {
             throw TranscriptStreamError.onDeviceUnavailable
         }
         lastRecordingURL = nil
+        audioWriter = nil
         if let audioURL, let format = inputFormat {
             do {
                 try ProtectedWrite.createEmpty(at: audioURL)
-                audioFile = try AVAudioFile(forWriting: audioURL,
+                let file = try AVAudioFile(forWriting: audioURL,
                     settings: AudioCaptureConfig.aacOutputSettings,
-                    commonFormat: format.commonFormat, interleaved: format.isInterleaved)
+                    commonFormat: .pcmFormatFloat32, interleaved: false)
+                audioWriter = try PCMArchiveWriter(inputFormat: format, audioFile: file)
                 lastRecordingURL = audioURL
             } catch {
-                audioFile = nil
+                audioWriter = nil
                 throw TranscriptStreamError.engineFailed("Cannot save audio: \(error.localizedDescription)")
             }
         }
@@ -243,9 +222,9 @@ actor SpeechRecognizer: TranscriptStream {
         queuedAudio.removeAll(); queuedFrames = 0
         isRecognizing = true
         beginRequest()
-        for buffer in ringBuffer {
-            request?.append(buffer)
-            writeAudio(buffer)
+        for frame in ringBuffer {
+            appendAudio(frame)
+            writeAudio(frame.buffer)
         }
         return stream
     }
@@ -289,27 +268,36 @@ actor SpeechRecognizer: TranscriptStream {
         finishCapture(.timedOut, issue: "Recognition finalization timed out; audio retained")
     }
 
-    private func ingestBuffer(_ buffer: AVAudioPCMBuffer, generation: UUID) {
+    private func ingestBuffer(_ frame: CapturedPCM, generation: UUID) {
         guard generation == tapGeneration else { return }
-        let gain = gainProvider()
-        if gain != 1.0 { Self.applyGain(buffer, gain: gain) }
-        ringBuffer.append(buffer)
+        let buffer = frame.buffer
+        let report = inputProcessor.process(buffer)
+        if report.shouldPublish, let levels { Task { @MainActor in levels.ingest(report) } }
+        ringBuffer.append(frame)
         ringBufferFrames += Int(buffer.frameLength)
         let maxFrames = Int(leadDuration * buffer.format.sampleRate)
         while ringBufferFrames > maxFrames, !ringBuffer.isEmpty {
-            ringBufferFrames -= Int(ringBuffer.removeFirst().frameLength)
+            ringBufferFrames -= Int(ringBuffer.removeFirst().buffer.frameLength)
         }
         guard isRecognizing, let capture, !capture.tailExpired else { return }
         writeAudio(buffer)
         if capture.awaitingFinal {
-            queuedAudio.append(buffer)
+            queuedAudio.append(frame)
             queuedFrames += Int(buffer.frameLength)
             if queuedFrames > Int(10 * buffer.format.sampleRate) {
                 finishCapture(.failed, issue: "Recognition fell behind; saved audio needs review")
             }
         } else {
-            request?.append(buffer)
+            appendAudio(frame)
         }
+    }
+
+    /// Every append path carries its capture time, including live frames that
+    /// waited in the serial consumer before the current request opened.
+    private func appendAudio(_ frame: CapturedPCM) {
+        guard let request else { return }
+        requestClock.includeBuffer(capturedAt: frame.capturedAt)
+        request.append(frame.buffer)
     }
 
     private func audioOverrun(generation: UUID, at date: Date) {
@@ -318,10 +306,10 @@ actor SpeechRecognizer: TranscriptStream {
     }
 
     private func writeAudio(_ buffer: AVAudioPCMBuffer) {
-        guard let file = audioFile else { return }
-        do { try file.write(from: buffer) }
+        guard let writer = audioWriter else { return }
+        do { try writer.append(buffer) }
         catch {
-            audioFile = nil
+            audioWriter = nil
             lastRecordingURL = nil
             continuation?.yield(RecognitionUpdate(text: "", isFinal: false, timestamp: Date(),
                 captureID: capture?.captureID, requestID: capture?.requestID,
@@ -333,7 +321,7 @@ actor SpeechRecognizer: TranscriptStream {
         guard let capture, !capture.closed, let recognizer else { return }
         latestText = ""
         utterances = SpeechUtteranceAssembler()
-        requestStartedAt = ProcessInfo.processInfo.systemUptime
+        requestClock = SpeechBufferClock(openedAt: ProcessInfo.processInfo.systemUptime)
         let requestID = capture.requestID
         let req = SpeechRequestFactory.makeBufferRequest()
         request = req
@@ -377,19 +365,21 @@ actor SpeechRecognizer: TranscriptStream {
                 return
             }
             beginRequest()
-            for buffer in queuedAudio { request?.append(buffer) }
+            for frame in queuedAudio { appendAudio(frame) }
             queuedAudio.removeAll(); queuedFrames = 0
             if capture?.tailExpired == true { endRequest() }
         } else {
             continuation?.yield(RecognitionUpdate(text: latestText, isFinal: false, timestamp: Date(),
-                captureID: capture?.captureID, requestID: requestID, requestStartedAt: requestStartedAt))
+                captureID: capture?.captureID, requestID: requestID,
+                requestStartedAt: requestClock.requestStartedAt))
         }
     }
 
     private func emit(_ termination: CaptureTermination, issue: String? = nil) {
         continuation?.yield(RecognitionUpdate(text: latestText, isFinal: termination == .finalized,
             timestamp: Date(), captureID: capture?.captureID, requestID: capture?.requestID,
-            termination: termination, issue: issue, requestStartedAt: requestStartedAt))
+            termination: termination, issue: issue,
+            requestStartedAt: requestClock.requestStartedAt))
     }
 
     private func finishCapture(_ termination: CaptureTermination?, issue: String? = nil) {
@@ -404,7 +394,7 @@ actor SpeechRecognizer: TranscriptStream {
         resultContinuation?.finish(); resultContinuation = nil
         resultConsumer?.cancel(); resultConsumer = nil
         queuedAudio.removeAll(); queuedFrames = 0
-        audioFile = nil
+        audioWriter = nil
         if let url = lastRecordingURL {
             do { try ProtectedWrite.markProtected(at: url) }
             catch {
@@ -424,59 +414,21 @@ actor SpeechRecognizer: TranscriptStream {
         try session.setActive(true, options: .notifyOthersOnDeactivation)
     }
 
-    /// In-place sample-level gain. Float buffers (the iOS engine's
-    /// default format) get a multiply pass; Int16 buffers (uncommon
-    /// in our pipeline) are saturated to ±32767 to avoid wrap.
-    private static func applyGain(_ buffer: AVAudioPCMBuffer, gain: Float) {
-        let frames = Int(buffer.frameLength)
-        let channels = Int(buffer.format.channelCount)
-        if let data = buffer.floatChannelData {
-            for ch in 0..<channels {
-                let p = data[ch]
-                for i in 0..<frames {
-                    p[i] *= gain
-                }
-            }
-        } else if let data = buffer.int16ChannelData {
-            for ch in 0..<channels {
-                let p = data[ch]
-                for i in 0..<frames {
-                    let scaled = Float(p[i]) * gain
-                    p[i] = Int16(max(-32767, min(32767, scaled)))
-                }
-            }
-        }
-    }
 
     private static func copyBuffer(_ b: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
         guard let copy = AVAudioPCMBuffer(pcmFormat: b.format, frameCapacity: b.frameCapacity) else {
             return nil
         }
         copy.frameLength = b.frameLength
-        let frames = Int(b.frameLength)
-        let channels = Int(b.format.channelCount)
-        if let src = b.floatChannelData, let dst = copy.floatChannelData {
-            for ch in 0..<channels {
-                memcpy(dst[ch], src[ch], frames * MemoryLayout<Float>.size)
-            }
-        } else if let src = b.int16ChannelData, let dst = copy.int16ChannelData {
-            for ch in 0..<channels {
-                memcpy(dst[ch], src[ch], frames * MemoryLayout<Int16>.size)
-            }
+        let source = UnsafeMutableAudioBufferListPointer(b.mutableAudioBufferList)
+        let destination = UnsafeMutableAudioBufferListPointer(copy.mutableAudioBufferList)
+        guard source.count == destination.count else { return nil }
+        for index in source.indices {
+            guard let src = source[index].mData, let dst = destination[index].mData,
+                  source[index].mDataByteSize <= destination[index].mDataByteSize else { return nil }
+            memcpy(dst, src, Int(source[index].mDataByteSize))
         }
         return copy
     }
 
-    private static func computeRMS(_ buffer: AVAudioPCMBuffer) -> Float {
-        guard let channelData = buffer.floatChannelData else { return 0 }
-        let frameLength = Int(buffer.frameLength)
-        guard frameLength > 0 else { return 0 }
-        let samples = channelData[0]
-        var sum: Float = 0
-        for i in 0..<frameLength {
-            let s = samples[i]
-            sum += s * s
-        }
-        return sqrtf(sum / Float(frameLength))
-    }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import TCCCDomain
 
 @MainActor
 @Observable
@@ -8,6 +9,15 @@ final class AudioLevels {
 
     private(set) var current: Float = 0
     private(set) var bars: [Float] = Array(repeating: 0, count: AudioLevels.barCount)
+
+    private(set) var gainMode: MicrophoneGainMode?
+    private(set) var gainDb: Float = 0
+
+    func ingest(_ report: MicrophoneInputProcessor.Report) {
+        gainMode = report.mode
+        gainDb = report.gainDb
+        ingest(report.rms)
+    }
 
     func ingest(_ rms: Float) {
         // Audio amplitude is logarithmic. Voice RMS lives roughly in
@@ -23,6 +33,8 @@ final class AudioLevels {
     }
 
     func reset() {
+        gainMode = nil
+        gainDb = 0
         current = 0
         bars = Array(repeating: 0, count: AudioLevels.barCount)
     }

@@ -112,6 +112,12 @@ final class AppState {
         }
     }
     var asrBackend: ASRBackend = .appleSpeech
+    let captureBackendCoordinator = CaptureBackendCoordinator()
+    var activeCaptureBackend: ASRBackend? { captureBackendCoordinator.activeCapture?.backend }
+    var pendingASRBackend: ASRBackend? {
+        guard let activeCaptureBackend, activeCaptureBackend != asrBackend else { return nil }
+        return asrBackend
+    }
 
     /// Filesystem path to the Parakeet CoreML model directory. Set
     /// from Settings when the operator AirDrops or downloads the
@@ -138,42 +144,6 @@ final class AppState {
         case failed(message: String)
     }
     var parakeetStatus: ParakeetStatus = .unknown
-
-    // MARK: - Audio gain (variable dynamic mic gain)
-
-    /// Microphone input gain in decibels. Slider range -20 to +20.
-    /// 0 dB is unchanged, +6 dB is ~2× louder, +12 dB is ~4× louder,
-    /// -6 dB is half as loud. Applied uniformly to both ASR
-    /// backends in their audio-tap callbacks before recognition.
-    var audioGainDb: Float = 0.0 {
-        didSet { audioGainBox.linear = powf(10.0, audioGainDb / 20.0) }
-    }
-
-    /// Linear gain multiplier derived from `audioGainDb`. Closures in
-    /// the audio actors snapshot this at each tap callback so changes
-    /// take effect on the next sample, not just the next start().
-    var audioGainLinear: Float {
-        powf(10.0, audioGainDb / 20.0)
-    }
-
-    /// Sendable, non-isolated gain accessor. The audio tap callback
-    /// runs on AVAudioEngine's render thread (not MainActor); reading
-    /// `audioGainDb` from there via `MainActor.assumeIsolated` is a
-    /// fatal trap. This box is the bridge: SwiftUI updates `linear`
-    /// on the MainActor; the audio thread reads it without isolation.
-    /// `OSAllocatedUnfairLock` provides actual race-safety — assuming
-    /// "Float reads are atomic on Apple Silicon" is a lottery ticket
-    /// the language model owes us nothing on. The lock is uncontended
-    /// in practice (one writer, one reader, ~50 Hz) so the cost is
-    /// invisible to the operator.
-    final class AudioGainBox: @unchecked Sendable {
-        private let storage = OSAllocatedUnfairLock<Float>(initialState: 1.0)
-        var linear: Float {
-            get { storage.withLock { $0 } }
-            set { storage.withLock { $0 = newValue } }
-        }
-    }
-    let audioGainBox = AudioGainBox()
 
     // MARK: - Long-form recording infrastructure (Wave 3 L1.3 + L3.3)
 
@@ -236,16 +206,10 @@ final class AppState {
                 guard let self else { return }
                 let event = src.mask
                 if event.contains(.critical) {
-                    if self.asrBackend == .appleSpeech {
-                        self.appendSystem("MEMORY · capture stopped; unfinished speech retained for review")
-                        Task { @MainActor in
-                            await self.endCaptureForLifecycle(preservePartial: true)
-                            await self.persistNewEvents()
-                        }
-                    } else if !self.partialTranscript.isEmpty {
-                        self.appendSystem("MEMORY · critical pressure · committing partial")
-                        self.appendFinal(self.partialTranscript)
-                        self.partialTranscript = ""
+                    self.appendSystem("MEMORY · capture stopped; unfinished speech retained for review")
+                    Task { @MainActor in
+                        await self.endCaptureForLifecycle(preservePartial: true)
+                        await self.persistNewEvents()
                     }
                 } else if event.contains(.warning) {
                     let logger = Logger(subsystem: "ai.tccc", category: "memory")
@@ -592,15 +556,17 @@ final class AppState {
     private(set) var captureGeneration = UUID()
     private var completedCaptureRequests: Set<UUID> = []
     private var captureOperatorRevisions: [UUID: Int] = [:]
+    private var captureProvenanceBackend: ASRBackend = .appleSpeech
 
-    @discardableResult func beginCapture() -> UUID {
+    @discardableResult func beginCapture(backend: ASRBackend? = nil) -> UUID {
         captureGeneration = UUID()
+        captureProvenanceBackend = backend ?? activeCaptureBackend ?? asrBackend
         completedCaptureRequests.removeAll()
         captureOperatorRevisions.removeAll()
         return captureGeneration
     }
 
-    /// Serialized by the stream consumer. Apple partials are display-only;
+    /// Serialized by the stream consumer. Request-scoped partials are display-only;
     /// completed requests enter the engine once and cannot revise another line.
     func receiveAppleCapture(_ update: RecognitionUpdate, generation: UUID) async {
         guard generation == captureGeneration else { return }
@@ -609,6 +575,7 @@ final class AppState {
         guard let requestID = update.requestID,
               !completedCaptureRequests.contains(requestID) else { return }
         let eng = engine
+        let backend = currentTranscriptBackend.rawValue
         if captureOperatorRevisions[requestID] == nil {
             let revision = await eng.operatorRevision()
             guard generation == captureGeneration else { return }
@@ -626,7 +593,7 @@ final class AppState {
         if termination == .finalized {
             let accepted = await eng.processCaptureTranscript(text,
                 operatorRevision: revision, requestStartedAt: update.requestStartedAt,
-                timestamp: update.timestamp)
+                timestamp: update.timestamp, backend: backend)
             guard generation == captureGeneration else { return }
             if accepted {
                 transcript.append(TranscriptLine(speaker: .medic, text: text, timestamp: update.timestamp))
@@ -640,7 +607,7 @@ final class AppState {
             }
         } else {
             let evidence = "CAPTURE INCOMPLETE (\(termination.rawValue)) · " + text
-            await eng.recordCaptureEvidence(evidence, timestamp: update.timestamp)
+            await eng.recordCaptureEvidence(evidence, timestamp: update.timestamp, backend: backend)
             guard generation == captureGeneration else { return }
             appendSystem(evidence)
             await persistNewEvents()
@@ -649,11 +616,12 @@ final class AppState {
 
     private func endCaptureForLifecycle(preservePartial: Bool) async {
         let pending = partialTranscript
+        let backend = currentTranscriptBackend.rawValue
         beginCapture() // invalidates old callback and consumer ownership
         isRecording = false
         partialTranscript = ""
         if preservePartial, !pending.isEmpty {
-            await engine.recordCaptureEvidence("CAPTURE INCOMPLETE (encounter ended) · " + pending)
+            await engine.recordCaptureEvidence("CAPTURE INCOMPLETE (encounter ended) · " + pending, backend: backend)
         }
     }
 
@@ -818,7 +786,7 @@ final class AppState {
     }
 
     private var currentTranscriptBackend: TranscriptBackend {
-        switch asrBackend {
+        switch captureProvenanceBackend {
         case .appleSpeech:   .appleSpeech
         case .parakeet:      .parakeet
         case .graniteSpeech: .graniteSpeech

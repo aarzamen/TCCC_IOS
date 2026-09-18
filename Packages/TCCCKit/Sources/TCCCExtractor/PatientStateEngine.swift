@@ -115,7 +115,7 @@ public actor PatientStateEngine {
     ///   3. For each sentence, detect a patient switch first, then ensure the
     ///      patient row exists, refresh timestamps, build the
     ///      `ExtractionContext`, and pass it through every extractor.
-    public func processTranscript(_ text: String, timestamp: Date = Date()) {
+    public func processTranscript(_ text: String, timestamp: Date = Date(), backend: String = "engine") {
         let before = patients                               // A3: capture for the diff
         let normalized = normalizer.normalize(text)
         let sentences = tokenizer.tokenize(normalized)
@@ -154,7 +154,7 @@ public actor PatientStateEngine {
             patients[currentPatientID] = current
         }
 
-        emitEvents(text: text, before: before, timestamp: unixTimestamp)
+        emitEvents(text: text, before: before, timestamp: unixTimestamp, backend: backend)
         // No re-fold: the imperative loop above already maintains `patients` as the
         // materialized projection. project(log) (used by restore + the equivalence
         // tests) is provably equal to it (A2 inverse property + A3 equivalence), so
@@ -325,21 +325,23 @@ public actor PatientStateEngine {
     /// landed while it was being recognized, retain the words for review instead
     /// of allowing the delayed result to supersede that decision.
     public func processCaptureTranscript(_ text: String, operatorRevision: Int,
-        requestStartedAt: TimeInterval? = nil, timestamp: Date = Date()) -> Bool {
+        requestStartedAt: TimeInterval? = nil, timestamp: Date = Date(),
+        backend: String = "appleSpeech") -> Bool {
         let decisionAfterRequest = requestStartedAt.map { lastOperatorDecisionUptime >= $0 } ?? false
         guard opCount == operatorRevision, !decisionAfterRequest else {
-            recordCaptureEvidence("REVIEW REQUIRED · " + text, timestamp: timestamp)
+            recordCaptureEvidence("REVIEW REQUIRED · " + text, timestamp: timestamp, backend: backend)
             return false
         }
-        processTranscript(text, timestamp: timestamp)
+        processTranscript(text, timestamp: timestamp, backend: backend)
         return true
     }
 
     /// Incomplete capture is durable evidence, never a clinical-state mutation.
-    public func recordCaptureEvidence(_ text: String, timestamp: Date = Date()) {
+    public func recordCaptureEvidence(_ text: String, timestamp: Date = Date(),
+        backend: String = "appleSpeech") {
         log.append(.asrSegment(.init(id: "capture-" + UUID().uuidString,
             patientId: currentPatientID, timestampUnix: timestamp.timeIntervalSince1970,
-            text: text, backend: "appleSpeech", isFinal: false)))
+            text: text, backend: backend, isFinal: false)))
     }
 
     /// Record + apply an operator-accepted fact: append the `operatorAcceptedFact`
@@ -691,12 +693,12 @@ public actor PatientStateEngine {
     // MARK: - Internal helpers
 
     /// Emit the asrSegment + per-patient deterministicFact events for one transcript call.
-    private func emitEvents(text: String, before: [String: PatientState], timestamp: Double) {
+    private func emitEvents(text: String, before: [String: PatientState], timestamp: Double, backend: String) {
         asrCount += 1
         let segId = "seg-\(asrCount)"
         log.append(.asrSegment(.init(
             id: segId, patientId: currentPatientID, timestampUnix: timestamp,
-            text: text, backend: "engine", isFinal: true)))
+            text: text, backend: backend, isFinal: true)))
         for (pid, after) in patients.sorted(by: { $0.key < $1.key }) {
             let beforeP = before[pid] ?? PatientState(patientId: pid)
             for delta in Self.diff(beforeP, after) {
