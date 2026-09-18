@@ -47,6 +47,71 @@ final class LifecyclePersistenceTests: XCTestCase {
         XCTAssertNotEqual(state.casualtyId, priorId, "a new casualty id is assigned")
     }
 
+    func testNewCasualtyContinuesNumberingAfterRelaunch() async throws {
+        let firstLaunch = await makeState()
+        await firstLaunch.newPatient()
+        XCTAssertEqual(firstLaunch.casualtyId, "C-05")
+
+        let secondLaunch = await makeState()
+        XCTAssertEqual(secondLaunch.casualtyId, "C-05")
+        await secondLaunch.newPatient()
+        XCTAssertEqual(secondLaunch.casualtyId, "C-06", "restoring an encounter must also recover its number")
+        await secondLaunch.newPatient()
+        XCTAssertEqual(secondLaunch.casualtyId, "C-07")
+
+        let thirdLaunch = await makeState()
+        await thirdLaunch.newPatient()
+        XCTAssertEqual(thirdLaunch.casualtyId, "C-08", "repeated relaunches must not reuse C-05")
+    }
+
+    func testNewCasualtyAdvancesBeyondArchivedHigherNumberWithoutRenumberingActive() async throws {
+        let store = EncounterStore(baseURL: base)
+        try await store.startNewCasualty(id: "C-12", startUnix: 1)
+        try await store.appendToActive([.asrSegment(.init(id: "archived-source", patientId: "PATIENT_1",
+            timestampUnix: 1, text: "synthetic archive", backend: "engine", isFinal: true))])
+        try await store.archiveActive(endedUnix: 2)
+        try await store.startNewCasualty(id: "C-08", startUnix: 3)
+        let archivedDirectory = try XCTUnwrap(FileManager.default.contentsOfDirectory(atPath:
+            base.appendingPathComponent("encounters").path).first { $0.hasPrefix("C-12_") })
+        let archivedLog = base.appendingPathComponent("encounters/\(archivedDirectory)/events.jsonl")
+        let originalBytes = try Data(contentsOf: archivedLog)
+
+        let state = await makeState()
+        XCTAssertEqual(state.casualtyId, "C-08", "recovery must preserve the existing encounter label")
+        await state.newPatient()
+        XCTAssertEqual(state.casualtyId, "C-13", "allocation must include archived encounters")
+        XCTAssertEqual(try Data(contentsOf: archivedLog), originalBytes, "historic records are not rewritten")
+        let active = try await EncounterStore(baseURL: base).loadActiveEncounter()
+        XCTAssertEqual(active?.casualtyId, "C-13")
+    }
+
+    func testLaunchWithOnlyArchivedEncountersStartsAboveTheirNumbers() async throws {
+        let store = EncounterStore(baseURL: base)
+        try await store.startNewCasualty(id: "C-12", startUnix: 1)
+        try await store.archiveActive(endedUnix: 2)
+
+        let state = await makeState()
+        XCTAssertEqual(state.casualtyId, "C-13", "no active encounter must not reset an existing archive to C-04")
+        await state.newPatient()
+        XCTAssertEqual(state.casualtyId, "C-14")
+    }
+
+    func testNewCasualtyDoesNotResetOrOverwriteUnreadableNumberingManifest() async throws {
+        let state = await makeState()
+        await state.processWithEngineForTest("Heart rate one ten.")
+        let priorId = state.casualtyId
+        let manifestURL = base.appendingPathComponent("encounters/manifest.json")
+        let corruptBytes = Data("{incomplete manifest".utf8)
+        try corruptBytes.write(to: manifestURL)
+
+        await state.newPatient()
+
+        XCTAssertEqual(state.casualtyId, priorId, "unknown used numbers must not allocate a reused label")
+        XCTAssertEqual(state.primaryPatient?.vitals.hr, 110, "failed allocation must preserve current care")
+        XCTAssertEqual(try Data(contentsOf: manifestURL), corruptBytes, "an unreadable manifest must not be overwritten")
+        XCTAssertTrue(state.transcript.contains { $0.text.contains("FAILED") }, "failure must be visible")
+    }
+
     func testWipePurgesPriorDataAndRearmsFreshCasualty() async throws {
         let state = await makeState()
         await state.processWithEngineForTest("GSW right thigh.")

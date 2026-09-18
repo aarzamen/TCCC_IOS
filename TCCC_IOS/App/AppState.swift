@@ -663,8 +663,20 @@ final class AppState {
         }
     }
     var allPatients: [String: PatientState] = [:]
+    /// Recovered from all durable encounter labels, including archived ones.
     var casualtyCounter: Int = 4
     var graniteReviewQueue: [GraniteReviewItem] = []
+
+    private func nextCasualtyNumber(after usedNumber: Int) async throws -> Int {
+        let highest = try await encounterStore?.highestCasualtyNumber()
+        let last = max(usedNumber, highest ?? usedNumber)
+        guard last < Int.max else { throw CocoaError(.fileReadCorruptFile) }
+        return last + 1
+    }
+
+    private static func casualtyLabel(for number: Int) -> String {
+        String(format: "C-%02ld", number)
+    }
 
     /// Most recent contradiction surfaced by the apply path (engine value vs model
     /// value). Held for review; the engine value remains shown until the operator
@@ -898,8 +910,17 @@ final class AppState {
                 }
                 await refreshPatientSnapshot(recordVitals: false)        // cursor up-to-date ⇒ persists nothing
                 appendSystem("RECOVERED · \(id) · \(log.events.count) events replayed")
+                let recoveredNumber = EncounterStore.casualtyNumber(in: id) ?? 4
+                casualtyCounter = max(4, recoveredNumber,
+                    try await store.highestCasualtyNumber() ?? recoveredNumber)
             } else {
-                try await store.startNewCasualty(id: casualtyId, startUnix: Date().timeIntervalSince1970)
+                // An archive-only store advances past its history; an empty
+                // first-run store retains the established C-04 starting label.
+                let number = try await nextCasualtyNumber(after: 3)
+                let label = Self.casualtyLabel(for: number)
+                try await store.startNewCasualty(id: label, startUnix: Date().timeIntervalSince1970)
+                casualtyCounter = number
+                casualtyId = label
                 persistedCursor = 0
                 await persistNewEvents()              // flush the fresh engine's lc-1 seed
             }
@@ -1193,6 +1214,15 @@ final class AppState {
         guard !wirelessSensors.encounterTransitionInProgress else { return }
         wirelessSensors.encounterTransitionInProgress = true
         defer { wirelessSensors.encounterTransitionInProgress = false }
+        // Read numbering before any teardown: if the manifest is unreadable,
+        // preserve current care instead of allocating a potentially reused ID.
+        let nextNumber: Int
+        do {
+            nextNumber = try await nextCasualtyNumber(after: casualtyCounter)
+        } catch {
+            appendSystem("NEW CASUALTY FAILED · \(error.localizedDescription)")
+            return
+        }
         let sensorStop = invalidateWirelessSensorAssociation(clearPreview: true)
         await sensorStop?.value
         await endCaptureForLifecycle(preservePartial: true)
@@ -1206,8 +1236,8 @@ final class AppState {
         provisionalEngineTask?.cancel(); provisionalEngineTask = nil
         voiceCommandTask?.cancel(); voiceCommandTask = nil; pendingVoiceCommand = nil
         let oldId = casualtyId
-        casualtyCounter += 1
-        casualtyId = String(format: "C-%02d", casualtyCounter)
+        casualtyCounter = nextNumber
+        casualtyId = Self.casualtyLabel(for: nextNumber)
         transcript.removeAll(); transcriptLedger = TranscriptSegmentLedger(); partialTranscript = ""
         recognitionError = nil; primaryPatient = nil; allPatients.removeAll(); sessionStart = Date()
         engine = PatientStateEngine.standard()
@@ -1215,9 +1245,13 @@ final class AppState {
         vitalsLog.removeAll(); lastMedevacTransmitTime = nil; graniteReviewQueue.removeAll(); lastConflictMessage = nil
         // --- open the new casualty on disk + flush its seed ---
         persistedCursor = 0
-        try? await encounterStore?.startNewCasualty(id: casualtyId, startUnix: now)
-        await persistNewEvents()                                  // flush new engine's lc-1 seed
-        appendSystem("NEW CASUALTY · \(casualtyId) · \(oldId) archived")
+        do {
+            try await encounterStore?.startNewCasualty(id: casualtyId, startUnix: now)
+            await persistNewEvents()                              // flush new engine's lc-1 seed
+            appendSystem("NEW CASUALTY · \(casualtyId) · \(oldId) archived")
+        } catch {
+            appendSystem("NEW CASUALTY NOT PERSISTED · \(casualtyId) · \(error.localizedDescription)")
+        }
     }
 
     /// Mark the current casualty's care as complete. Archives the record to

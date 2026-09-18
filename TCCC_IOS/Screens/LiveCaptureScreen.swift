@@ -42,23 +42,12 @@ struct LiveCaptureScreen: View {
     /// without fighting the scroll.
     @State private var transcriptAutoPinned: Bool = true
 
-    /// Seconds of partial-result stability before we commit it as a final
-    /// transcript line and run the extraction engine. SFSpeechRecognizer
-    /// won't always fire its own isFinal during continuous narration, so we
-    /// don't rely on it.
-    ///
-    /// Bumped 1.5 -> 2.5s 2026-05-05 after device test: medic narration
-    /// has natural mid-sentence pauses shorter than 2s; the previous 1.5s
-    /// was committing lines mid-thought. 2.5s matches a comfortable
-    /// breath-pause boundary. Tunable later.
+    /// Unchanged preview text requests a recognition boundary. Apple also waits
+    /// for a current acoustic pause; extraction still requires a successful final.
     private let silenceDebounce: Double = 2.5
 
-    /// Hard ceiling between commits during CONTINUOUS speech. The silence debounce
-    /// only fires on a >= `silenceDebounce` gap; an unbroken narration never produces
-    /// one, so the watchdog force-commits whatever has accumulated every
-    /// `maxCommitInterval` seconds. ~8s ≈ 1-2 spoken sentences — long enough to keep
-    /// most facts within a single committed line, short enough that nothing is lost
-    /// and the partial cell stays small. Tunable.
+    /// Ask the backend to rotate periodically. This is a request, not permission
+    /// to cut continuous speech: Apple defers until its boundary policy permits it.
     private let maxCommitInterval: Double = 8.0
 
     /// Each backend owns automatic gain and reports its processed microphone level.
@@ -524,15 +513,8 @@ struct LiveCaptureScreen: View {
         await startRecording(resetElapsedTime: true)
     }
 
-    /// Restart the streaming pipeline after an iOS interruption clears
-    /// with `.shouldResume`. Mirrors the start branch of
-    /// `toggleRecording()` but skips the authorization prompt — the
-    /// operator already authorized before the interruption — and skips
-    /// flipping `state.isRecording` since the coordinator path leaves
-    /// it true throughout the pause/resume cycle. Bumping
-    /// `state.sessionStart` would lie about elapsed time; we leave it
-    /// alone so the elapsed clock stays continuous across the
-    /// interruption.
+    /// Re-prepare the actual leased backend after interruption and preserve the
+    /// elapsed session clock rather than reporting a new encounter start.
     private func beginRecordingAfterInterruption() async {
         guard !isChangingEncounter, !isStartingCapture else { return }
         await startRecording(resetElapsedTime: false)
@@ -630,7 +612,7 @@ struct LiveCaptureScreen: View {
 
     /// Restart the silence-debounce timer. Stable previews request a recognition
     /// boundary for Apple/Parakeet; extraction waits for successful finalization.
-    /// Granite retains its provisional commit before requesting a boundary.
+    /// Granite remains record-then-transcribe and finalizes when stopped.
     private func scheduleSilenceCommit() {
         partialCommitTask?.cancel()
         let pendingAtSchedule = state.partialTranscript
@@ -645,10 +627,8 @@ struct LiveCaptureScreen: View {
         }
     }
 
-    /// Force-commit the in-flight partial on a fixed interval so CONTINUOUS speech —
-    /// which never produces a `silenceDebounce` gap and never triggers on-device
-    /// Apple Speech's own `isFinal` — still reaches the engine. Runs for the life of
-    /// the recording; cancelled on stop / teardown.
+    /// Request periodic progress without promoting a preview directly to a fact.
+    /// The backend determines when the audio can safely move to a new request.
     private func startPeriodicCommit() {
         periodicCommitTask?.cancel()
         lastCommitAt = Date()
@@ -667,8 +647,7 @@ struct LiveCaptureScreen: View {
     }
 
     /// Request a boundary during continuous speech. Request-scoped backends must
-    /// drain and emit a terminal update before extraction. Granite retains the
-    /// provisional commit and subsequent final-echo replacement behavior.
+    /// drain and emit a successful terminal update before extraction.
     @MainActor
     private func commitPartial(_ text: String) async {
         partialCommitTask?.cancel()

@@ -53,6 +53,65 @@ final class HemorrhageExtractorTests: XCTestCase {
         XCTAssertEqual(s.march.hemorrhageLocation, "abdomen")
     }
 
+    // MARK: - Blood-pressure mentions are not bleeding evidence
+
+    func testBloodPressureAloneDoesNotAssessOrIdentifyHemorrhage() {
+        for sentence in ["Blood pressure 90/60.", "BLOOD   PRESSURE is 120/80.", "Blood-pressure 110/70."] {
+            let s = h.apply(PatientState(patientId: "PATIENT_1"), context: freshContext(sentence))
+            XCTAssertFalse(s.march.hemorrhageIdentified, sentence)
+            XCTAssertFalse(s.march.hemorrhageAssessed, sentence)
+            XCTAssertNil(s.march.hemorrhageLocation, sentence)
+        }
+    }
+
+    func testBloodPressureAtBodySiteDoesNotInventHemorrhageLocation() {
+        let s = h.apply(PatientState(patientId: "PATIENT_1"),
+            context: freshContext("Blood pressure 90/60 measured on the left arm."))
+        XCTAssertFalse(s.march.hemorrhageIdentified)
+        XCTAssertFalse(s.march.hemorrhageAssessed)
+        XCTAssertNil(s.march.hemorrhageLocation)
+    }
+
+    func testMissingBloodPressureDoesNotBecomeNegativeBleedingAssessment() {
+        let s = h.apply(PatientState(patientId: "PATIENT_1"),
+            context: freshContext("No blood pressure reading is available."))
+        XCTAssertFalse(s.march.hemorrhageIdentified)
+        XCTAssertFalse(s.march.hemorrhageAssessed)
+    }
+
+    func testBloodPressureDoesNotSuppressExplicitBleedingInSameSentence() {
+        let s = h.apply(PatientState(patientId: "PATIENT_1"),
+            context: freshContext("Blood pressure 90/60 with bleeding from the right thigh."))
+        XCTAssertTrue(s.march.hemorrhageIdentified)
+        XCTAssertTrue(s.march.hemorrhageAssessed)
+        XCTAssertEqual(s.march.hemorrhageLocation, "right thigh")
+    }
+
+    func testBloodPressureDoesNotSuppressExplicitNegativeBleedingAssessment() {
+        let s = h.apply(PatientState(patientId: "PATIENT_1"),
+            context: freshContext("Blood pressure 120/80 with no active bleeding."))
+        XCTAssertFalse(s.march.hemorrhageIdentified)
+        XCTAssertTrue(s.march.hemorrhageAssessed)
+    }
+
+    func testBloodPressureDoesNotErasePreviouslyIdentifiedHemorrhage() {
+        let bleeding = h.apply(PatientState(patientId: "PATIENT_1"),
+            context: freshContext("Bleeding from the right thigh."))
+        let s = h.apply(bleeding, context: freshContext("Blood pressure 90/60 on the left arm."))
+        XCTAssertEqual(s.march, bleeding.march)
+    }
+
+    func testVitalsOnlyTranscriptPreservesBPWithoutHemorrhageFacts() async {
+        let engine = PatientStateEngine.standard()
+        await engine.processTranscript("Blood pressure 90/60.", timestamp: Date(timeIntervalSince1970: 0))
+        let patient = await engine.snapshot()["PATIENT_1"]
+        XCTAssertEqual(patient?.vitals.bp?.systolic, 90)
+        XCTAssertEqual(patient?.vitals.bp?.diastolic, 60)
+        XCTAssertEqual(patient?.march.hemorrhageIdentified, false)
+        XCTAssertEqual(patient?.march.hemorrhageAssessed, false)
+        XCTAssertNil(patient?.march.hemorrhageLocation)
+    }
+
     // MARK: - Negative bleeding pre-pass
 
     func testNoExternalBleedingMarksAssessedNotIdentifiedThroughNegativeRegex() {

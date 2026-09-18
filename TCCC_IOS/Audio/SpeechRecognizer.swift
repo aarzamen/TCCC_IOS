@@ -1,6 +1,7 @@
 import Foundation
 import Speech
 @preconcurrency import AVFAudio
+import TCCCDomain
 
 /// On-device speech recognizer with a 30-second pre-roll ring buffer and a
 /// 30-second post-roll tail. Mic engine runs continuously while the recognizer
@@ -64,6 +65,7 @@ actor SpeechRecognizer: TranscriptStream {
     private var latestText = ""
     private var utterances = SpeechUtteranceAssembler()
     private var requestClock = SpeechBufferClock(openedAt: 0)
+    private var requestBoundary = SpeechRequestBoundary(openedAt: 0)
     private struct Callback: Sendable {
         let text: String?
         let final: Bool
@@ -84,6 +86,7 @@ actor SpeechRecognizer: TranscriptStream {
     private struct CapturedPCM: @unchecked Sendable {
         let buffer: AVAudioPCMBuffer
         let capturedAt: TimeInterval
+        var rms: Float = 0
     }
 
     // MARK: - Audio file capture
@@ -242,12 +245,15 @@ actor SpeechRecognizer: TranscriptStream {
         finishCapture(.cancelled, issue: "Capture interrupted; unfinished speech retained for review")
     }
 
-    /// A debounce/periodic boundary requests a final result; incoming frames
-    /// wait for the successor rather than being appended to an ended request.
-    func forceFinalize() async { endRequest() }
+    /// A UI timer requests rotation, but cannot split ongoing speech. Continue
+    /// feeding this request until fresh PCM and the hypothesis show a pause.
+    func forceFinalize() async {
+        requestBoundary.requestRotation()
+        evaluateRequestBoundary()
+    }
 
-    private func endRequest() {
-        guard capture?.endRequest() == true, let capture else { return }
+    private func endRequest(requiresReview: Bool = false) {
+        guard capture?.endRequest(requiresReview: requiresReview) == true, let capture else { return }
         request?.endAudio()
         let requestID = capture.requestID
         drainTask?.cancel()
@@ -260,7 +266,13 @@ actor SpeechRecognizer: TranscriptStream {
     private func endTail(captureID: UUID) {
         guard capture?.captureID == captureID, capture?.closed == false else { return }
         capture?.endTail()
-        endRequest()
+        endRequestAtCaptureDeadline()
+    }
+
+    private func endRequestAtCaptureDeadline() {
+        requestBoundary.requestRotation()
+        let safe = requestBoundary.decision(at: ProcessInfo.processInfo.systemUptime) == .finalize
+        endRequest(requiresReview: !safe)
     }
 
     private func drainTimedOut(requestID: UUID) {
@@ -272,8 +284,9 @@ actor SpeechRecognizer: TranscriptStream {
         guard generation == tapGeneration else { return }
         let buffer = frame.buffer
         let report = inputProcessor.process(buffer)
+        let processedFrame = CapturedPCM(buffer: buffer, capturedAt: frame.capturedAt, rms: report.rms)
         if report.shouldPublish, let levels { Task { @MainActor in levels.ingest(report) } }
-        ringBuffer.append(frame)
+        ringBuffer.append(processedFrame)
         ringBufferFrames += Int(buffer.frameLength)
         let maxFrames = Int(leadDuration * buffer.format.sampleRate)
         while ringBufferFrames > maxFrames, !ringBuffer.isEmpty {
@@ -282,13 +295,13 @@ actor SpeechRecognizer: TranscriptStream {
         guard isRecognizing, let capture, !capture.tailExpired else { return }
         writeAudio(buffer)
         if capture.awaitingFinal {
-            queuedAudio.append(frame)
+            queuedAudio.append(processedFrame)
             queuedFrames += Int(buffer.frameLength)
             if queuedFrames > Int(10 * buffer.format.sampleRate) {
                 finishCapture(.failed, issue: "Recognition fell behind; saved audio needs review")
             }
         } else {
-            appendAudio(frame)
+            appendAudio(processedFrame)
         }
     }
 
@@ -298,6 +311,22 @@ actor SpeechRecognizer: TranscriptStream {
         guard let request else { return }
         requestClock.includeBuffer(capturedAt: frame.capturedAt)
         request.append(frame.buffer)
+        requestBoundary.observeAudio(rms: frame.rms,
+            duration: Double(frame.buffer.frameLength) / frame.buffer.format.sampleRate,
+            capturedAt: frame.capturedAt)
+        evaluateRequestBoundary()
+    }
+
+    private func evaluateRequestBoundary() {
+        guard isRecognizing, capture?.awaitingFinal == false else { return }
+        switch requestBoundary.decision(at: ProcessInfo.processInfo.systemUptime) {
+        case .keepListening: break
+        case .finalize: endRequest()
+        case .incomplete:
+            // Keep the microphone and archive running. The cut request and its
+            // successors stay review-only until a verified safe boundary.
+            endRequest(requiresReview: true)
+        }
     }
 
     private func audioOverrun(generation: UUID, at date: Date) {
@@ -322,6 +351,7 @@ actor SpeechRecognizer: TranscriptStream {
         latestText = ""
         utterances = SpeechUtteranceAssembler()
         requestClock = SpeechBufferClock(openedAt: ProcessInfo.processInfo.systemUptime)
+        requestBoundary = SpeechRequestBoundary(openedAt: ProcessInfo.processInfo.systemUptime)
         let requestID = capture.requestID
         let req = SpeechRequestFactory.makeBufferRequest()
         request = req
@@ -351,12 +381,17 @@ actor SpeechRecognizer: TranscriptStream {
             speechDuration: callback.speechDuration, segmentStart: callback.segmentStart,
             segmentEnd: callback.segmentEnd)
         latestText = utterances.transcript
+        requestBoundary.observeHypothesis(latestText, at: ProcessInfo.processInfo.systemUptime)
         if let issue = callback.issue {
             finishCapture(.failed, issue: "Recognition incomplete: \(issue)")
             return
         }
         if callback.final {
-            emit(.finalized)
+            if capture?.requestRequiresReview == true {
+                emit(.failed, issue: "Speech crossed a recognition boundary without a pause; review the retained segment")
+            } else {
+                emit(.finalized)
+            }
             drainTask?.cancel(); drainTask = nil
             request?.endAudio()
             task = nil; request = nil
@@ -367,7 +402,7 @@ actor SpeechRecognizer: TranscriptStream {
             beginRequest()
             for frame in queuedAudio { appendAudio(frame) }
             queuedAudio.removeAll(); queuedFrames = 0
-            if capture?.tailExpired == true { endRequest() }
+            if capture?.tailExpired == true { endRequestAtCaptureDeadline() }
         } else {
             continuation?.yield(RecognitionUpdate(text: latestText, isFinal: false, timestamp: Date(),
                 captureID: capture?.captureID, requestID: requestID,

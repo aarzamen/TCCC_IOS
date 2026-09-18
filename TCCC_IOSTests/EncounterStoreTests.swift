@@ -34,6 +34,43 @@ final class EncounterStoreTests: XCTestCase {
         XCTAssertNil(loaded, "an archived casualty must not be replayed as in-progress")
     }
 
+    func testHighestCasualtyNumberIncludesArchivedHistoryAfterStoreRecreation() async throws {
+        let store = EncounterStore(baseURL: base)
+        try await store.startNewCasualty(id: "C-112", startUnix: 1)
+        try await store.archiveActive(endedUnix: 2)
+        try await store.startNewCasualty(id: "C-08", startUnix: 3)
+
+        let highest = try await EncounterStore(baseURL: base).highestCasualtyNumber()
+        XCTAssertEqual(highest, 112)
+        let active = try await EncounterStore(baseURL: base).loadActiveEncounter()
+        XCTAssertEqual(active?.casualtyId, "C-08", "reading the number must not relabel the active encounter")
+    }
+
+    func testHighestCasualtyNumberDistinguishesMissingFromCorruptManifest() async throws {
+        let store = EncounterStore(baseURL: base)
+        let empty = try await store.highestCasualtyNumber()
+        XCTAssertNil(empty)
+        try await store.startNewCasualty(id: "C-12", startUnix: 1)
+        let url = base.appendingPathComponent("encounters/manifest.json")
+        let malformed = Data("{incomplete".utf8)
+        try malformed.write(to: url)
+
+        do {
+            _ = try await store.highestCasualtyNumber()
+            XCTFail("an unreadable manifest must not be treated as an empty archive")
+        } catch {
+            XCTAssertEqual(try Data(contentsOf: url), malformed)
+        }
+    }
+
+    func testCasualtyNumberAcceptsOnlyWholeNumericLabels() {
+        XCTAssertEqual(EncounterStore.casualtyNumber(in: "C-04"), 4)
+        XCTAssertEqual(EncounterStore.casualtyNumber(in: "C-112"), 112)
+        for id in ["C-", "C--1", "C-12-extra", "PATIENT_12", "C-12 "] {
+            XCTAssertNil(EncounterStore.casualtyNumber(in: id), id)
+        }
+    }
+
     func testCorruptTailIsTolerated() async throws {
         let store = EncounterStore(baseURL: base)
         try await store.startNewCasualty(id: "C-04", startUnix: 100)

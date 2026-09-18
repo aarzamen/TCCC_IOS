@@ -37,6 +37,7 @@ public struct HemorrhageExtractor: ExtractorPass {
 
     private let identified: NSRegularExpression
     private let negative: NSRegularExpression
+    private let bloodPressure: NSRegularExpression
     private let bilateralLowerExtremity: NSRegularExpression
     private let bothLegsArms: NSRegularExpression
     private let sidedThighLegArm: NSRegularExpression
@@ -59,6 +60,11 @@ public struct HemorrhageExtractor: ExtractorPass {
                 "no\\s+obvious\\s+bleed|no\\s+visible\\s+bleed|" +
                 "not\\s+bleed|isn't\\s+bleed|no\\s+blood",
             options: [.caseInsensitive])
+
+        // A measured (or unavailable) blood pressure is not a bleeding finding.
+        // Exclude only this phrase so explicit bleeding elsewhere is retained.
+        self.bloodPressure = try! NSRegularExpression(
+            pattern: "\\bblood[\\s-]+pressure\\b", options: [.caseInsensitive])
 
         // Location patterns, in priority order. We keep three NSRegularExpression
         // instances so we can run them in the same order Python does.
@@ -117,8 +123,10 @@ public struct HemorrhageExtractor: ExtractorPass {
         var s = state
         var march = s.march
         let text = context.sentence
-        let hasNegativeBleeding = matches(negative, text)
-        let hasPositiveBleeding = matches(identified, text)
+        let bleedingEvidence = bloodPressure.stringByReplacingMatches(in: text, options: [],
+            range: NSRange(text.startIndex..<text.endIndex, in: text), withTemplate: " ")
+        let hasNegativeBleeding = matches(negative, bleedingEvidence)
+        let hasPositiveBleeding = matches(identified, bleedingEvidence)
 
         // 1. Negative bleeding pre-pass.
         if hasNegativeBleeding {
@@ -133,7 +141,7 @@ public struct HemorrhageExtractor: ExtractorPass {
 
         // 3. Location pass. Only run when the sentence has a hemorrhage
         //    context word — mirrors `has_hemorrhage_context` in Python.
-        let lower = text.lowercased()
+        let lower = bleedingEvidence.lowercased()
         let contextWords = [
             "bleed", "blood", "hemorrhag", "wound", "injury", "injur",
             "gsw", "lacerat", "tourniquet", "tonic", "tq",

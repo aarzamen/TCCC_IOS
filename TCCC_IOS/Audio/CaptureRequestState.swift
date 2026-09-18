@@ -6,14 +6,18 @@ struct CaptureRequestState: Sendable {
     let captureID = UUID()
     private(set) var requestID = UUID()
     private(set) var awaitingFinal = false
+    private(set) var requestRequiresReview = false
+    private var successorRequiresReview = false
     private(set) var tailExpired = false
     private(set) var closed = false
 
     func accepts(_ id: UUID) -> Bool { !closed && id == requestID }
 
-    mutating func endRequest() -> Bool {
+    mutating func endRequest(requiresReview: Bool = false) -> Bool {
         guard !closed, !awaitingFinal else { return false }
         awaitingFinal = true
+        requestRequiresReview = requestRequiresReview || requiresReview
+        successorRequiresReview = requiresReview
         return true
     }
 
@@ -29,6 +33,10 @@ struct CaptureRequestState: Sendable {
         }
         requestID = UUID()
         awaitingFinal = false
+        // A forced cut can detach negation, a unit, or a number prefix from the
+        // successor. Natural framework finals do not prove a safe acoustic cut.
+        // Only an explicitly verified safe endRequest clears this quarantine.
+        requestRequiresReview = successorRequiresReview
         return true
     }
 

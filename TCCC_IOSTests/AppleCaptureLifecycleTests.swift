@@ -2,6 +2,32 @@ import XCTest
 @testable import TCCC_IOS
 
 final class AppleCaptureLifecycleTests: XCTestCase {
+    func testUnsafeRequestBoundaryIsReviewOnlyAndCaptureContinues() {
+        var state = CaptureRequestState()
+        let first = state.requestID
+        XCTAssertTrue(state.endRequest(requiresReview: true))
+        XCTAssertTrue(state.requestRequiresReview)
+        XCTAssertFalse(state.endRequest())
+        XCTAssertTrue(state.requestRequiresReview,
+                      "A second boundary request cannot upgrade a forced fragment to final")
+        XCTAssertEqual(state.finalized(first, hasBufferedAudio: true), true)
+        XCTAssertFalse(state.closed)
+        XCTAssertNotEqual(state.requestID, first)
+        XCTAssertTrue(state.requestRequiresReview,
+                      "The beginning of the successor may be a severed negation or number")
+        XCTAssertFalse(state.awaitingFinal)
+        let second = state.requestID
+        XCTAssertEqual(state.finalized(second, hasBufferedAudio: true), true)
+        XCTAssertTrue(state.requestRequiresReview,
+                      "A natural framework final does not prove the unsafe context ended")
+        let third = state.requestID
+        XCTAssertTrue(state.endRequest()) // caller verified quiet PCM + stable hypothesis
+        XCTAssertTrue(state.requestRequiresReview)
+        XCTAssertEqual(state.finalized(third, hasBufferedAudio: true), true)
+        XCTAssertFalse(state.requestRequiresReview,
+                       "Only the successor after a verified safe boundary is clinical again")
+    }
+
     func testFinalizingQueuesAudioForExactlyOneSuccessor() {
         var state = CaptureRequestState()
         let first = state.requestID

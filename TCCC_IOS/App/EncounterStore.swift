@@ -99,6 +99,29 @@ actor EncounterStore {
         return (activeId, loadLog(from: dir.appendingPathComponent("events.jsonl")))
     }
 
+    /// Numeric labels only; legacy or externally supplied labels are unchanged.
+    nonisolated static func casualtyNumber(in id: String) -> Int? {
+        guard id.hasPrefix("C-") else { return nil }
+        let digits = id.dropFirst(2)
+        guard !digits.isEmpty, digits.allSatisfy({ $0 >= "0" && $0 <= "9" }) else { return nil }
+        return Int(digits)
+    }
+
+    /// Includes archived encounters so restoring an older active label cannot
+    /// cause the next new casualty to reuse a number. Only a missing first-run
+    /// manifest permits the default; unreadable existing data must fail closed.
+    func highestCasualtyNumber() throws -> Int? {
+        let manifest: EncounterManifest
+        do {
+            manifest = try loadManifest()
+        } catch CocoaError.fileReadNoSuchFile {
+            return nil
+        }
+        var ids = manifest.encounters.map(\.casualtyId)
+        if let active = manifest.activeCasualtyId { ids.append(active) }
+        return ids.compactMap { Self.casualtyNumber(in: $0) }.max()
+    }
+
     /// Persist the §C vital-sign grid for the active encounter (protected).
     /// Separate from the event log: `vitalsLog` is an app-layer rolling buffer,
     /// not part of `PatientState`, so it lives beside `events.jsonl` rather than
