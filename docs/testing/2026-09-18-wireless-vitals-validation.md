@@ -70,8 +70,11 @@ authored; no third-party protocol implementation was copied.
   provenance, old-schema decoding, crash recovery, directory fencing, canceled
   ingestion chains, association reconciliation and lifecycle transition gates.
 - The final signed iPhone build after all source fixes passed at 07:51 local
-  with `TCCC_REQUIRE_OFFLINE_MODELS=YES`. Installation is underway; completion
-  and the on-phone UI remain unconfirmed.
+  with `TCCC_REQUIRE_OFFLINE_MODELS=YES`; the asset verifier confirmed
+  5,749,589,446 bytes. `devicectl` successfully updated the connected iPhone
+  17 Pro without uninstalling the existing app, launched it at 07:55 local,
+  and a subsequent process query confirmed it remained running. This does
+  not establish model readiness or on-phone Bluetooth behavior.
 - The actual simulator Settings UI was checked in landscape through CUA.
   Auto-connect was initially on. Switching off displayed "Sensor connection
   off"; switching on displayed "Bluetooth unavailable", matching the simulator
@@ -106,9 +109,9 @@ and verifies that all eight observations remain in the event log.
 
 ## Remaining physical iPhone acceptance
 
-Final installation and on-phone UI confirmation are pending the lead task's
-device evidence. Source, build and simulator completion do not establish physical
-Bluetooth operation. Remaining checks are:
+Installation, launch and process presence are confirmed. The on-phone UI and
+Bluetooth checks await operator observation. Source, build and simulator
+completion do not establish physical Bluetooth operation. Remaining checks are:
 
 - Default-on discovery and OS permission flow, explicit off across relaunch,
   unbound preview, and deliberate casualty association.
@@ -119,3 +122,9 @@ Bluetooth operation. Remaining checks are:
 
 The Mac frame checks and finger-out observation above remain separate evidence;
 they do not establish these end-to-end iPhone results.
+
+## Repository delivery
+
+The reviewed implementation is committed and pushed to `main` as `d71ca27`
+(`feat: integrate local pulse oximeter vitals`). Private captures, identifiers,
+model weights and worker logs remain outside the repository.
