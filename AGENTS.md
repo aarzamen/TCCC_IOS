@@ -15,6 +15,25 @@ CLAUDE.md contains the newer architecture summary.
 
 Native SwiftUI port of the TCCC_FEB_2026 Python prototype. Combat-medic documentation app for field use: iPhone, landscape, chest-mounted, fully offline.
 
+## Working home (2026-09-18)
+
+Use `/Users/ama/TCCC_IOS` as the single working home for iOS development,
+planning, builds and tests. The former
+`/Users/ama/Documents/ChatGPT/TCCC project/ios-capture-reliability` path is a
+compatibility symlink to this checkout. Its already-merged worktree and ignored
+worker evidence are preserved in the old workspace under
+`preservation/workspace-consolidation-20260918/ios-capture-reliability`.
+
+The old `TCCC project` folder is retained for local model assets, private
+recordings, backups and the separate Python/Constellation repositories. These
+remain outside this repository; do not import or publish them. Existing model
+installation instructions continue to use those preserved absolute paths.
+
+The fictional read-aloud fixture is `docs/testing/tccc-read-aloud-scenario.txt`.
+The dated interface review is `docs/reviews/2026-09-09-interface-review.md`;
+it records historical findings, not the current backlog. Existing sprint
+specifications and plans remain in `docs/superpowers/`.
+
 ## Source materials
 
 - **Python prototype** (reference, not a dep): `/Users/ama/TCCC_FEB_2026`. Authoritative for state extraction + report generation. State engine: `src/state.py`. Reports: `src/reports.py`. Scenario fixtures: `tests/scenarios/*.txt`. Python tests are the correctness contract — copy assertions verbatim into Swift XCTest. The Python `AGENTS.md` describes a v1.1 roadmap (pywebview, sounddevice, SPEC_V1_1.md) that was never implemented — ignore it.

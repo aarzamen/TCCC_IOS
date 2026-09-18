@@ -1,0 +1,34 @@
+Fictional casualty for transcription and extraction testing. Not treatment guidance.
+Read only the text below the divider, at your normal speaking pace. Pause briefly
+between paragraphs. Use YAP LAB for transcription alone, or a separate training
+encounter in TCCC to inspect extracted fields. This script has not yet been
+validated through live speech recognition.
+
+--- BEGIN READ-ALOUD ---
+
+Patient one. Gunshot wound to the right thigh. Massive hemorrhage from the right thigh. A CAT tourniquet was applied to the right thigh. The tourniquet is high and tight. Bleeding is controlled. The tourniquet remains in place.
+
+The patient is alert and talking. Airway is patent. Breath sounds are bilateral and equal. Chest rise is symmetric. Radial pulse is present. Skin is pale and clammy.
+
+Initial vital signs. Heart rate one hundred twenty. Blood pressure ninety over sixty. Respiratory rate twenty-two. Oxygen saturation ninety-six percent. Pain is eight out of ten.
+
+IV access established in the left arm. Tranexamic acid was administered. Ketamine was administered for pain. Ertapenem was administered. The wound was packed with combat gauze. A pressure dressing was applied. The patient was covered with a blanket to prevent hypothermia.
+
+Reassessment. The right thigh tourniquet remains in place. Bleeding remains controlled. Airway is patent. Breath sounds are bilateral and equal. Radial pulse is present.
+
+Repeat vital signs. Heart rate is down to one hundred ten. Blood pressure one hundred over seventy. Respiratory rate eighteen. Oxygen saturation ninety-seven percent. Pain is four out of ten.
+
+This is an urgent casualty. Request medical evacuation. Handoff includes the right thigh gunshot wound, tourniquet, combat gauze, pressure dressing, tranexamic acid, ketamine, ertapenem, and hypothermia prevention. End of report.
+
+--- END READ-ALOUD ---
+
+CHECK AFTER RECORDING
+- Compare raw text before looking at any LLM-generated draft.
+- There are five mentions of "tourniquet" in the read-aloud text.
+- Initial vitals: HR 120, BP 90/60, RR 22, oxygen saturation 96%, pain 8/10.
+- Latest vitals: HR 110, BP 100/70, RR 18, oxygen saturation 97%, pain 4/10.
+- Check right-thigh laterality and the medical terms in the final paragraph.
+- Reassessment repeats observations; inspect for unintended duplicate treatments.
+- No medication doses, administration times, identity, or allergies are supplied.
+  Missing information must not be invented by a generated draft.
+- This covers common capture vocabulary, not every supported intervention.
