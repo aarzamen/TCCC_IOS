@@ -56,7 +56,16 @@ rotation. At 55 seconds of supplied audio, an unsafe request is retained for
 review. These thresholds passed deterministic regressions; a fresh on-device
 read-aloud is still needed to measure acoustic behavior in the operator's room.
 
-Signed device build and in-place update are pending.
+- Signed generic iOS build **bfdbfb2** passed with the complete offline payload:
+  154 files, 5,749,615,321 bytes. The embedded build stamp identifies a clean
+  `main` source checkout.
+- Updated the connected iPhone 17 Pro in place at approximately 11:50 local
+  time on 18 September 2026. Installation and launch succeeded; process
+  inspection confirmed the app running. File metadata confirmed the test
+  recording, encounter event log, Section C data and manifest remained present.
+- Source commit **bfdbfb2** is pushed to `main`. The operator has been asked to
+  verify the next casualty label and repeat the fictional read-aloud on this
+  build. That new physical recognition check is pending.
 
 Native Claude Code contributed a scoped, source-only partial implementation of
 the numbering correction. It reached its turn limit; Codex completed, reviewed

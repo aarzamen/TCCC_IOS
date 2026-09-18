@@ -108,3 +108,9 @@ behavior. They do not establish improved word accuracy in field noise, acoustic
 clipping at the microphone hardware, or model quality on this user's speech.
 Granite remains record-then-transcribe; this change does not add streaming
 inference. A physical quiet/normal/loud read-aloud remains the acoustic check.
+
+The subsequent physical test exposed a speech-request boundary defect and a
+blood-pressure extraction false positive. Findings, corrections and the newer
+regression/device-build evidence are recorded in the
+[live audio follow-up](../testing/2026-09-18-live-audio-followup.md). The original
+test counts above remain the evidence for the initial automatic-gain change.
