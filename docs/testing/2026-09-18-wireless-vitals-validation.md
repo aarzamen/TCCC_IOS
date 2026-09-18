@@ -107,21 +107,27 @@ All reported integration findings are resolved in source. The latest grid
 regression preserves three manual BP columns through eight sensor observations
 and verifies that all eight observations remain in the event log.
 
-## Remaining physical iPhone acceptance
+## Physical iPhone acceptance
 
-Installation, launch and process presence are confirmed. The on-phone UI and
-Bluetooth checks await operator observation. Source, build and simulator
-completion do not establish physical Bluetooth operation. Remaining checks are:
+After the updated build was installed on the iPhone 17 Pro, the operator
+confirmed that the sensor records, the displayed values are correct, and the
+readings feed into TCCC. This establishes operator-observed end-to-end live
+sensor ingestion on the physical iPhone. No personal values or captures are
+included in this record. The report does not establish clinical accuracy,
+each protocol field, export round trips or persistence after relaunch.
+
+Remaining physical checks are:
 
 - Default-on discovery and OS permission flow, explicit off across relaunch,
-  unbound preview, and deliberate casualty association.
-- Readable device-display comparison for the numeric fields, finger-out
-  unavailability, reinsert/restart and reconnect.
+  unbound preview, and the detailed casualty-association flow.
+- Finger-out unavailability, reinsert/restart and reconnect.
 - Rebinding across encounters, cancellation during connection, and actual
   background behavior within iOS scheduling limits.
+- Persistence after relaunch and export round trips for a recorded sensor
+  encounter; field-level comparison beyond the operator-confirmed readings.
 
 The Mac frame checks and finger-out observation above remain separate evidence;
-they do not establish these end-to-end iPhone results.
+they do not establish the remaining iPhone behaviors.
 
 ## Repository delivery
 

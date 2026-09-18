@@ -15,8 +15,9 @@ S5W pulse oximeter. Preserve capture reliability and truthful export values.
 The owner authorizes work on the existing default `main` branch for this
 direction. The first implementation includes default-on auto-connect, a
 persistent Settings toggle, connection status, explicit casualty association,
-and event-sourced sensor evidence. Source tests and signed builds pass;
-physical iPhone acceptance remains separately recorded in the
+and event-sourced sensor evidence. Source tests and signed builds pass. The
+operator confirmed correct values, recording and live ingestion on iPhone;
+remaining physical acceptance checks are separately recorded in the
 [validation record](docs/testing/2026-09-18-wireless-vitals-validation.md).
 See the [wireless vitals direction](docs/superpowers/specs/2026-09-18-wireless-vitals-direction.md).
 

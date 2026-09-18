@@ -81,9 +81,10 @@ recordSensorObservation(reading: PulseOximeterReading,
 - [x] Mac direct connection and automatic NUS stream with vendor apps disconnected.
 - [x] Bounded local capture confirms frame lengths and CRC. Personal captures stay outside Git.
 - [x] Final signed iPhone build after all source fixes passed at 07:51 local with `TCCC_REQUIRE_OFFLINE_MODELS=YES`.
-- [ ] Compare readable physical display against decoded receipt-adjacent readings; check finger-out invalidation.
+- [x] Operator confirms the physical iPhone records sensor values correctly and feeds them into TCCC.
+- [ ] Complete field-level display comparison and on-phone finger-out invalidation checks.
 - [x] Update the connected iPhone without uninstalling; launch and confirm the process remains running. Complete offline model assets are included.
-- [ ] Verify on-phone default-on, permission flow, explicit off, association, values, reconnect, encounter change and background behavior.
+- [ ] Verify on-phone default-on, permission flow, explicit off, detailed association flow, reconnect, encounter change and background behavior.
 - [x] Record completed source/build checks and the remaining physical acceptance boundary in [the validation record](../../testing/2026-09-18-wireless-vitals-validation.md).
 - [x] Commit and push reviewed, software-verified source to main under standing authorization (`d71ca27`).
 - [ ] Complete the remaining physical acceptance checks and record their results separately from installation success.
@@ -106,7 +107,9 @@ authority; bounded uninterpreted frames retain receipt provenance; retries conti
 at the quiet cooldown; and the automatic grid column preserves manual history.
 Independent scoped rereviews found no remaining actionable issue in those fixes.
 Physical iPhone installation, launch and process presence are confirmed at
-07:55 local. On-phone sensor acceptance remains pending operator observation.
+07:55 local. The operator subsequently confirmed correct values, recording and
+ingestion into TCCC on that iPhone. Remaining lifecycle and background checks
+are tracked separately; the report does not establish clinical accuracy.
 
 ## Execution notes
 
