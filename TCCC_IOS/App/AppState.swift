@@ -659,11 +659,14 @@ final class AppState {
     var clinicalEntrySheet: ClinicalEntryKind?
     var operatorMetadata = EncounterOperatorMetadata()
     var encounterIdentity = UUID()
+    let wirelessSensors = WirelessSensorSession()
+    var sensorVitalOrigins: [String: SensorObservationPayload] = [:]
     var clinicalAudioRelease: (@MainActor () async -> Void)?
     var nineLineValues: [Int: String] { operatorMetadata.nineLineValues }
 
     private func clearCasualtyIdentity() {
         encounterIdentity = UUID()
+        sensorVitalOrigins.removeAll()
         clinicalEntrySheet = nil
         operatorMetadata = EncounterOperatorMetadata()
         casualtyName = ""
@@ -679,10 +682,8 @@ final class AppState {
     var encounterStore: EncounterStore?
     /// Count of engine log events already flushed to disk. Cursor-guards persistence.
     private(set) var persistedCursor: Int = 0
-    /// Serializes `persistNewEvents()` against itself so two fire-and-forget callers
-    /// cannot read the same cursor and slice overlapping event ranges. See persistNewEvents.
-    private var isPersisting = false
-    private var persistAgain = false
+    /// Serializes drains; each task captures its origin engine and encounter.
+    private var persistenceTask: Task<Void, Never>?
 
     // TCCC engine — full 10-pass dispatch per state.py:515–524.
     // var (not let) so newPatient() / wipeSession() can rebuild a fresh engine.
@@ -833,11 +834,19 @@ final class AppState {
     }
 
     func refreshPatientSnapshot(persist: Bool = true, recordVitals: Bool = true) async {
-        let snapshot = await engine.snapshot()
+        let origin = engine
+        let encounter = encounterIdentity
+        let sensorAssociationID = wirelessSensors.association?.id
+        let sensorGeneration = wirelessSensors.generation
+        let combined = await origin.snapshotWithSensorOrigins()
+        guard engine === origin, encounterIdentity == encounter else { return }
+        reconcileWirelessSensorAssociation(activeAssociation: combined.activeSensorAssociation,
+            expectedAssociationID: sensorAssociationID, generation: sensorGeneration)
+        sensorVitalOrigins = combined.sensorOrigins
         let previousPatient = primaryPatient
-        allPatients = snapshot
+        allPatients = combined.patients
         // Single-casualty UI per design §9 — surface PATIENT_1 only.
-        primaryPatient = snapshot["PATIENT_1"]
+        primaryPatient = combined.patients["PATIENT_1"]
         // 2026 sprint Phase 4 — record a §C reading per snapshot. The grid
         // shows the 4 most recent readings.
         let observationsChanged = previousPatient?.vitals != primaryPatient?.vitals
@@ -852,45 +861,34 @@ final class AppState {
     /// Flush any engine-log events beyond the cursor to the active casualty's file.
     /// Cursor-guarded ⇒ idempotent and safe to call after every engine mutation.
     ///
-    /// Serialized against itself. `persistNewEvents` is invoked from multiple
-    /// fire-and-forget `Task`s — per committed ASR line via `appendFinal`, and from
-    /// `GraniteReviewQueue`. The body crosses two awaits between reading `persistedCursor`
-    /// and advancing it, so two concurrent invocations would otherwise read the SAME
-    /// cursor, slice overlapping `[cursor...]` ranges, and both append — duplicating
-    /// events on disk AND (because the cursor advances relatively) over-advancing it so
-    /// later events are skipped. The guard lets only one drain run at a time; a call that
-    /// arrives mid-drain just sets `persistAgain`, and the active drain loops to pick up
-    /// whatever it newly missed. Only the active invocation ever reads or advances
-    /// `persistedCursor`, so each slice is exact — no overlap, no skip. The flag reads and
-    /// writes never straddle an await, so on `@MainActor` (a serial executor) they are
-    /// atomic with respect to reentrancy.
-    // INVARIANT (provisional-replace): while a provisional chunk is outstanding
-    // (`engine.hasProvisional`), it is the log tail and may be truncated by
-    // `engine.reviseProvisional`. We therefore flush only on settle
-    // (`promoteProvisional` → `refreshPatientSnapshot(persist: true)`), never on the
-    // provisional commit/revise refreshes (`persist: false`). The append-only JSONL
-    // cannot un-write a line, so flushing an unsettled chunk would strand gen-0 events
-    // on disk after a revise truncates them. The other `persist: true` callers
-    // (operator accept/reject, lifecycle) are safe because each first appends a foreign
-    // engine event, which trips `reviseProvisional`'s tail-guard into its no-truncate
-    // fallback. If you add a new `persist: true` path, ensure it cannot run mid-provisional
-    // without a preceding foreign event.
+    /// Ordered drains prevent overlapping cursor ranges. Each drain uses a
+    /// captured engine, encounter identity and exact storage directory. The
+    /// engine excludes any revisable speech tail even if a new provisional
+    /// arrives while a sensor-driven drain is suspended at an await.
     func persistNewEvents() async {
         guard let store = encounterStore else { return }
-        if isPersisting { persistAgain = true; return }
-        isPersisting = true
-        defer { isPersisting = false }
-        repeat {
-            persistAgain = false
-            let new = await engine.newEvents(since: persistedCursor)
-            guard !new.isEmpty else { continue }
+        let origin = engine
+        let encounter = encounterIdentity
+        let prior = persistenceTask
+        let task = Task { @MainActor [weak self] in
+            await prior?.value
+            guard let self, self.engine === origin, self.encounterIdentity == encounter,
+                  let directory = await store.activeDirectoryName(),
+                  self.engine === origin, self.encounterIdentity == encounter else { return }
+            let cursor = self.persistedCursor
+            let new = await origin.persistableEvents(since: cursor)
+            guard !new.isEmpty, self.engine === origin, self.encounterIdentity == encounter else { return }
             do {
-                try await store.appendToActive(new)
-                persistedCursor += new.count
+                try await store.appendToActive(new, expectedDirectory: directory)
+                guard self.engine === origin, self.encounterIdentity == encounter else { return }
+                self.persistedCursor = cursor + new.count
             } catch {
-                appendSystem("PERSIST FAILED · \(error.localizedDescription)")
+                guard self.encounterIdentity == encounter else { return }
+                self.appendSystem("PERSIST FAILED · \(error.localizedDescription)")
             }
-        } while persistAgain
+        }
+        persistenceTask = task
+        await task.value
     }
 
     /// Replay-on-launch: recover an in-progress encounter from disk, or open a fresh
@@ -916,6 +914,7 @@ final class AppState {
                    let restored = try? Self.sectionCCodec.decoder.decode([SectionCReading].self, from: scData) {
                     vitalsLog = restored
                 }
+                recoverSensorReadings(from: log)
                 if let data = await store.loadOperatorMetadata(),
                    let metadata = try? JSONDecoder().decode(EncounterOperatorMetadata.self, from: data) {
                     operatorMetadata = metadata
@@ -960,13 +959,16 @@ final class AppState {
         let vitals: Vitals
         let avpu: String?
         var pain: String? = nil
+        var sensorSource: SensorReadingSource? = nil
 
-        init(timestamp: Date, vitals: Vitals, avpu: String?, pain: String? = nil) {
-            self.id = UUID()
+        init(id: UUID = UUID(), timestamp: Date, vitals: Vitals, avpu: String?, pain: String? = nil,
+             sensorSource: SensorReadingSource? = nil) {
+            self.id = id
             self.timestamp = timestamp
             self.vitals = vitals
             self.avpu = avpu
             self.pain = pain
+            self.sensorSource = sensorSource
         }
 
         /// Convert to the pure DD1380 grid column (pre-formatted display
@@ -990,7 +992,7 @@ final class AppState {
         }
     }
 
-    private static let sectionCCodec: (encoder: JSONEncoder, decoder: JSONDecoder) = {
+    static let sectionCCodec: (encoder: JSONEncoder, decoder: JSONDecoder) = {
         let e = JSONEncoder(); e.dateEncodingStrategy = .secondsSince1970
         let d = JSONDecoder(); d.dateDecodingStrategy = .secondsSince1970
         return (e, d)
@@ -1018,7 +1020,11 @@ final class AppState {
             encounterStart: sessionStart,
             now: Date()
         )
-        return DD1380Mapper.map(input)
+        var card = DD1380Mapper.map(input)
+        if vitalsLog.contains(where: { $0.sensorSource != nil }) || !sensorVitalOrigins.isEmpty {
+            card.notes += (card.notes.isEmpty ? "" : "\n") + "Pulse oximeter: unvalidated consumer sensor; sensor times are receipt times."
+        }
+        return card
     }
 
     /// Trailing four digits of a (possibly masked) service number, e.g.
@@ -1040,9 +1046,15 @@ final class AppState {
     private func appendVitalsSnapshot() -> Bool {
         guard let p = primaryPatient,
               p.vitals != Vitals() || p.march.consciousness?.isEmpty == false else { return false }
+        // A new speech snapshot must not give a retained sensor value a new
+        // observation time or strip its source label.
+        var observedVitals = p.vitals
+        if sensorVitalOrigins["hr"] != nil { observedVitals.hr = nil }
+        if sensorVitalOrigins["spo2"] != nil { observedVitals.spo2 = nil }
+        guard observedVitals != Vitals() || p.march.consciousness?.isEmpty == false else { return false }
         let reading = SectionCReading(
             timestamp: Date(),
-            vitals: p.vitals,
+            vitals: observedVitals,
             avpu: p.march.consciousness
         )
         if let last = vitalsLog.last,
@@ -1074,10 +1086,12 @@ final class AppState {
         vitalsLog = readings
     }
 
-    private func persistSectionC() async {
+    func persistSectionC() async {
         guard let store = encounterStore else { return }
+        let encounter = encounterIdentity
+        guard let directory = await store.activeDirectoryName(), encounterIdentity == encounter else { return }
         guard let data = try? Self.sectionCCodec.encoder.encode(vitalsLog) else { return }
-        try? await store.saveSectionC(data)
+        try? await store.saveSectionC(data, expectedDirectory: directory)
     }
 
     func loadDemoTranscript(_ text: String) async {
@@ -1138,6 +1152,11 @@ final class AppState {
     }
 
     func wipeSession() async {
+        guard !wirelessSensors.encounterTransitionInProgress else { return }
+        wirelessSensors.encounterTransitionInProgress = true
+        defer { wirelessSensors.encounterTransitionInProgress = false }
+        let sensorStop = invalidateWirelessSensorAssociation(clearPreview: true)
+        await sensorStop?.value
         await endCaptureForLifecycle(preservePartial: false)
         clearCasualtyIdentity()
         if encounterStore != nil {
@@ -1201,6 +1220,11 @@ final class AppState {
     /// RF discipline settings. Archives the prior casualty's record to disk
     /// before resetting so no encounter data is lost.
     func newPatient() async {
+        guard !wirelessSensors.encounterTransitionInProgress else { return }
+        wirelessSensors.encounterTransitionInProgress = true
+        defer { wirelessSensors.encounterTransitionInProgress = false }
+        let sensorStop = invalidateWirelessSensorAssociation(clearPreview: true)
+        await sensorStop?.value
         await endCaptureForLifecycle(preservePartial: true)
         clearCasualtyIdentity()
         let now = Date().timeIntervalSince1970
@@ -1232,6 +1256,11 @@ final class AppState {
     /// counter — the medic taps NEW CASUALTY in Settings when they have a
     /// new patient assigned).
     func endCurrentCare() async {
+        guard !wirelessSensors.encounterTransitionInProgress else { return }
+        wirelessSensors.encounterTransitionInProgress = true
+        defer { wirelessSensors.encounterTransitionInProgress = false }
+        let sensorStop = invalidateWirelessSensorAssociation(clearPreview: true)
+        await sensorStop?.value
         await endCaptureForLifecycle(preservePartial: true)
         clearCasualtyIdentity()
         let now = Date().timeIntervalSince1970

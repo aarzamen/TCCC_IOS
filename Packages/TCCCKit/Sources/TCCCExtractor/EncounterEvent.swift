@@ -109,6 +109,8 @@ public enum EncounterEvent: Sendable, Codable, Equatable, Identifiable {
     case operatorAcceptedFact(OperatorDecisionPayload)
     case operatorRejectedFact(OperatorDecisionPayload)
     case lifecycle(LifecyclePayload)
+    case sensorAssociation(SensorAssociationPayload)
+    case sensorObservation(SensorObservationPayload)
 
     public var id: String {
         switch self {
@@ -116,6 +118,8 @@ public enum EncounterEvent: Sendable, Codable, Equatable, Identifiable {
         case .deterministicFact(let p): return p.id
         case .operatorAcceptedFact(let p), .operatorRejectedFact(let p): return p.id
         case .lifecycle(let p): return p.id
+        case .sensorAssociation(let p): return p.id
+        case .sensorObservation(let p): return p.id
         }
     }
     public var patientId: String {
@@ -124,6 +128,8 @@ public enum EncounterEvent: Sendable, Codable, Equatable, Identifiable {
         case .deterministicFact(let p): return p.patientId
         case .operatorAcceptedFact(let p), .operatorRejectedFact(let p): return p.patientId
         case .lifecycle(let p): return p.patientId
+        case .sensorAssociation(let p): return p.patientId
+        case .sensorObservation(let p): return p.patientId
         }
     }
     public var timestampUnix: Double {
@@ -132,6 +138,8 @@ public enum EncounterEvent: Sendable, Codable, Equatable, Identifiable {
         case .deterministicFact(let p): return p.timestampUnix
         case .operatorAcceptedFact(let p), .operatorRejectedFact(let p): return p.timestampUnix
         case .lifecycle(let p): return p.timestampUnix
+        case .sensorAssociation(let p): return p.timestampUnix
+        case .sensorObservation(let p): return p.timestampUnix
         }
     }
 }

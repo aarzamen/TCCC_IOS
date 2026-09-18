@@ -12,7 +12,9 @@ local wireless vitals, starting with the Vibeat S5W pulse oximeter. Preserve
 capture reliability and truthful export values. Approved required behavior is
 quiet auto-connect enabled by default, with a persistent Settings/options
 control and connection status. This direction may be integrated directly into
-the existing `main` branch; it is not a claim that sensor support is implemented.
+the existing `main` branch. The first implementation now has source tests and
+signed build evidence; physical acceptance is tracked separately in the
+[validation record](docs/testing/2026-09-18-wireless-vitals-validation.md).
 See [the current wireless direction](docs/superpowers/specs/2026-09-18-wireless-vitals-direction.md).
 
 The historical roadmap and test counts below are dated reference material.

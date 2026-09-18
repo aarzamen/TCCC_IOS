@@ -13,10 +13,12 @@ are superseded by the 2026-09-08 policy.
 Active priority (2026-09-18): local wireless vitals, beginning with the Vibeat
 S5W pulse oximeter. Preserve capture reliability and truthful export values.
 The owner authorizes work on the existing default `main` branch for this
-direction. Quiet auto-connect enabled by default, a persistent Settings/options
-toggle, and connection status are approved requirements awaiting implementation
-and physical-device verification. See the
-[wireless vitals direction](docs/superpowers/specs/2026-09-18-wireless-vitals-direction.md).
+direction. The first implementation includes default-on auto-connect, a
+persistent Settings toggle, connection status, explicit casualty association,
+and event-sourced sensor evidence. Source tests and signed builds pass;
+physical iPhone acceptance remains separately recorded in the
+[validation record](docs/testing/2026-09-18-wireless-vitals-validation.md).
+See the [wireless vitals direction](docs/superpowers/specs/2026-09-18-wireless-vitals-direction.md).
 
 Native SwiftUI port of the `TCCC_FEB_2026` Python prototype. Combat-medic
 documentation app for field use: iPhone, landscape, chest-mounted, fully
@@ -75,6 +77,7 @@ TCCC_IOS/
 │   ├── Chrome/ Components/       # StatusStrip, PageHeader, Panel, FooterHints, SettingsOverlay
 │   ├── Design/                  # Theme tokens, typography, layout
 │   ├── Intelligence/            # TCCCLLMBackend conformers (Apple FM / LFM2 / Qwen / Granite)
+│   ├── Sensors/                 # Core Bluetooth S5W discovery, connection and notifications
 │   ├── DevTools/                # dev-only Granite audio benchmark (launch-arg gated)
 │   └── Pager/ Screens/           # 5-screen swipe pager + screen views
 └── Packages/TCCCKit/            # local SPM — all logic, testable in isolation
@@ -123,8 +126,12 @@ simulator.
   device selection, and provenance. Clinical displays still follow the DD 1380
   / MARCH / PAWS rubric. Sensor readings remain unvalidated, retain device and
   raw-frame evidence, and enter state only through logged engine mutations.
-  No Swift `VitalsSensor` protocol currently exists; do not assume the dated
-  architecture notes describe implemented sensor support.
+  `PulseOximeter.swift` decodes the observed S5W stream, and `SensorEvidence`
+  events retain frozen applied deltas for replay. Only explicit association
+  permits clinical ingestion; disconnects and encounter changes revoke it.
+  One latest automatic Section C column preserves operator-entered columns;
+  the encounter log retains the full stream. No generic `VitalsSensor`
+  protocol exists; other sensor families are not implemented.
 - **Backend defaults are load-bearing.** Apple Speech ASR + Apple Foundation
   Models are the validated runtime defaults. Alt backends (Parakeet + Granite
   Speech ASR; LFM2.5 + Qwen 3 LLM) are functional but **experimental**,

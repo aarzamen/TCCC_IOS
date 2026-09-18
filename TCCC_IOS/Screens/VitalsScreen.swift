@@ -75,6 +75,10 @@ struct VitalsScreen: View {
                         .frame(maxWidth: .infinity, minHeight: 44)
                     headerRow
                     rowDivider
+                    cRow(label: "Source", values: fourColumns.map {
+                        $0?.sensorSource != nil ? "SENSOR*" : ($0 == nil ? "—" : "RECORDED")
+                    })
+                    rowDivider
                     cRow(label: "Time",        values: fourColumns.map { columnTimeString($0) })
                     rowDivider
                     cRow(label: "Pulse",       values: fourColumns.map { pulseValue($0) })
@@ -88,6 +92,10 @@ struct VitalsScreen: View {
                     cRow(label: "AVPU",        values: fourColumns.map { avpuValue($0) })
                     rowDivider
                     cRow(label: "Pain (0-10)", values: fourColumns.map { $0?.pain ?? "—" })
+                    if state.vitalsLog.contains(where: { $0.sensorSource != nil }) {
+                        Text("* Latest sensor reading · unvalidated · receipt time · quality unknown")
+                            .font(.system(size: 11)).foregroundStyle(palette.fg2).padding(10)
+                    }
                 }
             }
         }

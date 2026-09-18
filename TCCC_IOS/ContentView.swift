@@ -45,6 +45,14 @@ private struct MainAppShell: View {
 
             VStack(spacing: 0) {
                 StatusStrip(state: state)
+                if !state.sensorVitalOrigins.isEmpty {
+                    Text("Recorded pulse / SpO₂ includes unvalidated consumer-sensor data · review before handoff")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(palette.fg2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, Layout.outerPadding)
+                        .padding(.vertical, 4)
+                }
                 ScreenPager(state: state)
                     .frame(maxHeight: .infinity)
             }

@@ -56,8 +56,14 @@ actor EncounterStore {
         try saveManifest(m)
     }
 
-    func appendToActive(_ events: [EncounterEvent]) throws {
-        guard let dir = activeDir else { return }
+    func appendToActive(_ events: [EncounterEvent], expectedDirectory: String? = nil) throws {
+        guard let dir = activeDir else {
+            if expectedDirectory != nil { throw CocoaError(.fileWriteUnknown) }
+            return
+        }
+        if let expectedDirectory, dir.lastPathComponent != expectedDirectory {
+            throw CocoaError(.fileWriteUnknown)
+        }
         let file = dir.appendingPathComponent("events.jsonl")
         for event in events {
             let line = String(decoding: try encoder.encode(event), as: UTF8.self)

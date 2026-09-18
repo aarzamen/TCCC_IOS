@@ -37,9 +37,9 @@ final class HandoffCSVTests: XCTestCase {
         let csv = HandoffExports.vitalsCSV(readings: [late, early])
         let rows = csv.split(separator: "\n").map(String.init)
         XCTAssertEqual(rows.count, 3)
-        XCTAssertEqual(rows[0], "timestamp,hr,sys,dia,bp_palpated,spo2,rr,gcs,temperature_c,capillary_refill_seconds,avpu,pain")
-        XCTAssertEqual(rows[1], "1970-01-01T00:00:00Z,110,,,,,,,,,Alert,")
-        XCTAssertEqual(rows[2], "1970-01-01T00:01:00Z,,,,,,20,,,,Voice,")
+        XCTAssertEqual(rows[0], "timestamp,hr,sys,dia,bp_palpated,spo2,rr,gcs,temperature_c,capillary_refill_seconds,avpu,pain,source,review_status,time_basis")
+        XCTAssertEqual(rows[1], "1970-01-01T00:00:00Z,110,,,,,,,,,Alert,,,,")
+        XCTAssertEqual(rows[2], "1970-01-01T00:01:00Z,,,,,,20,,,,Voice,,,,")
     }
 
     func testEmptyHistoryDoesNotInventAnExportTimeObservation() {
@@ -53,7 +53,7 @@ final class HandoffCSVTests: XCTestCase {
             vitals: Vitals(gcs: 12, temperatureCelsius: 36.5, capillaryRefillSeconds: 2),
             avpu: "Voice, \"recorded\"")
         let csv = HandoffExports.vitalsCSV(readings: [reading])
-        XCTAssertTrue(csv.contains(",12,36.5,2.0,\"Voice, \"\"recorded\"\"\",\n"))
+        XCTAssertTrue(csv.contains(",12,36.5,2.0,\"Voice, \"\"recorded\"\"\",,,,\n"))
         XCTAssertFalse(csv.contains("NKDA"))
     }
 
@@ -70,7 +70,7 @@ final class HandoffCSVTests: XCTestCase {
         let late = AppState.SectionCReading(timestamp: Date(timeIntervalSince1970: 60),
             vitals: Vitals(), avpu: nil)
         let rows = HandoffExports.vitalsCSV(readings: [early, late]).split(separator: "\n")
-        XCTAssertTrue(rows[1].hasSuffix(",7/10"))
+        XCTAssertTrue(rows[1].hasSuffix(",7/10,,,"))
         XCTAssertTrue(rows[2].hasSuffix(","))
         XCTAssertFalse(rows[2].contains("7/10"))
     }

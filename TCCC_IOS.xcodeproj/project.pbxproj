@@ -27,6 +27,7 @@
 		1106BABC6C0D1D9B4D6ECEE1 /* AmbientMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3872D635F3CEBAE50C1908D4 /* AmbientMeter.swift */; };
 		113A1E8CAE9741977E6DE7FC /* TCCCExtractor in Frameworks */ = {isa = PBXBuildFile; productRef = 4A8D6FEB06733BC8C993630A /* TCCCExtractor */; };
 		11EB9CB58A7D41B0938679CE /* GraniteRealModelRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAFA9B2EA3CCFF87951FD0A /* GraniteRealModelRunner.swift */; };
+		13D69B04CCA7AFACA3885757 /* AppState+WirelessSensors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B9C5881F9543C4C3516D47B /* AppState+WirelessSensors.swift */; };
 		149CD2D0E586C6EFDFB3C113 /* ProvisionalLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A49090212AB69726772539F6 /* ProvisionalLifecycleTests.swift */; };
 		17188C8A87B777FCDD8A6308 /* BigButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BAB6B06BC0C11180630E4CE /* BigButton.swift */; };
 		1780AEC6F9937ABC665E1778 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9256329C7E3B8CDC74E1CA5F /* Typography.swift */; };
@@ -64,6 +65,7 @@
 		413E2267D1F0EBE40FBA130A /* NineLineForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0894014601F9571B1B376A /* NineLineForm.swift */; };
 		4169B64DEB953F29C6C52FA2 /* valdez_alley.json in Resources */ = {isa = PBXBuildFile; fileRef = 4392B4C87DC6E1A6DE985B51 /* valdez_alley.json */; };
 		424652A98CD7C9860C59FCF0 /* SmallVital.swift in Sources */ = {isa = PBXBuildFile; fileRef = 274E6A86610FEAD04C57413F /* SmallVital.swift */; };
+		4316890223352CD1620462A7 /* WirelessSensorIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829CE4578D88400A40437CC1 /* WirelessSensorIntegrationTests.swift */; };
 		434A512EC4D22D590B8B3324 /* GraniteLocalTextLLMBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0905B039EBBC1CD78798C731 /* GraniteLocalTextLLMBackend.swift */; };
 		4438165A68BB5C4EAF4461EE /* QwenLLMBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5D4C6D20902E00D65E368B1 /* QwenLLMBackend.swift */; };
 		4572A0D325D680F749E23697 /* ParakeetPCMResampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3417964859877D65135BC99C /* ParakeetPCMResampler.swift */; };
@@ -100,6 +102,7 @@
 		5DCDE26736E90F013ACFC0A2 /* BenchStateMapperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BF8D34093A7A0336D5E634F /* BenchStateMapperTests.swift */; };
 		5E17A5097E424C1C9D64523C /* DD1380PDFExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EA2A0D3C32577F1BEF55816 /* DD1380PDFExportService.swift */; };
 		5E335E98466F27FE4BB04476 /* TCCCExtractor in Frameworks */ = {isa = PBXBuildFile; productRef = A15CAC0CB421F5287463F2D1 /* TCCCExtractor */; };
+		5E71062F9E6FB50F9C0B23B0 /* WirelessSensorsSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E5333D5ECBE90F4115B9AD /* WirelessSensorsSettings.swift */; };
 		5F831CD02E231B867E55884F /* EvidenceLinkageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F46C00BD2F2DD93A7F5807C /* EvidenceLinkageTests.swift */; };
 		600E655D057BE15E389CC357 /* MLXBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129984C4E0F1CB5E8FF56A58 /* MLXBackend.swift */; };
 		60EFD3537074F7C562CF1A8B /* SpeechUtteranceAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3268DD35C3C23982C057B376 /* SpeechUtteranceAssembler.swift */; };
@@ -135,6 +138,7 @@
 		8CDE5D6D6A712608D4B9162F /* GranitePromptBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F65E49B6C7026C97C109E10 /* GranitePromptBuilderTests.swift */; };
 		8DC1156F7128911034EFF946 /* RadioScriptGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC7666599E263562C0948458 /* RadioScriptGenerator.swift */; };
 		8EC8E02D86C55CAAB3BA7DA4 /* DestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E59FC65329AC434413958DE /* DestCard.swift */; };
+		9020F4F583FCF7AFF5927CAD /* PulseOximeterBluetooth.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97425D58A08DCDB82AB34DD /* PulseOximeterBluetooth.swift */; };
 		945BFD4353589934B27B6B86 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D562A2386790CF33445FA76 /* SplashView.swift */; };
 		96C9407787A6B3BBEFC78E02 /* YapLabEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6EEA9776A6E3FDFE347E9AB /* YapLabEvidenceTests.swift */; };
 		97C0BA49A8A6F6D4AE6364E5 /* LocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A00A180822A5C4A58A0418 /* LocationProvider.swift */; };
@@ -258,6 +262,7 @@
 		1F76F457BB1EEDD6EBE7079D /* SectionCPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionCPersistenceTests.swift; sourceTree = "<group>"; };
 		232370BA9225A54377B43108 /* AudioSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionCoordinator.swift; sourceTree = "<group>"; };
 		24940FE5AC2F0EE0AFE266AA /* LifecycleAffordanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifecycleAffordanceTests.swift; sourceTree = "<group>"; };
+		24E5333D5ECBE90F4115B9AD /* WirelessSensorsSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WirelessSensorsSettings.swift; sourceTree = "<group>"; };
 		26EEF8B5021A98A8D47F6245 /* DD1380PDFRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DD1380PDFRendererTests.swift; sourceTree = "<group>"; };
 		274E6A86610FEAD04C57413F /* SmallVital.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmallVital.swift; sourceTree = "<group>"; };
 		27F42708DFF594F827CA234B /* SpeechAuthorizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechAuthorizationTests.swift; sourceTree = "<group>"; };
@@ -286,6 +291,7 @@
 		45432B79F663572BEAD08956 /* TCCC_IOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TCCC_IOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		47CDB74184A95D2E625877CD /* ProtectedWriteAppendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectedWriteAppendTests.swift; sourceTree = "<group>"; };
 		488B93C595B14353B319A9B4 /* ConfirmationBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationBanner.swift; sourceTree = "<group>"; };
+		4B9C5881F9543C4C3516D47B /* AppState+WirelessSensors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+WirelessSensors.swift"; sourceTree = "<group>"; };
 		4BBF9F46953BFE9ACF51D05D /* ParakeetAudioProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetAudioProcessor.swift; sourceTree = "<group>"; };
 		4FE705B82DF14560228BED9B /* DeterministicFactProjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicFactProjector.swift; sourceTree = "<group>"; };
 		50410BBB0A0B181D1B184A4E /* OfflineModelAssets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineModelAssets.swift; sourceTree = "<group>"; };
@@ -329,6 +335,7 @@
 		7FE3B8D34AC99C28F9DB2B61 /* PlaceholderBody.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderBody.swift; sourceTree = "<group>"; };
 		80B0398ABF53C55C63CA91DE /* FMStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMStatusBadge.swift; sourceTree = "<group>"; };
 		814714063444A46EFF4A5946 /* AudioLevels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLevels.swift; sourceTree = "<group>"; };
+		829CE4578D88400A40437CC1 /* WirelessSensorIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WirelessSensorIntegrationTests.swift; sourceTree = "<group>"; };
 		8401D75DB09EBED499F53F77 /* SpeechAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechAuthorization.swift; sourceTree = "<group>"; };
 		84A41719AFED4D0129CE5D26 /* WarningBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarningBanner.swift; sourceTree = "<group>"; };
 		889BC4CCB1DCCF36AE02E788 /* TransmitScript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransmitScript.swift; sourceTree = "<group>"; };
@@ -358,6 +365,7 @@
 		A51ADA504328DA9CC7BD9B79 /* YapLabSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YapLabSession.swift; sourceTree = "<group>"; };
 		A74189FEDEBDDDF5565E3FA7 /* LocationCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationCaptureTests.swift; sourceTree = "<group>"; };
 		A79C2FA6A2241A3F64A29032 /* ClinicalEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClinicalEntry.swift; sourceTree = "<group>"; };
+		A97425D58A08DCDB82AB34DD /* PulseOximeterBluetooth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseOximeterBluetooth.swift; sourceTree = "<group>"; };
 		AA865D94AC15BA6F345C5C8B /* ReceiverPlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiverPlaceholderView.swift; sourceTree = "<group>"; };
 		AB573FE657D740D397D5C736 /* HoldToConfirmButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldToConfirmButton.swift; sourceTree = "<group>"; };
 		AC0EF0B04ABAB9BAD0EBBABE /* TCCCAudio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TCCCAudio; path = Packages/TCCCAudio; sourceTree = SOURCE_ROOT; };
@@ -492,6 +500,7 @@
 				C640369EA0F3741F8FA36A0B /* VoiceCommandBanner.swift */,
 				44D1BCE15092A382D0C8A83E /* VoiceCommandChip.swift */,
 				84A41719AFED4D0129CE5D26 /* WarningBanner.swift */,
+				24E5333D5ECBE90F4115B9AD /* WirelessSensorsSettings.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -644,6 +653,7 @@
 			isa = PBXGroup;
 			children = (
 				5228B58B0B7DEB4A7E25D6EB /* AppState.swift */,
+				4B9C5881F9543C4C3516D47B /* AppState+WirelessSensors.swift */,
 				033BF3F9182D45F2A90CBDB4 /* BuildStamp.swift */,
 				A79C2FA6A2241A3F64A29032 /* ClinicalEntry.swift */,
 				F5C6B5DD035E601B88468377 /* ConfirmationAction.swift */,
@@ -706,6 +716,14 @@
 			path = Audio;
 			sourceTree = "<group>";
 		};
+		A375589063DBC1F29B90E548 /* Sensors */ = {
+			isa = PBXGroup;
+			children = (
+				A97425D58A08DCDB82AB34DD /* PulseOximeterBluetooth.swift */,
+			);
+			path = Sensors;
+			sourceTree = "<group>";
+		};
 		AB8ED0D5062FAE2BC54C17CE /* Resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -755,6 +773,7 @@
 				DFB9F4FCBA71D7CB5E1FF523 /* Pager */,
 				AB8ED0D5062FAE2BC54C17CE /* Resources */,
 				1F593FCD09EBB28D17FCFA5E /* Screens */,
+				A375589063DBC1F29B90E548 /* Sensors */,
 				F3BF5943D7276F72989828BC /* Splash */,
 				8BA2378CD22A6019E6ADA7C2 /* TranscriptionLab */,
 			);
@@ -831,6 +850,7 @@
 				27F42708DFF594F827CA234B /* SpeechAuthorizationTests.swift */,
 				5880A1DBC9BB96454DC624AA /* SpeechUtteranceAssemblerTests.swift */,
 				77172C1FDE135370A2934BB7 /* TranscriptSegmentLedgerTests.swift */,
+				829CE4578D88400A40437CC1 /* WirelessSensorIntegrationTests.swift */,
 				B6EEA9776A6E3FDFE347E9AB /* YapLabEvidenceTests.swift */,
 				281AD628D287FC0554268E19 /* YapLabSessionTests.swift */,
 			);
@@ -1015,6 +1035,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1106BABC6C0D1D9B4D6ECEE1 /* AmbientMeter.swift in Sources */,
+				13D69B04CCA7AFACA3885757 /* AppState+WirelessSensors.swift in Sources */,
 				4A0F0CBCC1FA321587B4A2C5 /* AppState.swift in Sources */,
 				553E057ED5AAEC6B1A6AA22E /* AppleFoundationLLMBackend.swift in Sources */,
 				0371D418E8CEDAD90B7678E0 /* AppleSpeechFileTranscriber.swift in Sources */,
@@ -1106,6 +1127,7 @@
 				D0E1D462FCB005800E7E6772 /* PlaceholderBody.swift in Sources */,
 				5194C389A069FE2C254042BB /* PlaybackVisualizer.swift in Sources */,
 				8BFDC48A15257D335AA6FDC2 /* ProtectedWrite.swift in Sources */,
+				9020F4F583FCF7AFF5927CAD /* PulseOximeterBluetooth.swift in Sources */,
 				0A9AA237302FD35F3D5BC61C /* QuickActionsSheet.swift in Sources */,
 				4438165A68BB5C4EAF4461EE /* QwenLLMBackend.swift in Sources */,
 				200100F209AD86CF86F6BC2A /* RFGhostBadge.swift in Sources */,
@@ -1147,6 +1169,7 @@
 				D64F97E6360516BC2E015B7E /* VoiceCommandBanner.swift in Sources */,
 				65723436424B03087D2796A3 /* VoiceCommandChip.swift in Sources */,
 				18EBCD621108A5725D5EF890 /* WarningBanner.swift in Sources */,
+				5E71062F9E6FB50F9C0B23B0 /* WirelessSensorsSettings.swift in Sources */,
 				6532B91FC3FD493AA2D79DB2 /* YapLabModel.swift in Sources */,
 				3772C9DA9DA4432AE8136E36 /* YapLabSession.swift in Sources */,
 				5647FCEC2FB9E7E24D5B58B6 /* YapLabView.swift in Sources */,
@@ -1207,6 +1230,7 @@
 				201DFFA3A7CD09CE20586740 /* SpeechAuthorizationTests.swift in Sources */,
 				3CCA1290005562B18A147E75 /* SpeechUtteranceAssemblerTests.swift in Sources */,
 				02CC048641A4480724BA6208 /* TranscriptSegmentLedgerTests.swift in Sources */,
+				4316890223352CD1620462A7 /* WirelessSensorIntegrationTests.swift in Sources */,
 				96C9407787A6B3BBEFC78E02 /* YapLabEvidenceTests.swift in Sources */,
 				AE77797350044CE13C036EE3 /* YapLabSessionTests.swift in Sources */,
 			);

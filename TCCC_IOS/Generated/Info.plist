@@ -26,6 +26,8 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Connect locally to your pulse oximeter. Readings are recorded only after you associate the sensor with the current casualty. No internet or vendor account is required.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Use this iPhone's location to populate the MEDEVAC Line 1 MGRS grid. Location stays on this device unless the operator manually exports the casualty record.</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -42,6 +44,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<string>bluetooth-central</string>
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>

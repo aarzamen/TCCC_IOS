@@ -334,18 +334,25 @@ enum HandoffQR {
 
     /// Returns the JSON-encoded patient payload ready for QR rendering.
     /// Falls back to a minimal placeholder when no patient exists yet.
-    static func payload(for patient: PatientState?) -> Data {
+    static func payload(for patient: PatientState?, sensorProvenance: [String: SensorReadingSource] = [:]) -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
         if let patient {
-            return (try? encoder.encode(patient)) ?? Data("{}".utf8)
+            guard let data = try? encoder.encode(patient) else { return Data("{}".utf8) }
+            guard !sensorProvenance.isEmpty,
+                  var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let metadata = try? encoder.encode(sensorProvenance),
+                  let metadataObject = try? JSONSerialization.jsonObject(with: metadata) else { return data }
+            object["sensorProvenance"] = metadataObject
+            return (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])) ?? data
         }
         return Data("{}".utf8)
     }
 
     /// Estimated KB size of the JSON payload, ceiling-rounded.
-    static func payloadKilobytes(for patient: PatientState?) -> Int {
-        let bytes = payload(for: patient).count
+    static func payloadKilobytes(for patient: PatientState?, sensorProvenance: [String: SensorReadingSource] = [:]) -> Int {
+        let bytes = payload(for: patient, sensorProvenance: sensorProvenance).count
         return max(1, Int(ceil(Double(bytes) / 1024.0)))
     }
 
@@ -368,8 +375,9 @@ enum HandoffExports {
 
     /// Write the patient JSON to a temp file, return the URL. Suitable for
     /// passing to UIActivityViewController.
-    static func writeJSON(for patient: PatientState?, casualtyId: String) -> URL? {
-        let data = HandoffQR.payload(for: patient)
+    static func writeJSON(for patient: PatientState?, casualtyId: String,
+                          sensorProvenance: [String: SensorReadingSource] = [:]) -> URL? {
+        let data = HandoffQR.payload(for: patient, sensorProvenance: sensorProvenance)
         let dir = FileManager.default.temporaryDirectory
         let stamp = Self.timestampString()
         let url = dir.appendingPathComponent("encounter-\(casualtyId)-\(stamp).json")
@@ -391,7 +399,7 @@ enum HandoffExports {
     }
 
     static func vitalsCSV(readings: [AppState.SectionCReading]) -> String {
-        var rows = ["timestamp,hr,sys,dia,bp_palpated,spo2,rr,gcs,temperature_c,capillary_refill_seconds,avpu,pain"]
+        var rows = ["timestamp,hr,sys,dia,bp_palpated,spo2,rr,gcs,temperature_c,capillary_refill_seconds,avpu,pain,source,review_status,time_basis"]
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]
         // Preserve input order for observations with identical timestamps.
@@ -407,7 +415,9 @@ enum HandoffExports {
                 v.bp.map { $0.palpated ? "true" : "false" } ?? "",
                 v.spo2.map(String.init) ?? "", v.rr.map(String.init) ?? "",
                 v.gcs.map(String.init) ?? "", v.temperatureCelsius.map { String($0) } ?? "",
-                v.capillaryRefillSeconds.map { String($0) } ?? "", reading.avpu ?? "", reading.pain ?? ""
+                v.capillaryRefillSeconds.map { String($0) } ?? "", reading.avpu ?? "", reading.pain ?? "",
+                reading.sensorSource == nil ? "" : "pulse_oximeter",
+                reading.sensorSource?.reviewStatus ?? "", reading.sensorSource?.timeBasis ?? ""
             ]
             rows.append(fields.map(csvField).joined(separator: ","))
         }

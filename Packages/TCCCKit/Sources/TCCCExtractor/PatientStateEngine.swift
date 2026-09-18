@@ -58,6 +58,12 @@ public actor PatientStateEngine {
     private var factCount = 0
     private var lifecycleCount = 1   // init seeds "lc-1"
 
+    private var sensorAssociation: SensorAssociationPayload?
+    private var sensorProtectedFields: Set<SensorVitalField> = []
+    private var sensorReadingIDs: Set<UUID> = []
+    private var lastSensorReceipt: Date?
+    private var lastSensorObservationTime: Date?
+
     // MARK: - Dependencies
 
     private let passes: [any ExtractorPass]
@@ -107,6 +113,7 @@ public actor PatientStateEngine {
         for sentence in sentences {
             // 1. Patient-switch detection FIRST (P1 #3 in state.py).
             if let newID = switcher.detectSwitch(in: sentence) {
+                if newID != currentPatientID { revokeSensorAssociation(timestamp: timestamp) }
                 currentPatientID = newID
                 ensurePatientExists(currentPatientID, timestamp: unixTimestamp)
             }
@@ -150,10 +157,22 @@ public actor PatientStateEngine {
         let cursor = log.events.count
         let priorPatients = patients
         let priorPatientID = currentPatientID
+        let priorAssociationID = sensorAssociation?.id
         processTranscript(text, timestamp: timestamp)
+        // A spoken patient switch revokes sensor ownership immediately. Keep
+        // that audit decision before the revisable speech tail even if a later
+        // ASR refinement changes the patient-switch words.
+        var rollbackCursor = cursor
+        if priorAssociationID != sensorAssociation?.id,
+           let revocationIndex = log.events[cursor...].lastIndex(where: {
+               if case .sensorAssociation(let association) = $0 { return association.kind == .revoked }
+               return false
+           }) {
+            rollbackCursor = revocationIndex + 1
+        }
         // Record `tail` AFTER extraction so reviseProvisional can detect whether
         // a foreign event was appended between commit and revise.
-        provisionalBoundary = (cursor: cursor,
+        provisionalBoundary = (cursor: rollbackCursor,
                                tail: log.events.count,
                                patients: priorPatients,
                                currentPatientID: priorPatientID)
@@ -245,6 +264,15 @@ public actor PatientStateEngine {
         return Array(log.events[index...])
     }
 
+    /// Only permanent events are safe for append-only storage. A sensor-driven
+    /// drain may run while the next speech chunk is provisional; excluding that
+    /// tail prevents persistence of events a later refinement can replace.
+    public func persistableEvents(since index: Int) -> [EncounterEvent] {
+        let end = provisionalBoundary?.cursor ?? log.events.count
+        guard index >= 0, index < end else { return [] }
+        return Array(log.events[index..<end])
+    }
+
     /// Apply typed field writes to one patient. This is the ONLY non-extraction
     /// mutation entry; it accepts only the typed `PatientStateFieldWrite` vocabulary,
     /// so the engine remains the sole writer of `PatientState`.
@@ -301,6 +329,9 @@ public actor PatientStateEngine {
         domain: String, field: String, rawValue: String?, to patientId: String,
         timestamp: Date = Date()) {
         lastOperatorDecisionUptime = ProcessInfo.processInfo.systemUptime
+        if sensorAssociation?.patientId == patientId, let field = SensorVitalField.matching(write) {
+            sensorProtectedFields.insert(field)
+        }
         let unix = timestamp.timeIntervalSince1970
         ensurePatientExists(patientId, timestamp: unix)
         opCount += 1
@@ -319,6 +350,17 @@ public actor PatientStateEngine {
     public func recordOperatorRejectedFact(factId: String?, domain: String, field: String,
         rawValue: String?, to patientId: String, timestamp: Date = Date()) {
         lastOperatorDecisionUptime = ProcessInfo.processInfo.systemUptime
+        if sensorAssociation?.patientId == patientId {
+            if let protected = SensorVitalField.matching(alias: field) {
+                sensorProtectedFields.insert(protected)
+            } else if let factId,
+                      let event = log.events.last(where: { $0.id == factId }),
+                      case .sensorObservation(let observation) = event,
+                      observation.patientId == patientId {
+                if observation.reading.pulseRate != nil { sensorProtectedFields.insert(.pulseRate) }
+                if observation.reading.spo2 != nil { sensorProtectedFields.insert(.spo2) }
+            }
+        }
         opCount += 1
         log.append(.operatorRejectedFact(.init(
             id: "op-\(opCount)", patientId: patientId, timestampUnix: timestamp.timeIntervalSince1970,
@@ -333,6 +375,12 @@ public actor PatientStateEngine {
     public func restore(_ restoredLog: EncounterLog) {
         log = restoredLog
         patients = Self.project(restoredLog)
+        provisionalBoundary = nil
+        sensorAssociation = nil
+        sensorProtectedFields.removeAll()
+        sensorReadingIDs.removeAll()
+        lastSensorReceipt = nil
+        lastSensorObservationTime = nil
         var asr = 0, fact = 0, op = 0, life = 0
         var lastAsrPatient: String?
         for event in restoredLog.events {
@@ -342,6 +390,8 @@ public actor PatientStateEngine {
             case .operatorAcceptedFact,
                  .operatorRejectedFact:         op += 1
             case .lifecycle:                    life += 1
+            case .sensorAssociation:            break
+            case .sensorObservation(let p):     sensorReadingIDs.insert(p.reading.id)
             }
         }
         asrCount = asr; factCount = fact; opCount = op; lifecycleCount = life
@@ -351,10 +401,193 @@ public actor PatientStateEngine {
     /// Append an audit-only lifecycle marker (End Care / archival). `.encounterEnded`
     /// and `.archived` are inert in `project`, so no re-projection is needed.
     public func recordLifecycle(_ kind: LifecyclePayload.Kind, timestamp: Date = Date()) {
+        if kind == .encounterEnded || kind == .archived { revokeSensorAssociation(timestamp: timestamp) }
         lifecycleCount += 1
         log.append(.lifecycle(.init(
             id: "lc-\(lifecycleCount)", patientId: currentPatientID,
             timestampUnix: timestamp.timeIntervalSince1970, kind: kind)))
+    }
+
+    // MARK: - Local pulse-oximeter evidence
+
+    /// Explicit operator association. The default matches the single-casualty
+    /// UI; speech may select another engine patient, so check focus atomically.
+    /// Rebinding is the operator action that releases prior vital protections.
+    public func associateSensor(deviceID: String, deviceName: String,
+        connectionID: UUID, encounterID: UUID, patientId: String = "PATIENT_1",
+        timestamp: Date = Date()) -> SensorAssociationPayload? {
+        guard patientId == currentPatientID, patients[patientId] != nil,
+              !deviceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              timestamp.timeIntervalSince1970.isFinite else { return nil }
+        revokeSensorAssociation(timestamp: timestamp)
+        settleProvisional()
+        let id = "sensor-association-" + UUID().uuidString
+        let association = SensorAssociationPayload(id: id, associationID: id,
+            patientId: patientId, timestampUnix: timestamp.timeIntervalSince1970,
+            deviceID: deviceID, deviceName: deviceName, connectionID: connectionID,
+            encounterID: encounterID, eventFence: log.events.count, kind: .associated)
+        log.append(.sensorAssociation(association))
+        sensorAssociation = association
+        sensorProtectedFields.removeAll()
+        lastSensorReceipt = nil
+        lastSensorObservationTime = nil
+        return association
+    }
+
+    /// Match a disconnect to its association so an old connection cannot revoke
+    /// a later operator binding. Passing nil is the lifecycle/off revoke-all path.
+    public func revokeSensorAssociation(associationID: String? = nil, timestamp: Date = Date()) {
+        guard let association = sensorAssociation,
+              associationID == nil || associationID == association.id else { return }
+        settleProvisional()
+        log.append(.sensorAssociation(.init(
+            id: "sensor-revocation-" + UUID().uuidString, associationID: association.id,
+            patientId: association.patientId, timestampUnix: timestamp.timeIntervalSince1970,
+            deviceID: association.deviceID, deviceName: association.deviceName,
+            connectionID: association.connectionID, encounterID: association.encounterID,
+            eventFence: association.eventFence, kind: .revoked)))
+        sensorAssociation = nil
+        sensorProtectedFields.removeAll()
+        lastSensorReceipt = nil
+        lastSensorObservationTime = nil
+    }
+
+    /// Record a bound sample and its exact applied deltas in one actor turn.
+    /// Invalid identity/pre-association callbacks and duplicate sample IDs are
+    /// discarded. Stale, unavailable, unsupported and protected data are audit
+    /// evidence only. Unknown quality never becomes a claim of signal validity.
+    public func recordSensorObservation(reading: PulseOximeterReading,
+        waveforms: [PulseOximeterWaveform], associationID: String,
+        connectionID: UUID, encounterID: UUID,
+        auxiliaryFrames: [PulseOximeterRawFrame] = [],
+        timestamp: Date = Date()) -> SensorObservationPayload? {
+        if #available(macOS 10.15, *) {
+            guard !Task.isCancelled else { return nil }
+        }
+        guard timestamp.timeIntervalSince1970.isFinite,
+              reading.receivedAt.timeIntervalSince1970.isFinite,
+              reading.acquiredAt?.timeIntervalSince1970.isFinite != false,
+              reading.perfusionIndex?.isFinite != false,
+              let association = sensorAssociation,
+              association.id == associationID,
+              association.connectionID == connectionID,
+              association.encounterID == encounterID,
+              association.patientId == currentPatientID,
+              var patient = patients[association.patientId],
+              reading.receivedAt.timeIntervalSince1970 >= association.timestampUnix,
+              !sensorReadingIDs.contains(reading.id) else { return nil }
+
+        settleProvisional()
+        sensorReadingIDs.insert(reading.id)
+        let observedAt = reading.acquiredAt ?? reading.receivedAt
+        let receiptAge = timestamp.timeIntervalSince(reading.receivedAt)
+        let observationAge = timestamp.timeIntervalSince(observedAt)
+        let validTiming = timestamp.timeIntervalSince1970.isFinite
+            && reading.receivedAt.timeIntervalSince1970.isFinite
+            && observedAt.timeIntervalSince1970.isFinite
+            && receiptAge >= 0 && observationAge >= 0
+            && observedAt <= reading.receivedAt
+        var deltas: [PatientStateDelta] = []
+        var disposition: SensorObservationDisposition
+        var protected: [SensorVitalField] = []
+
+        if !validTiming {
+            disposition = .invalidTiming
+        } else if receiptAge > 5 || observationAge > 5
+                    || observedAt.timeIntervalSince1970 < association.timestampUnix {
+            disposition = .stale
+        } else if lastSensorReceipt.map({ reading.receivedAt < $0 }) == true
+                    || lastSensorObservationTime.map({ observedAt < $0 }) == true {
+            disposition = .outOfOrder
+        } else {
+            lastSensorReceipt = reading.receivedAt
+            lastSensorObservationTime = observedAt
+            switch reading.quality {
+            case .unavailable:
+                disposition = .unavailable
+            case .unsupportedEncoding:
+                disposition = .unsupportedEncoding
+            case .unknown:
+                var hasUsableValue = false
+                if let pulse = reading.pulseRate, (1...300).contains(pulse) {
+                    hasUsableValue = true
+                    if sensorProtectedFields.contains(.pulseRate) { protected.append(.pulseRate) }
+                    else { deltas.append(.vitalsHR(pulse)) }
+                }
+                if let oxygen = reading.spo2, (1...100).contains(oxygen) {
+                    hasUsableValue = true
+                    if sensorProtectedFields.contains(.spo2) { protected.append(.spo2) }
+                    else { deltas.append(.vitalsSpO2(oxygen)) }
+                }
+                if !hasUsableValue { disposition = .noUsableValues }
+                else if deltas.isEmpty { disposition = .operatorProtected }
+                else if !protected.isEmpty { disposition = .partiallyProtected }
+                else { disposition = .recorded }
+            }
+        }
+
+        if !deltas.isEmpty {
+            let unix = observedAt.timeIntervalSince1970
+            if patient.timestampFirstMention == nil { deltas.append(.timestampFirstMention(unix)) }
+            deltas.append(.timestampLastUpdate(max(patient.timestampLastUpdate ?? unix, unix)))
+        }
+        let observation = SensorObservationPayload(id: "sensor-observation-" + reading.id.uuidString,
+            patientId: association.patientId, timestampUnix: timestamp.timeIntervalSince1970,
+            associationID: association.id, reading: reading,
+            waveforms: waveforms.filter {
+                $0.receivedAt.timeIntervalSince1970 >= association.timestampUnix
+                    && $0.receivedAt <= reading.receivedAt
+                    && reading.receivedAt.timeIntervalSince($0.receivedAt) <= 5
+            },
+            auxiliaryFrames: auxiliaryFrames.filter {
+                $0.receivedAt.timeIntervalSince1970 >= association.timestampUnix
+                    && $0.receivedAt <= reading.receivedAt
+                    && reading.receivedAt.timeIntervalSince($0.receivedAt) <= 5
+            },
+            appliedDeltas: deltas, disposition: disposition, protectedFields: protected,
+            reviewStatus: .unvalidatedConsumerSensor, units: SensorObservationUnits())
+        log.append(.sensorObservation(observation))
+        for delta in deltas { Self.applyDelta(delta, to: &patient) }
+        patients[association.patientId] = patient
+        return observation
+    }
+
+    /// Current HR/SpO2 provenance, resolving the latest actual writer per field.
+    /// Later speech or operator writes remove that field's sensor origin; audit-
+    /// only sensor frames and operator rejections do not change current values.
+    public func sensorVitalOrigins(patientId: String = "PATIENT_1") -> [String: SensorObservationPayload] {
+        var unresolved: Set<SensorVitalField> = [.pulseRate, .spo2]
+        var origins: [String: SensorObservationPayload] = [:]
+        for event in log.events.reversed() where event.patientId == patientId {
+            guard !unresolved.isEmpty else { break }
+            switch event {
+            case .sensorObservation(let observation):
+                for delta in observation.appliedDeltas {
+                    guard let field = SensorVitalField.matching(delta),
+                          unresolved.remove(field) != nil else { continue }
+                    origins[field == .pulseRate ? "hr" : "spo2"] = observation
+                }
+            case .deterministicFact(let fact):
+                if let field = SensorVitalField.matching(fact.delta) { unresolved.remove(field) }
+            case .operatorAcceptedFact(let decision):
+                if let write = decision.write, let field = SensorVitalField.matching(write) {
+                    unresolved.remove(field)
+                }
+            case .asrSegment, .operatorRejectedFact, .lifecycle, .sensorAssociation:
+                break
+            }
+        }
+        return origins
+    }
+
+    /// Snapshot values and their current sensor sources in one actor turn so
+    /// an intervening speech/operator write cannot label one snapshot with the
+    /// provenance of a later snapshot.
+    public func snapshotWithSensorOrigins(patientId: String = "PATIENT_1") -> (
+        patients: [String: PatientState], sensorOrigins: [String: SensorObservationPayload],
+        activeSensorAssociation: SensorAssociationPayload?
+    ) {
+        (patients, sensorVitalOrigins(patientId: patientId), sensorAssociation)
     }
 
     // MARK: - Internal helpers

@@ -68,6 +68,8 @@ struct SettingsOverlay: View {
                     }.frame(minHeight: 44).padding(.horizontal, 16)
                     displayModeSection
                     sectionDivider
+                    WirelessSensorsSettings(state: state)
+                    sectionDivider
                     audioASRSection
                     sectionDivider
                     llmBackendSection

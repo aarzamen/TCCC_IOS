@@ -63,7 +63,7 @@ struct HandoffScreen: View {
             get: { state.qrOverlayVisible },
             set: { state.qrOverlayVisible = $0 }
         )) {
-            QRSheet(payload: HandoffQR.payload(for: patient))
+            QRSheet(payload: HandoffQR.payload(for: patient, sensorProvenance: state.handoffSensorProvenance))
                 .environment(\.palette, palette)
         }
         .sheet(isPresented: $shareSheetVisible) {
@@ -83,6 +83,10 @@ struct HandoffScreen: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
+                        if !state.sensorVitalOrigins.isEmpty {
+                            Text("Pulse / SpO₂ includes unvalidated consumer-sensor data. Review before handoff.")
+                                .font(.system(size: 11)).foregroundStyle(palette.fg2).padding(8)
+                        }
                         slmBlock(label: "ZMIST · Current assessment", body: state.structuredZMIST, mono: true)
                         Rectangle()
                             .fill(palette.line)
@@ -337,7 +341,7 @@ struct HandoffScreen: View {
             ExportCard(
                 icon: "curlybraces",
                 title: "JSON Encounter",
-                detail: patient == nil ? "No casualty state" : "\(HandoffQR.payloadKilobytes(for: patient)) KB · structured record",
+                detail: patient == nil ? "No casualty state" : "\(HandoffQR.payloadKilobytes(for: patient, sensorProvenance: state.handoffSensorProvenance)) KB · structured record",
                 isReady: patient != nil,
                 action: { shareJSON() }
             )
@@ -442,7 +446,8 @@ struct HandoffScreen: View {
 
     private func shareJSON() {
         beginExport()
-        guard let url = HandoffExports.writeJSON(for: patient, casualtyId: state.casualtyId) else {
+        guard let url = HandoffExports.writeJSON(for: patient, casualtyId: state.casualtyId,
+                                               sensorProvenance: state.handoffSensorProvenance) else {
             failExport("json", "Could not write the JSON file.")
             return
         }

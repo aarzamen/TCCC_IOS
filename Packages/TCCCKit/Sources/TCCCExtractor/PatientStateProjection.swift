@@ -190,7 +190,7 @@ extension PatientStateEngine {
         }
         for event in log.events {
             switch event {
-            case .asrSegment, .operatorRejectedFact:
+            case .asrSegment, .operatorRejectedFact, .sensorAssociation:
                 continue
             case .lifecycle(let p):
                 if p.kind == .encounterStarted { ensure(p.patientId) }
@@ -206,6 +206,12 @@ extension PatientStateEngine {
                 var s = patients[p.patientId]!
                 applyWrite(write, to: &s)
                 s.timestampLastUpdate = p.timestampUnix
+                patients[p.patientId] = s
+            case .sensorObservation(let p):
+                guard !p.appliedDeltas.isEmpty else { continue }
+                ensure(p.patientId)
+                var s = patients[p.patientId]!
+                for delta in p.appliedDeltas { applyDelta(delta, to: &s) }
                 patients[p.patientId] = s
             }
         }
