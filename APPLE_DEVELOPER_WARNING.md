@@ -14,7 +14,9 @@ it; do not "fix" the project's signing to match a guess.
   `Apple Development: Aaron Arzamendi (434HG698U6)`. Using it as `DEVELOPMENT_TEAM` produces
   `No Account for Team "434HG698U6"`.
 - "SideStore, no Apple Developer Program" in old notes is **false**. The App Store Connect
-  "Membership Expired" banner is **stale**; developer.apple.com › Membership details is authoritative.
+  "Membership Expired" banner is **stale** (developer.apple.com › Membership details is authoritative)
+  but it blocks notarization (HTTP 403 "required agreement missing") and app records until Apple
+  support resyncs the team.
 - Two Apple Development identities share one name → sign by SHA-1
   (`99BD3B7D50BBD87441211E39DFF5DC5BC7B543D3`, valid to 2027-09-19).
 - Apple Distribution certificate `B8A2869B85363F01EC1DE20AE288863AF13B121D` (to 2027-09-29) for
