@@ -17,9 +17,10 @@ it; do not "fix" the project's signing to match a guess.
   "Membership Expired" banner is **stale**; developer.apple.com › Membership details is authoritative.
 - Two Apple Development identities share one name → sign by SHA-1
   (`99BD3B7D50BBD87441211E39DFF5DC5BC7B543D3`, valid to 2027-09-19).
-- One Apple Distribution certificate exists (SHA-1 `B8A2869B85363F01EC1DE20AE288863AF13B121D`, valid to
-  2027-09-29) for TestFlight / App Store. No Developer ID Application certificate exists → no notarized
-  Mac apps until the Account Holder creates one. App Store Connect has no app records yet.
+- Apple Distribution certificate `B8A2869B85363F01EC1DE20AE288863AF13B121D` (to 2027-09-29) for
+  TestFlight / App Store, and Developer ID Application certificate `B14E467962B7C69D671962F2122F911153F249EB`
+  (to 2027-02-01) for notarized Mac apps (notarytool keychain profile `AC_NOTARY`). App Store Connect
+  has no app records yet.
 
 ## Rules for AI agents
 
