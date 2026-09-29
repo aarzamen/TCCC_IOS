@@ -1,13 +1,13 @@
-<!-- apple-developer-kit:generated v1 2026-09-22 — regenerate: ~/apple-developer-kit/scripts/apple-dev-place-warnings.py -->
+<!-- apple-developer-kit:generated v1 2026-09-29 — regenerate: ~/apple-developer-kit/scripts/apple-dev-place-warnings.py -->
 # ⚠️ APPLE DEVELOPER SIGNING — READ BEFORE TOUCHING BUILD SETTINGS
 
-**Project:** `TCCC_IOS` · **Root:** `/Users/ama/TCCC_IOS` · **Remote:** https://github.com/aarzamen/TCCC_IOS.git · **Generated:** 2026-09-22
+**Project:** `TCCC_IOS` · **Root:** `/Users/ama/TCCC_IOS` · **Remote:** https://github.com/aarzamen/TCCC_IOS.git · **Generated:** 2026-09-29
 
 This file is a sign for AI agents and humans. It was placed here because this project carries Apple
 code-signing material or configuration. It does **not** change anything in the project. Do not delete
 it; do not "fix" the project's signing to match a guess.
 
-## The facts (verified 2026-09-22)
+## The facts (verified 2026-09-29)
 
 - **Team ID: `XM6E4PUXTU`** — team "Aaron Arzamendi", **paid** Apple Developer Program (Individual), renews **2027-04-05**.
 - **`434HG698U6` is NOT a Team ID.** It is the certificate user ID inside
@@ -17,8 +17,9 @@ it; do not "fix" the project's signing to match a guess.
   "Membership Expired" banner is **stale**; developer.apple.com › Membership details is authoritative.
 - Two Apple Development identities share one name → sign by SHA-1
   (`99BD3B7D50BBD87441211E39DFF5DC5BC7B543D3`, valid to 2027-09-19).
-- No Apple Distribution / Developer ID Application certificate exists → no TestFlight, App Store
-  upload, or notarization until the Account Holder creates one.
+- One Apple Distribution certificate exists (SHA-1 `B8A2869B85363F01EC1DE20AE288863AF13B121D`, valid to
+  2027-09-29) for TestFlight / App Store. No Developer ID Application certificate exists → no notarized
+  Mac apps until the Account Holder creates one. App Store Connect has no app records yet.
 
 ## Rules for AI agents
 
@@ -35,7 +36,7 @@ it; do not "fix" the project's signing to match a guess.
 6. Read `~/apple-developer-kit/APPLE_DEVELOPER_ACCOUNT.md` and run
    `~/apple-developer-kit/scripts/apple-dev-status.sh` before giving signing advice.
 
-## This project's signing footprint (scan of 2026-09-22)
+## This project's signing footprint (scan of 2026-09-29)
 
 - `.github/workflows/ci.yml`: CODE_SIGNING_ALLOWED=NO, CODE_SIGNING_ALLOWED=NO \
 - `AGENTS.md`: CODE_SIGNING_ALLOWED=NO \
