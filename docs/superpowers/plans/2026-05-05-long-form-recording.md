@@ -56,7 +56,7 @@ L3.2 and L3.3 share `ParakeetTranscriptStream`/`AppState` with L2 and L4 respect
 - [ ] **Step 1: Locate the info block in `project.yml`**
 
 ```bash
-grep -n "info:\|infoPlist\|targets:\|TCCC_IOS:" /Users/ama/TCCC_IOS/project.yml | head -20
+grep -n "info:\|infoPlist\|targets:\|TCCC_IOS:" /Users/ama/Projects/tccc-ai-ios/project.yml | head -20
 ```
 
 If `project.yml` already has an `info:` or `infoPlist:` section under the `TCCC_IOS` target, edit in place. Otherwise add one.
@@ -80,7 +80,7 @@ If properties already exist, ADD the `UIBackgroundModes` key without disturbing 
 - [ ] **Step 3: Regenerate + build**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
@@ -239,7 +239,7 @@ final class AudioSessionCoordinator {
 - [ ] **Step 2: Add to xcodegen project**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodegen generate
 ```
 
@@ -381,7 +381,7 @@ In `TCCC_IOS/Screens/LiveCaptureScreen.swift`, add `.onChange` modifiers near th
 - [ ] **Step 5: Build**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
@@ -451,7 +451,7 @@ func newAudioCaptureURL() -> URL {
 - [ ] **Step 3: Build (the new constant is unused until L2.2)**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO \
@@ -514,7 +514,7 @@ The `commonFormat` and `interleaved` arguments stay as-is — they describe the 
 - [ ] **Step 3: Build**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO \
@@ -564,7 +564,7 @@ Same replacement as L2.2 Step 2 — point `settings:` at `AppState.aacOutputSett
 - [ ] **Step 3: Build**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO \
@@ -642,7 +642,7 @@ If absent, add `import os` near the existing `import Foundation`.
 - [ ] **Step 4: Build**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO \
@@ -702,7 +702,7 @@ func emitPartial(_ text: String) async {
 - [ ] **Step 3: Build**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO \
@@ -771,7 +771,7 @@ self.memoryPressureSource = src
 - [ ] **Step 3: Build**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO \
@@ -915,7 +915,7 @@ When `transcriptAutoPinned` is false and `displayedTranscript.count > 0`, render
 - [ ] **Step 6: Build**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO \
@@ -1006,7 +1006,7 @@ For each match, add `lastCleanedAt = nil` on the next line.
 - [ ] **Step 4: Build**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO \
@@ -1078,7 +1078,7 @@ The reassembly preserves prior cleanings on older lines, only refreshing the rec
 - [ ] **Step 3: Build**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO \
@@ -1105,7 +1105,7 @@ git commit -m "feat(slm): auto-clean 200-line recent window; older lines preserv
 - [ ] **Step 1: Build for device**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'platform=iOS,id=4FC3C1DC-B809-552A-B60F-B1723ADB45B8' \

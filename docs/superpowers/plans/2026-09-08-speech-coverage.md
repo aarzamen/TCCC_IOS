@@ -42,7 +42,7 @@ The prior main GitHub run passed package tests but failed the Xcode 26.2 simulat
 Matched fixture reproducibility (existing local macOS Samantha voice, no network):
 
 ```bash
-cd '/Users/ama/TCCC_IOS'
+cd '/Users/ama/Projects/tccc-ai-ios'
 /usr/bin/say -v Samantha -r 145 \
   -f TCCC_IOS/DevTools/Fixtures/valdez_alley.txt \
   -o /private/tmp/valdez_alley.aiff

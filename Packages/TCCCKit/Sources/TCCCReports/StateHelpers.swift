@@ -1,7 +1,7 @@
 // StateHelpers
 //
 // Internal helpers ported verbatim from the Python fallback path in
-// /Users/ama/TCCC_FEB_2026/src/reports.py:
+// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py:
 //
 //   - `_calculate_patient_counts`       (reports.py:95–128)
 //   - `_infer_classification`           (reports.py:131–175)

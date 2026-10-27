@@ -280,7 +280,7 @@ outline. Runtime region shading comes from the recorded assessment.
 
 ## Origin
 
-Port of the Python prototype at `/Users/ama/TCCC_FEB_2026`. The Python
+Port of the Python prototype at `/Users/ama/Projects/tccc-ai-feb2026-prototype`. The Python
 prototype's tests are the correctness contract; the Swift port mirrors the
 assertions verbatim and builds the event-sourcing and UI layers on top.
 

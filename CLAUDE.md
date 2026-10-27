@@ -28,7 +28,7 @@ offline. Voice intake → on-device ASR → deterministic state extraction
 
 ## Source materials
 
-- **Python prototype** (reference, not a dep): `/Users/ama/TCCC_FEB_2026`.
+- **Python prototype** (reference, not a dep): `/Users/ama/Projects/tccc-ai-feb2026-prototype`.
   Authoritative for state extraction + report generation (`src/state.py`,
   `src/reports.py`, `tests/scenarios/*.txt`). Python tests are the
   correctness contract — copy assertions verbatim into Swift XCTest. Its
@@ -158,13 +158,13 @@ simulator.
 
 ```bash
 # regenerate the project + build for simulator
-cd /Users/ama/TCCC_IOS && xcodegen generate
+cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO -skipMacroValidation
 
 # package logic tests in isolation (fast, no simulator)
-cd /Users/ama/TCCC_IOS/Packages/TCCCKit && swift test
+cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test
 ```
 
 `-skipMacroValidation` is **required** for CLI builds: `huggingface/AnyLanguageModel`

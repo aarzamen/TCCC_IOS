@@ -1,7 +1,7 @@
 // FractureExtractor
 //
 // Faithful Swift port of `_extract_fractures` from
-// /Users/ama/TCCC_FEB_2026/src/state.py (lines 857–896), using the
+// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 857–896), using the
 // `fracture_patterns` table at lines 459–469.
 //
 // Detection behavior retained from the Python source, with the unsupported

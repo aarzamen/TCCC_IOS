@@ -22,11 +22,11 @@
 - **No `Date.now`/`UUID()` introduced into the projection path.** Determinism comes from replaying captured values.
 
 **Build / verify commands**
-- TCCCKit (Tasks A1–A3, A5 verification, A8): `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit`
+- TCCCKit (Tasks A1–A3, A5 verification, A8): `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit`
   - Single suite: append `--filter <SuiteName>`.
 - App target (Tasks A4, A6, A7): regenerate + build/test on the working destination:
   ```bash
-  cd /Users/ama/TCCC_IOS && xcodegen generate && \
+  cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && \
   xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
     -destination 'platform=iOS Simulator,id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' \
     -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation \
@@ -153,7 +153,7 @@ final class EncounterEventTests: XCTestCase {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit --filter EncounterEventTests`
+Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit --filter EncounterEventTests`
 Expected: FAIL — `cannot find 'EncounterEvent' in scope`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -307,8 +307,8 @@ public struct EncounterLog: Sendable, Codable, Equatable {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit --filter EncounterEventTests`
-Expected: PASS (6 tests). Then full suite: `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit` → 732 passing (726 + 6).
+Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit --filter EncounterEventTests`
+Expected: PASS (6 tests). Then full suite: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit` → 732 passing (726 + 6).
 
 - [ ] **Step 5: Commit**
 
@@ -413,7 +413,7 @@ final class PatientStateDiffTests: XCTestCase {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit --filter PatientStateDiffTests`
+Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit --filter PatientStateDiffTests`
 Expected: FAIL — `type 'PatientStateEngine' has no member 'diff'`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -567,7 +567,7 @@ public func apply(_ writes: [PatientStateFieldWrite], to patientId: String) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit --filter PatientStateDiffTests`
+Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit --filter PatientStateDiffTests`
 Expected: PASS. Then full suite → 738 passing (732 + 6). The refactored `apply` keeps `PatientStateApplyTests` green.
 
 - [ ] **Step 5: Commit**
@@ -655,7 +655,7 @@ final class LogEquivalenceTests: XCTestCase {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit --filter LogEquivalenceTests`
+Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit --filter LogEquivalenceTests`
 Expected: FAIL — `value of type 'PatientStateEngine' has no member 'snapshotLog'` / `no member 'project'`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -755,7 +755,7 @@ private func emitEvents(text: String, before: [String: PatientState], timestamp:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit --filter LogEquivalenceTests`
+Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit --filter LogEquivalenceTests`
 Expected: PASS (7 tests). Full suite → 745 passing. **The four scenario equivalence tests are the gate for A5.** If any fails, the diff missed a field — fix `diff`/`applyDelta` (A2), do not proceed to A5.
 
 - [ ] **Step 5: Commit**
@@ -921,7 +921,7 @@ Expected: PASS. Plus full TCCCKit suite still 745. (App total stays 67 + new met
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/TCCC_IOS && xcodegen generate
+cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
 git add Packages/TCCCKit/Sources/TCCCExtractor/PatientStateEngine.swift TCCC_IOS/Intelligence/GraniteReviewQueue.swift TCCC_IOSTests/EventSourcingApplyPathTests.swift TCCC_IOS.xcodeproj/project.pbxproj
 git commit -m "feat(event-sourcing): operator accept/reject record events (dual-write, engine-mediated)"
 ```
@@ -955,7 +955,7 @@ func testAfterFlipSnapshotIsTheProjection() async throws {
 
 - [ ] **Step 2: Run the full suites (pre-change baseline)**
 
-Run: `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit` → 746 (745 + 1 new, all green pre-flip).
+Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit` → 746 (745 + 1 new, all green pre-flip).
 
 - [ ] **Step 3: Make the flip**
 
@@ -987,7 +987,7 @@ public func recordOperatorAcceptedFact(write: PatientStateFieldWrite, factId: St
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: full TCCCKit suite `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit` → **746 green**. Then the full app suite (or at least `GraniteApplyPathTests`, `GraniteConflictRoutingTests`, `EventSourcingApplyPathTests`, `EndToEnd`-style app tests). All green.
+Run: full TCCCKit suite `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit` → **746 green**. Then the full app suite (or at least `GraniteApplyPathTests`, `GraniteConflictRoutingTests`, `EventSourcingApplyPathTests`, `EndToEnd`-style app tests). All green.
 **Verification of the "no test asserts old internals" check (Global Constraint):** grep the test targets for any assertion on direct post-`apply` `timestampLastUpdate` exact values or on imperative-only side effects; there should be none (apply-path tests assert field values + conflict routing, not internal timestamps). Record the grep result in the task report.
 
 - [ ] **Step 5: Commit**
@@ -1129,7 +1129,7 @@ Run the two `EvidenceLinkageTests` methods + the existing Granite suites. Expect
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/TCCC_IOS && xcodegen generate
+cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
 git add Packages/TCCCKit/Sources/TCCCExtractor/PatientStateProjection.swift TCCC_IOS/Intelligence/GraniteReviewQueue.swift TCCC_IOS/Intelligence/DeterministicFactProjector.swift TCCC_IOSTests/EvidenceLinkageTests.swift TCCC_IOS.xcodeproj/project.pbxproj
 git commit -m "feat(event-sourcing): packet facts carry real segment evidence from the log (retire evidenceIds:[] stopgap)"
 ```
@@ -1221,7 +1221,7 @@ Run: TCCCKit full suite + `-only-testing:TCCC_IOSTests/InvariantStructureTests/t
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/TCCC_IOS && xcodegen generate
+cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
 git add Packages/TCCCKit/Tests/TCCCExtractorTests/EngineInvariantTests.swift TCCC_IOSTests/InvariantStructureTests.swift TCCC_IOS.xcodeproj/project.pbxproj
 git commit -m "test(event-sourcing): lock LLM-never-mutates invariant (projection + single accept call site)"
 ```
@@ -1287,7 +1287,7 @@ In `PatientStateEngine.init`, seed the lifecycle event (after the PATIENT_1 row 
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `--filter EngineInvariantTests` → PASS. Then **the full TCCCKit suite** `swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit` → all green (the leading lifecycle event must not break A3/A5 equivalence — confirm). Then the **full app suite** on the working destination → green.
+Run: `--filter EngineInvariantTests` → PASS. Then **the full TCCCKit suite** `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit` → all green (the leading lifecycle event must not break A3/A5 equivalence — confirm). Then the **full app suite** on the working destination → green.
 
 - [ ] **Step 5: Commit**
 
@@ -1300,7 +1300,7 @@ git commit -m "feat(event-sourcing): seed encounterStarted lifecycle event + enu
 
 ## Final verification (before whole-branch review)
 
-- [ ] Full TCCCKit suite green (`swift test --package-path /Users/ama/TCCC_IOS/Packages/TCCCKit`) — expect ~746+ tests.
+- [ ] Full TCCCKit suite green (`swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit`) — expect ~746+ tests.
 - [ ] Full app suite green on `-destination 'platform=iOS Simulator,id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'`.
 - [ ] Acceptance gate (spec §8): equivalence holds on all 4 fixtures; diff inverse holds per field family; one operator-accept call site; no `evidenceIds: []` in the packet path; `snapshot() == project(log)`.
 - [ ] Whole-branch review on opus (superpowers:requesting-code-review): re-verify the invariant survives and the flip preserves the engine contract; triage carried minors from `.superpowers/sdd/progress.md`.

@@ -1,7 +1,7 @@
 // CirculationExtractorTests
 //
 // Mirrors the Python regression suite for circulation findings:
-//   - /Users/ama/TCCC_FEB_2026/tests/test_state_negation.py
+//   - /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_negation.py
 //     (TestWordBoundaryFalsePositives — the IV \biv\b boundary tests).
 //   - Scenario-level extraction from scenarios 1, 3, 4 (IV access, skin signs,
 //     pulse status).

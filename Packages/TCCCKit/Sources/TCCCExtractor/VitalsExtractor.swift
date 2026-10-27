@@ -1,7 +1,7 @@
 // VitalsExtractor
 //
 // Swift port of `_extract_vitals` from
-// /Users/ama/TCCC_FEB_2026/src/state.py (lines 799–820), plus the four
+// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 799–820), plus the four
 // numeric vital-sign regex patterns defined at lines 442–448:
 //
 //     vitals_patterns = {

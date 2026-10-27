@@ -1,7 +1,7 @@
 // PAWSExtractor
 //
 // Faithful Swift port of `_extract_paws` from
-// /Users/ama/TCCC_FEB_2026/src/state.py (lines 898–929), plus the three
+// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 898–929), plus the three
 // PAWS regex patterns at lines 471–479:
 //
 //     paws_patterns = {

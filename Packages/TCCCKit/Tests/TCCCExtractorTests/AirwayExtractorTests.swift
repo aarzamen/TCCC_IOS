@@ -1,7 +1,7 @@
 // AirwayExtractorTests
 //
 // Parity tests for `AirwayExtractor` against `_extract_airway` from
-// /Users/ama/TCCC_FEB_2026/src/state.py:663–681. Truth values were captured
+// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py:663–681. Truth values were captured
 // by running Python's `PatientStateEngine.update_from_transcript` directly
 // against each input string.
 
@@ -210,7 +210,7 @@ final class AirwayExtractorTests: XCTestCase {
 
     func testScenario2Patient1NpaInserted() {
         // Mirror test_scenario2_patient1_npa from
-        // /Users/ama/TCCC_FEB_2026/tests/test_state_scenarios.py:114–119.
+        // /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_scenarios.py:114–119.
         let s = a.apply(
             PatientState(patientId: "PATIENT_1"),
             context: freshContext(

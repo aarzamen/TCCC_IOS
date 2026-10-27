@@ -3,7 +3,7 @@
 // Convenience layer that runs both fallback generators and returns their
 // reports in a stable order. Mirrors the dual-emit behavior of the Python
 // `ReportGenerator.save_*` calls in
-// /Users/ama/TCCC_FEB_2026/src/reports.py — but stays in-memory; persistence
+// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py — but stays in-memory; persistence
 // to disk is the caller's responsibility on iOS.
 //
 // Foundation only.

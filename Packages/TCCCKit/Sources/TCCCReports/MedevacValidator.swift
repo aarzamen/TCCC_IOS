@@ -2,7 +2,7 @@
 //
 // Cross-references SLM-generated 9-Line MEDEVAC text against the deterministic
 // `PatientStateEngine` snapshot and rewrites any disagreeing line. Mirrors
-// `validate_medevac_against_state` in /Users/ama/TCCC_FEB_2026/src/reports.py
+// `validate_medevac_against_state` in /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py
 // (lines 20–92) verbatim.
 //
 // Why: SLMs hallucinate triage counts, drop tourniquets, or invent equipment

@@ -1,7 +1,7 @@
 // ZMISTGenerator
 //
 // Produces the state-derived ZMIST fallback. Mirrors
-// `generate_zmist_from_state` in /Users/ama/TCCC_FEB_2026/src/reports.py
+// `generate_zmist_from_state` in /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py
 // (lines 958–1018) for *logic*. The output text layout follows the iOS port
 // contract specified in CLAUDE.md / Phase 5 task: one Z/M/I/S/T block per
 // patient with single-letter prefixes and bullet separators.

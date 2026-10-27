@@ -1,9 +1,9 @@
 // FractureExtractorTests
 //
 // Mirrors the Python regression suite for fracture findings:
-//   - /Users/ama/TCCC_FEB_2026/tests/test_state_scenarios.py (test_scenario4_*).
+//   - /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_scenarios.py (test_scenario4_*).
 //   - The fracture/splinting behaviour from `_extract_fractures` in
-//     /Users/ama/TCCC_FEB_2026/src/state.py:857–896.
+//     /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py:857–896.
 //
 // Constructs an `ExtractionContext` directly per sentence and applies the
 // extractor — no engine dependency.

@@ -2,7 +2,7 @@
 //
 // Faithful Swift port of the inline sentence-tokenisation step from
 // `_normalise_spoken_numbers`'s call site in
-// /Users/ama/TCCC_FEB_2026/src/state.py around line 500:
+// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py around line 500:
 //
 //     sentences = re.split(r"(?<=[.!?])\s+|\n+", text)
 //     sentences = [s.strip() for s in sentences if s.strip()]

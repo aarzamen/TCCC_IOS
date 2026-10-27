@@ -110,8 +110,8 @@ Each is independently shippable and reviewable. **Brainstorming should confirm t
 - App sim build needs the **iOS 26.4.1 simulator runtime** (installed this session). If a fresh machine: `xcodebuild -downloadPlatform iOS`.
 - **App test/build destination MUST be:** `-destination 'platform=iOS Simulator,id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E'`. The bare `id=…` and `generic/platform=iOS Simulator` forms FAIL ("Supported platforms … is empty") because of the connected iPhone's device-platform.
 - **Class-level `-only-testing:Target/Class` reports 0 tests** on this sim — use `Target/Class/method` or a full-suite run.
-- App test cmd: `cd /Users/ama/TCCC_IOS && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'platform=iOS Simulator,id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:...`
-- TCCCKit: `cd /Users/ama/TCCC_IOS/Packages/TCCCKit && swift test`. `-skipMacroValidation` always required for app builds. New files: implementers must `git add TCCC_IOS.xcodeproj/project.pbxproj` (xcodegen regenerates it).
+- App test cmd: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'platform=iOS Simulator,id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:...`
+- TCCCKit: `cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test`. `-skipMacroValidation` always required for app builds. New files: implementers must `git add TCCC_IOS.xcodeproj/project.pbxproj` (xcodegen regenerates it).
 
 ## 10. Key files / symbols in play
 

@@ -1,7 +1,7 @@
 // StateHelpersTests
 //
 // Direct exercises of the internal helpers ported from
-// /Users/ama/TCCC_FEB_2026/src/reports.py. These reach into @testable internals
+// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py. These reach into @testable internals
 // because the helpers don't have a public surface — only the generators do.
 
 import XCTest

@@ -2,7 +2,7 @@
 //
 // Parity tests for `SentenceTokenizer` against the Python regex
 // `re.split(r"(?<=[.!?])\s+|\n+", text)` from
-// /Users/ama/TCCC_FEB_2026/src/state.py:500.
+// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py:500.
 
 import XCTest
 @testable import TCCCExtractor

@@ -1,7 +1,7 @@
 // SpokenNumberNormalizerTests
 //
 // Exhaustive parity tests for the Swift port of `_normalise_spoken_numbers`
-// from /Users/ama/TCCC_FEB_2026/src/state.py (lines 98–233).
+// from /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 98–233).
 //
 // Each spoken-form literal that appears in the Python source comments,
 // docstrings, or scenario fixtures has at least one assertion here. Truth
@@ -431,7 +431,7 @@ final class SpokenNumberNormalizerTests: XCTestCase {
     // MARK: - Scenario fixtures (bundled as resources)
     //
     // These mirror the `test_scenario1_spoken_vitals_*` tests in
-    // /Users/ama/TCCC_FEB_2026/tests/test_state_scenarios.py — but at the
+    // /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_scenarios.py — but at the
     // normalizer layer we assert string substring presence rather than
     // engine-extracted values.
 

@@ -342,7 +342,7 @@ final class PartialCommitGateTests: XCTestCase {
 
 - [ ] **Step 3: Regenerate the project and build the test bundle**
 
-Run: `cd /Users/ama/TCCC_IOS && xcodegen generate`
+Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate`
 Run: `xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'generic/platform=iOS Simulator' -configuration Debug build CODE_SIGNING_ALLOWED=NO -skipMacroValidation`
 Expected: `** BUILD SUCCEEDED **` (new files compiled in).
 
@@ -621,7 +621,7 @@ In the `pendingInterruptionPause` handler (~164–173), before `stopImmediate()`
 
 - [ ] **Step 6: Regenerate, build, and run the full suites**
 
-Run: `cd /Users/ama/TCCC_IOS && xcodegen generate`
+Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate`
 Run: `xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'generic/platform=iOS Simulator' -configuration Debug build CODE_SIGNING_ALLOWED=NO -skipMacroValidation`
 Expected: `** BUILD SUCCEEDED **`.
 Run the full app test bundle on `platform=iOS Simulator,name=iPhone 17 Pro`: expect 0 failures.
@@ -698,7 +698,7 @@ Run: full app bundle on `platform=iOS Simulator,name=iPhone 17 Pro` → expect 0
 - [ ] **Step 2: Device build + install (per CLAUDE.md)**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'generic/platform=iOS' \
   -configuration Debug -skipMacroValidation -allowProvisioningUpdates \
   -derivedDataPath /tmp/tccc-device-dd build

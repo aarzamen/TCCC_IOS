@@ -2,8 +2,8 @@
 //
 // Per-patient Z/M/I/S/T block assertions. Covers single patient, multi
 // patient, and missing-field paths. Mirrors fixtures from
-// /Users/ama/TCCC_FEB_2026/tests/test_reports_validation.py and helper logic
-// from /Users/ama/TCCC_FEB_2026/src/reports.py.
+// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_reports_validation.py and helper logic
+// from /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py.
 
 import XCTest
 @testable import TCCCReports

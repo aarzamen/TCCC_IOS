@@ -1,7 +1,7 @@
 <!-- apple-developer-kit:generated v1 2026-09-29 — regenerate: ~/apple-developer-kit/scripts/apple-dev-place-warnings.py -->
 # ⚠️ APPLE DEVELOPER SIGNING — READ BEFORE TOUCHING BUILD SETTINGS
 
-**Project:** `TCCC_IOS` · **Root:** `/Users/ama/TCCC_IOS` · **Remote:** https://github.com/aarzamen/TCCC_IOS.git · **Generated:** 2026-09-29
+**Project:** `TCCC_IOS` · **Root:** `/Users/ama/Projects/tccc-ai-ios` · **Remote:** https://github.com/aarzamen/TCCC_IOS.git · **Generated:** 2026-09-29
 
 This file is a sign for AI agents and humans. It was placed here because this project carries Apple
 code-signing material or configuration. It does **not** change anything in the project. Do not delete

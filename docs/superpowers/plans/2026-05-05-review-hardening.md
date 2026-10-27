@@ -141,7 +141,7 @@ Under the operator-profile section, add a `Picker` over `LocationSource.allCases
 - [ ] **Step 5: Verify build + `swift test`**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodegen generate
 swift test --package-path Packages/TCCCKit 2>&1 | tail -5
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
@@ -212,7 +212,7 @@ In `ParakeetTranscriptStream.swift` (and `SpeechRecognizer.swift` if it opens it
 - [ ] **Step 4: Verify**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 grep -rn "\.write(to:" TCCC_IOS/ Packages/TCCCKit/Sources/ | grep -v "ProtectedWrite.swift"
 ```
 
@@ -609,7 +609,7 @@ git commit -am "feat(settings): LLM backend picker symmetric to ASR section"
 **Why:** `validate_medevac_against_state` (`reports.py:20`) and `validate_zmist_against_state` (`reports.py:584`) cross-check SLM output against the engine and rewrite any line that disagrees. Without them, the SLM can invent triage counts, drop a tourniquet, or change a casualty count and we ship that to the radio. These belong in `TCCCKit` (TCCCReports module) so they're testable without launching the simulator.
 
 **Files:**
-- Read: `/Users/ama/TCCC_FEB_2026/src/reports.py` lines 20–600 — both validators plus their helpers (`_calculate_patient_counts`, `_infer_classification`, `_calculate_litter_ambulatory`, `_determine_special_equipment`, `_strip_slm_wrapper`)
+- Read: `/Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py` lines 20–600 — both validators plus their helpers (`_calculate_patient_counts`, `_infer_classification`, `_calculate_litter_ambulatory`, `_determine_special_equipment`, `_strip_slm_wrapper`)
 - Create: `Packages/TCCCKit/Sources/TCCCReports/MedevacValidator.swift`
 - Create: `Packages/TCCCKit/Sources/TCCCReports/ZMISTValidator.swift`
 - Create: `Packages/TCCCKit/Tests/TCCCReportsTests/MedevacValidatorTests.swift`
@@ -618,7 +618,7 @@ git commit -am "feat(settings): LLM backend picker symmetric to ASR section"
 - [ ] **Step 1: Read and map the Python validators**
 
 ```bash
-sed -n '20,200p;584,750p' /Users/ama/TCCC_FEB_2026/src/reports.py > /tmp/validators.py
+sed -n '20,200p;584,750p' /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py > /tmp/validators.py
 ```
 
 Identify every helper. Build a Swift→Python signature table: which `PatientState` field maps to which Python attribute, which regexes match which Swift Regex feature, etc.
@@ -628,7 +628,7 @@ Identify every helper. Build a Swift→Python signature table: which `PatientSta
 Pick one round-trip case for each validator (cleanest pick: a single-patient URGENT scenario with one tourniquet). Snapshot the Python output by running:
 
 ```bash
-cd /Users/ama/TCCC_FEB_2026
+cd /Users/ama/Projects/tccc-ai-feb2026-prototype
 python -c "
 from src.state import PatientStateEngine
 from src.reports import validate_medevac_against_state
@@ -660,7 +660,7 @@ Port `validate_medevac_against_state` (lines 20–92) line-by-line. Use `Regex` 
 - [ ] **Step 4: Run tests**
 
 ```bash
-cd /Users/ama/TCCC_IOS/Packages/TCCCKit
+cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit
 swift test --filter MedevacValidatorTests --filter ZMISTValidatorTests 2>&1 | tail -20
 ```
 
@@ -892,8 +892,8 @@ git commit -am "fix(ui): primary actions 56pt, footer/tabs 44pt — gloved-hand 
 **Why:** `.gitignore:19` ignores `Package.resolved`. The build resolved `FluidAudio 0.14.4` from cache while `project.yml:13` only requires `>= 0.9.1`. A clean checkout could resolve any later major version.
 
 **Files:**
-- Modify: `/Users/ama/TCCC_IOS/.gitignore`
-- Add: `/Users/ama/TCCC_IOS/Packages/TCCCKit/Package.resolved` (and the workspace one if present)
+- Modify: `/Users/ama/Projects/tccc-ai-ios/.gitignore`
+- Add: `/Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit/Package.resolved` (and the workspace one if present)
 
 - [ ] **Step 1: Remove the ignore**
 
@@ -902,7 +902,7 @@ In `.gitignore`, delete the `Package.resolved` line.
 - [ ] **Step 2: Generate fresh resolved**
 
 ```bash
-cd /Users/ama/TCCC_IOS/Packages/TCCCKit
+cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit
 swift package resolve
 ls *.resolved
 ```
@@ -923,7 +923,7 @@ git commit -m "chore(deps): track Package.resolved for reproducible builds"
 **Why:** `from: "0.9.1"` accepts any `>= 0.9.1`. SemVer says minor bumps shouldn't break, but FluidAudio went from 0.9.1 → 0.14.4 (5 minor versions) — this is a young library and the API may move.
 
 **Files:**
-- Modify: `/Users/ama/TCCC_IOS/project.yml` (line 13–15)
+- Modify: `/Users/ama/Projects/tccc-ai-ios/project.yml` (line 13–15)
 
 - [ ] **Step 1: Pin to current resolved**
 
@@ -938,7 +938,7 @@ FluidAudio:
 - [ ] **Step 2: Regenerate Xcode project + verify**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 xcodegen generate
 xcodebuild ... build CODE_SIGNING_ALLOWED=NO 2>&1 | tail -5
 ```
@@ -956,7 +956,7 @@ git commit -am "chore(deps): pin FluidAudio to 0.14.4 exactVersion"
 **Why:** No CI today. A small GitHub Action that runs `swift test` and the simulator build would catch the most common regressions.
 
 **Files:**
-- Create: `/Users/ama/TCCC_IOS/.github/workflows/ci.yml`
+- Create: `/Users/ama/Projects/tccc-ai-ios/.github/workflows/ci.yml`
 
 - [ ] **Step 1: Workflow**
 
@@ -1005,7 +1005,7 @@ git commit -m "chore(ci): swift test + simulator build on push/PR"
 - [ ] **Step 1: Tests + build green**
 
 ```bash
-cd /Users/ama/TCCC_IOS
+cd /Users/ama/Projects/tccc-ai-ios
 swift test --package-path Packages/TCCCKit 2>&1 | tail -5
 xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \

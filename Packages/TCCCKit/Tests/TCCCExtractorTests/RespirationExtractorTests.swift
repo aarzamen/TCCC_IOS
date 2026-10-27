@@ -1,9 +1,9 @@
 // RespirationExtractorTests
 //
 // Mirrors the Python regression suite for respiration findings:
-//   - /Users/ama/TCCC_FEB_2026/tests/test_state_scenarios.py (no_pneumothorax,
+//   - /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_scenarios.py (no_pneumothorax,
 //     bilateral breath sounds, pneumothorax + chest seal, RR-derived status).
-//   - /Users/ama/TCCC_FEB_2026/tests/test_state_negation.py (TestPneumothoraxNegation).
+//   - /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_negation.py (TestPneumothoraxNegation).
 //
 // Constructs an `ExtractionContext` directly per sentence and applies the
 // extractor — no engine dependency.

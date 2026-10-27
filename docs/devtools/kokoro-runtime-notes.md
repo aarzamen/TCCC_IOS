@@ -1,6 +1,6 @@
 # Kokoro Runtime Notes
 
-Checked `/Users/ama/Kokoro-82M` on 2026-05-07.
+Checked `/Users/ama/Projects/_reference/kokoro-82m` on 2026-05-07.
 
 ## Local asset state
 
@@ -16,7 +16,7 @@ The README frontmatter declares `license: apache-2.0`, but a real Apache-2.0 lic
 ## Local-clone blocker
 
 The exact blocker is that the available Kokoro artifacts are PyTorch-only:
-`/Users/ama/Kokoro-82M/kokoro-v1_0.pth` plus `.pt` voice tensors. There is no Core ML, MLX Swift, or Swift/iOS runtime artifact to load. Enabling synthesis requires explicit confirmation of a PyTorch-to-native conversion path, including the model, voices, and text-to-phoneme/G2P path.
+`/Users/ama/Projects/_reference/kokoro-82m/kokoro-v1_0.pth` plus `.pt` voice tensors. There is no Core ML, MLX Swift, or Swift/iOS runtime artifact to load. Enabling synthesis requires explicit confirmation of a PyTorch-to-native conversion path, including the model, voices, and text-to-phoneme/G2P path.
 
 Per the original Kokoro-only spec, no conversion was attempted before user confirmation.
 
