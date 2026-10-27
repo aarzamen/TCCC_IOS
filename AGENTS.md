@@ -27,7 +27,7 @@ Native SwiftUI port of the TCCC_FEB_2026 Python prototype. Combat-medic document
 
 Use `/Users/ama/Projects/tccc-ai-ios` as the single working home for iOS development,
 planning, builds and tests. The former
-`/Users/ama/Documents/ChatGPT/TCCC project/ios-capture-reliability` path is a
+`/Users/ama/Projects/_archive/tccc-project-chatgpt/ios-capture-reliability` path is a
 compatibility symlink to this checkout. Its already-merged worktree and ignored
 worker evidence are preserved in the old workspace under
 `preservation/workspace-consolidation-20260918/ios-capture-reliability`.
