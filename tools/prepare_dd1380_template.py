@@ -12,7 +12,8 @@ tool therefore:
 - renames every field to a flat, honest name (`FIELD_MAP`); body-diagram boxes
   become `body_<original>`;
 - turns drop-down fields into plain text fields (routes such as IO are not in
-  the official list; the app flattens the form anyway);
+  the official list; the app flattens the form anyway) and removes length
+  limits, which would silently cut values such as "96 radial";
 - removes the XFA layer, JavaScript and field actions so every reader shows
   the AcroForm values;
 - writes the template PDF and a JSON manifest of the new names.
@@ -35,6 +36,7 @@ SOURCE_SHA256 = "bd8949d45ce778bfb6344c79eeba34a131847b123647dfdfa7eb4fe2cf93bbb
 TEMPLATE_NAME = "DD1380_JUN2014_template.pdf"
 MANIFEST_NAME = "DD1380_JUN2014_fields.json"
 NOTES_DA = "/ArialMT 7.00 Tf 0 g"
+CHOICE_DA = "/ArialMT 8.00 Tf 0 g"
 
 # (page, original terminal name) -> new name. Verified on 2026-10-27 by drawing
 # each field's name onto a render of the form and reading it against the print.
@@ -236,11 +238,15 @@ def main():
             if widget.get("/FT") == "/Ch":
                 widget[NameObject("/FT")] = NameObject("/Tx")
                 widget[NameObject("/Ff")] = NumberObject(0)
+                # The drop-down's 5 pt suited "10 Worst Pain"; a typed value reads at 8 pt.
+                widget[NameObject("/DA")] = TextStringObject(CHOICE_DA)
                 for key_name in ("/Opt", "/TI", "/I", "/V", "/DV"):
                     if key_name in widget:
                         del widget[key_name]
             if widget.get("/FT") == "/Tx":
-                for key_name in ("/V", "/DV", "/AP"):
+                # /MaxLen silently truncates (the form caps pulse "rate & location" at 3
+                # characters); the app shrinks the font to fit instead.
+                for key_name in ("/V", "/DV", "/AP", "/MaxLen"):
                     if key_name in widget:
                         del widget[key_name]
             if new_name == "notes":

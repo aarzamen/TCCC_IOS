@@ -27,9 +27,10 @@ public enum DD1380OfficialForm {
     public static let manifestResource = "DD1380_JUN2014_fields"
     public static let continuationMarker = "(continued on next page)"
 
-    /// Notes box capacity at 7 pt (356 × 90 pt box), checked against a render.
+    /// Notes box capacity at 7 pt (356 × 90 pt box): a render showed 10 lines
+    /// fit (the 11th was clipped) and about 110 characters per line.
     public static let notesCharsPerLine = 95
-    public static let notesMaxLines = 11
+    public static let notesMaxLines = 10
 
     static let analgesicRows = 3
     static let antibioticRows = 2
@@ -202,7 +203,7 @@ public enum DD1380OfficialForm {
     /// Splits notes so the part on the form fits `maxLines` wrapped lines,
     /// ending in `continuationMarker` when anything is carried over. Cuts at a
     /// line break where possible, else at the last space; nothing is lost.
-    static func splitNotes(_ notes: String, charsPerLine: Int, maxLines: Int) -> (onForm: String, overflow: String?) {
+    public static func splitNotes(_ notes: String, charsPerLine: Int, maxLines: Int) -> (onForm: String, overflow: String?) {
         let lines = notes.components(separatedBy: "\n")
         func wrapped(_ line: String) -> Int { max(1, (line.count + charsPerLine - 1) / charsPerLine) }
         if notes.isEmpty || lines.map(wrapped).reduce(0, +) <= maxLines { return (notes, nil) }
