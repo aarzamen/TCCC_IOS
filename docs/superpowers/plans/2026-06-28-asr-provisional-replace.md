@@ -702,7 +702,7 @@ cd /Users/ama/Projects/tccc-ai-ios
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'generic/platform=iOS' \
   -configuration Debug -skipMacroValidation -allowProvisioningUpdates \
   -derivedDataPath /tmp/tccc-device-dd build
-DEV=4FC3C1DC-B809-552A-B60F-B1723ADB45B8
+DEV="${DEVICE_ID:?set DEVICE_ID to the iPhone devicectl identifier from: xcrun devicectl list devices}"
 xcrun devicectl device install app --device "$DEV" \
   /tmp/tccc-device-dd/Build/Products/Debug-iphoneos/TCCC_IOS.app
 xcrun devicectl device process launch --device "$DEV" com.aarzamen.TCCCai

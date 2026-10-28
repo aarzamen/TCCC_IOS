@@ -182,14 +182,14 @@ xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
 ```
 
-Device build + install (free provisioning, team `XM6E4PUXTU`; 17 Pro coredevice
-id `4FC3C1DC-B809-552A-B60F-B1723ADB45B8`):
+Device build + install (free provisioning, team `XM6E4PUXTU`; set `DEVICE_ID`
+to the phone's devicectl identifier from `xcrun devicectl list devices`):
 
 ```bash
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'generic/platform=iOS' \
   -configuration Debug -skipMacroValidation -allowProvisioningUpdates \
   -derivedDataPath /tmp/tccc-device-dd build
-DEV=4FC3C1DC-B809-552A-B60F-B1723ADB45B8
+DEV="${DEVICE_ID:?set DEVICE_ID to the iPhone devicectl identifier from: xcrun devicectl list devices}"
 xcrun devicectl device install app --device "$DEV" \
   /tmp/tccc-device-dd/Build/Products/Debug-iphoneos/TCCC_IOS.app
 xcrun devicectl device process launch --device "$DEV" com.aarzamen.TCCCai

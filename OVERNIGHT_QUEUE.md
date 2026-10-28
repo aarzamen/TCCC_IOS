@@ -296,6 +296,6 @@ When you're back at the keyboard:
    half a day of work.
 
 If anything in this plan is wrong or you want to redirect, message
-the cell at `3012750337` with `Claude,` prefix per the iMessage
+the user's cell (number in the global CLAUDE.md) with `Claude,` prefix per the iMessage
 protocol in the global CLAUDE.md, and the next iteration will pick
 it up.

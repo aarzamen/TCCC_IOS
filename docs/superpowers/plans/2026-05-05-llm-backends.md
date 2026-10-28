@@ -419,7 +419,7 @@ git commit -m "feat(slm): Settings download affordance for LFM2 + Qwen weights"
 
 ```bash
 xcodebuild -project /Users/ama/Projects/tccc-ai-ios/TCCC_IOS.xcodeproj -scheme TCCC_IOS \
-  -destination 'platform=iOS,id=4FC3C1DC-B809-552A-B60F-B1723ADB45B8' \
+  -destination "platform=iOS,id=$DEVICE_ID" \
   -configuration Debug \
   -derivedDataPath /tmp/TCCC_IOS-device-build build 2>&1 | tail -10
 ```
@@ -427,9 +427,9 @@ xcodebuild -project /Users/ama/Projects/tccc-ai-ios/TCCC_IOS.xcodeproj -scheme T
 - [ ] **Step 2: Install + launch**
 
 ```bash
-xcrun devicectl device install app --device 4FC3C1DC-B809-552A-B60F-B1723ADB45B8 \
+xcrun devicectl device install app --device $DEVICE_ID \
   /tmp/TCCC_IOS-device-build/Build/Products/Debug-iphoneos/TCCC_IOS.app
-xcrun devicectl device process launch --device 4FC3C1DC-B809-552A-B60F-B1723ADB45B8 \
+xcrun devicectl device process launch --device $DEVICE_ID \
   com.aarzamen.TCCCai
 ```
 

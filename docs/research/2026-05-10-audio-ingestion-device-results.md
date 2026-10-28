@@ -4,7 +4,7 @@
 
 **Device:** Aaron's iPhone, iPhone 17 Pro (`iPhone18,1`), iOS 26.2, physical device
 
-**UDID used for launch/install:** `00008150-0018046C0188401C`
+**UDID used for launch/install:** `<iPhone 17 Pro UDID>`
 
 **Repo branch:** `codex/sprint-2-audio-research`
 
@@ -102,8 +102,8 @@ a short baseline, but it is not a long-form stress test.
 Build and install succeeded on the connected physical iPhone:
 
 ```bash
-xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'platform=iOS,id=00008150-0018046C0188401C' -configuration Debug build -skipMacroValidation
-xcrun devicectl device install app --device 00008150-0018046C0188401C /Users/ama/Library/Developer/Xcode/DerivedData/TCCC_IOS-geqmlzqchxawxuhlardjkbquwppr/Build/Products/Debug-iphoneos/TCCC_IOS.app --timeout 120
+xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination "platform=iOS,id=$DEVICE_UDID" -configuration Debug build -skipMacroValidation
+xcrun devicectl device install app --device $DEVICE_UDID /Users/ama/Library/Developer/Xcode/DerivedData/TCCC_IOS-geqmlzqchxawxuhlardjkbquwppr/Build/Products/Debug-iphoneos/TCCC_IOS.app --timeout 120
 ```
 
 The model resolver used the existing bookmark source in every run. Prime deltas stayed

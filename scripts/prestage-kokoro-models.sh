@@ -3,7 +3,7 @@
 # DevTools → Sender → LOAD VOICE ENGINE skips the ~640 MB HuggingFace pull.
 #
 # Usage: scripts/prestage-kokoro-models.sh <device-udid>
-# Example: scripts/prestage-kokoro-models.sh DF20767D-0672-56DB-9928-AD2191C2CCA5
+# Example: scripts/prestage-kokoro-models.sh $DEVICE_ID
 #
 # The app must already be installed on the device (the data container is
 # created at first install). After running, launch the app, navigate to

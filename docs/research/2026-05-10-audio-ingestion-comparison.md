@@ -119,7 +119,7 @@ as design memory, not copy-paste sources.
 The strongest measured evidence remains Sprint 1's physical iPhone 17 Pro runs.
 | Observation | Sprint 1 value | Source |
 | --- | ---: | --- |
-| Validation device | iPhone 17 Pro, iOS 26.2, UDID `00008150-0018046C0188401C` | `SPRINT_1_ACCEPTANCE.md` |
+| Validation device | iPhone 17 Pro, iOS 26.2, UDID `<iPhone 17 Pro UDID>` | `SPRINT_1_ACCEPTANCE.md` |
 | Cold Granite prime | 1.99 s | `SPRINT_1_ACCEPTANCE.md` |
 | Cold-prime footprint delta | +2196.3 MB | `SPRINT_1_ACCEPTANCE.md` |
 | Post-load resident | 2.16 GB | `SPRINT_1_ACCEPTANCE.md` |

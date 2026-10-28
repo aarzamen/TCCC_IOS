@@ -2,7 +2,7 @@
 
 **Sprint:** v3 (`docs/specs/v3_sprint_1_granite_foundation.md`)
 **Phases shipped:** G0 → G1 → G2 → G3 → G4 (this gate)
-**Validation device:** iPhone 17 Pro, iOS 26.2 (UDID `00008150-0018046C0188401C`)
+**Validation device:** iPhone 17 Pro, iOS 26.2 (UDID `<iPhone 17 Pro UDID>`)
 **Date:** 2026-05-10
 **Tag:** `sprint-1-granite-speech-foundation` (applied to the G4 commit on push)
 
