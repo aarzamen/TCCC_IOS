@@ -33,6 +33,8 @@ public struct VitalsExtractor: ExtractorPass {
     private let bpRegex: NSRegularExpression
     private let spo2Regex: NSRegularExpression
     private let rrRegex: NSRegularExpression
+    private let painOutOfTenRegex: NSRegularExpression
+    private let painScaleRegex: NSRegularExpression
 
     // MARK: - Field-local affirmation vocabulary
 
@@ -102,6 +104,18 @@ public struct VitalsExtractor: ExtractorPass {
             pattern: spo2Pattern, options: [.caseInsensitive])
         self.rrRegex = try! NSRegularExpression(
             pattern: rrPattern, options: [.caseInsensitive])
+
+        // Pain score 0-10 (Swift-only; DD 1380 Section C). Group 1 = score,
+        // digits or a spoken word ("eight out of 10", "pain 6/10",
+        // "pain scale of three"). The out-of-ten form also needs "pain"
+        // somewhere in the sentence; see `painScore(in:)`.
+        let painNumber = "(10|[0-9]|zero|one|two|three|four|five|six|seven|eight|nine|ten)"
+        self.painOutOfTenRegex = try! NSRegularExpression(
+            pattern: "\\b\(painNumber)\\s*(?:out\\s+of|/)\\s*(?:10|ten)\\b",
+            options: [.caseInsensitive])
+        self.painScaleRegex = try! NSRegularExpression(
+            pattern: "\\bpain\\s+(?:score|scale|level)\(gap)\(painNumber)\\b",
+            options: [.caseInsensitive])
     }
 
     // MARK: - ExtractorPass
@@ -121,12 +135,13 @@ public struct VitalsExtractor: ExtractorPass {
         let newSpO2 = lastAffirmedInt(
             in: sentence, regex: spo2Regex, validRange: Vitals.spo2Range)
         let newRR = respiratoryRate(in: sentence)
+        let newPain = painScore(in: sentence)
 
         let rrToWrite = newRR ?? state.vitals.rr
 
         // No-op short-circuit: if no field changed, return state unchanged so
         // the engine can detect no-progress passes cheaply.
-        if newHR == nil && newBP == nil && newSpO2 == nil &&
+        if newHR == nil && newBP == nil && newSpO2 == nil && newPain == nil &&
             rrToWrite == state.vitals.rr {
             return state
         }
@@ -140,7 +155,8 @@ public struct VitalsExtractor: ExtractorPass {
             rr: rrToWrite,
             gcs: state.vitals.gcs,
             temperatureCelsius: state.vitals.temperatureCelsius,
-            capillaryRefillSeconds: state.vitals.capillaryRefillSeconds
+            capillaryRefillSeconds: state.vitals.capillaryRefillSeconds,
+            painScore: newPain ?? state.vitals.painScore
         )
         return updated
     }
@@ -229,5 +245,34 @@ public struct VitalsExtractor: ExtractorPass {
     /// exactly the same observation and range checks as the vital-sign pass.
     func respiratoryRate(in text: String) -> Int? {
         lastAffirmedInt(in: text, regex: rrRegex, validRange: Vitals.rrRange)
+    }
+
+    private static let painWords: [String: Int] = [
+        "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    ]
+
+    /// Latest affirmed pain score in the sentence. A bare "out of 10" only
+    /// counts when the sentence is about pain.
+    private func painScore(in text: String) -> Int? {
+        guard text.range(of: "\\bpain\\b", options: [.regularExpression, .caseInsensitive]) != nil
+        else { return nil }
+        let nsText = text as NSString
+        let fullRange = NSRange(location: 0, length: nsText.length)
+        let found = (painOutOfTenRegex.matches(in: text, options: [], range: fullRange)
+            + painScaleRegex.matches(in: text, options: [], range: fullRange))
+            .sorted { $0.range.location < $1.range.location }
+        var result: Int? = nil
+        for m in found where m.numberOfRanges > 1 {
+            let r = m.range(at: 1)
+            guard r.location != NSNotFound else { continue }
+            let token = nsText.substring(with: r).lowercased()
+            guard let value = Int(token) ?? Self.painWords[token],
+                  Vitals.painScoreRange.contains(value),
+                  isAffirmed(keywordStart: m.range.location, in: nsText)
+            else { continue }
+            result = value
+        }
+        return result
     }
 }

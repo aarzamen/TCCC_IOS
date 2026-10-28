@@ -97,6 +97,7 @@ extension PatientStateEngine {
         case .vitalsGCS(let v):                  p.vitals.gcs = v
         case .vitalsTemperatureCelsius(let v):   p.vitals.temperatureCelsius = v
         case .vitalsCapillaryRefillSeconds(let v): p.vitals.capillaryRefillSeconds = v
+        case .vitalsPainScore(let v):            p.vitals.painScore = v
         case .hemorrhageIdentified(let v):       p.march.hemorrhageIdentified = v
         case .hemorrhageAssessed(let v):         p.march.hemorrhageAssessed = v
         case .hemorrhageLocation(let v):         p.march.hemorrhageLocation = v
@@ -144,6 +145,7 @@ extension PatientStateEngine {
         if before.vitals.gcs != after.vitals.gcs { d.append(.vitalsGCS(after.vitals.gcs)) }
         if before.vitals.temperatureCelsius != after.vitals.temperatureCelsius { d.append(.vitalsTemperatureCelsius(after.vitals.temperatureCelsius)) }
         if before.vitals.capillaryRefillSeconds != after.vitals.capillaryRefillSeconds { d.append(.vitalsCapillaryRefillSeconds(after.vitals.capillaryRefillSeconds)) }
+        if before.vitals.painScore != after.vitals.painScore { d.append(.vitalsPainScore(after.vitals.painScore)) }
         // MARCHState
         if before.march.hemorrhageIdentified != after.march.hemorrhageIdentified { d.append(.hemorrhageIdentified(after.march.hemorrhageIdentified)) }
         if before.march.hemorrhageAssessed != after.march.hemorrhageAssessed { d.append(.hemorrhageAssessed(after.march.hemorrhageAssessed)) }

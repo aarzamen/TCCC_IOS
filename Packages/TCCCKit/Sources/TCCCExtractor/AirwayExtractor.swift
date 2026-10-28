@@ -42,8 +42,10 @@ public struct AirwayExtractor: ExtractorPass {
     private let etco2: NSRegularExpression
 
     public init() {
+        // Swift-only: "airway's" / "airways" (Apple Speech's rendering of
+        // "airway's") before the status word.
         self.patent = try! NSRegularExpression(
-            pattern: "airway\\s*(is\\s*)?(patent|clear|open)|talking|conscious.*talk",
+            pattern: "airway(?:s|'s|’s)?\\s*(is\\s*)?(patent|clear|open)|talking|conscious.*talk",
             options: [.caseInsensitive])
         self.compromised = try! NSRegularExpression(
             pattern: "airway.*(compromised|obstruct|block)",

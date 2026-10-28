@@ -417,4 +417,18 @@ final class HemorrhageExtractorTests: XCTestCase {
         let tqInterventions = state.interventions.filter { $0.kind == .tourniquet }
         XCTAssertEqual(tqInterventions.count, 1)
     }
+
+
+    // MARK: - Swift-only: "lower/upper extremity" (live recording, 2026-10-27)
+
+    func testSidedLowerExtremityIsTheTourniquetLocation() {
+        let s = HemorrhageExtractor().apply(
+            PatientState(patientId: "PATIENT_1"),
+            context: ExtractionContext(
+                originalText: "", normalizedText: "",
+                sentence: "applying tourniquet To the left lower extremity above the knee",
+                timestamp: Date(timeIntervalSince1970: 0), currentPatientID: "PATIENT_1", isNegated: false))
+        XCTAssertEqual(s.march.hemorrhageLocation, "left lower extremity")
+        XCTAssertEqual(s.march.hemorrhageIntervention, "Tourniquet applied (left lower extremity)")
+    }
 }

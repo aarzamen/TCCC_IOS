@@ -73,4 +73,11 @@ final class PatientStateDiffTests: XCTestCase {
         let s = PatientState(patientId: "PATIENT_1")
         XCTAssertTrue(PatientStateEngine.diff(s, s).isEmpty)
     }
+
+
+    func testInverseHoldsForPainScore() {
+        let base = PatientState(patientId: "PATIENT_1")
+        var a = base; a.vitals.painScore = 8; assertInverse(base, a)
+        assertInverse(a, base)
+    }
 }

@@ -76,8 +76,9 @@ public struct HemorrhageExtractor: ExtractorPass {
             pattern: "both\\s*(legs?|arms?|thighs?|extremit\\w*)",
             options: [.caseInsensitive])
 
+        // Swift-only: "lower" alongside Python's "upper" ("left lower extremity").
         self.sidedThighLegArm = try! NSRegularExpression(
-            pattern: "(right|left)\\s*(upper\\s*)?(thigh|leg|arm|forearm|extremit\\w*)",
+            pattern: "(right|left)\\s*((?:upper|lower)\\s*)?(thigh|leg|arm|forearm|extremit\\w*)",
             options: [.caseInsensitive])
 
         self.generalBodyPart = try! NSRegularExpression(

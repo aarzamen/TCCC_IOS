@@ -158,8 +158,10 @@ public enum DD1380Mapper {
         let isRight = loc.contains("right")
         let isArm = loc.contains("arm") || loc.contains("forearm")
             || loc.contains("hand") || loc.contains("brachial") || loc.contains("shoulder")
+            || loc.contains("upper extremit")
         let isLeg = loc.contains("leg") || loc.contains("thigh") || loc.contains("femur")
             || loc.contains("calf") || loc.contains("knee") || loc.contains("groin")
+            || loc.contains("lower extremit")
         if isLeft && isArm { return .leftArm }
         if isRight && isArm { return .rightArm }
         if isLeft && isLeg { return .leftLeg }
@@ -289,6 +291,13 @@ public enum DD1380Mapper {
         appendIf(&lines, "Antibiotics", p.paws.antibiotics)
         appendIf(&lines, "Pain mgmt", p.paws.pain)
         appendIf(&lines, "Hypothermia", p.march.hypothermiaPrevention)
+        // Recorded interventions with no box on the card (IV/IO access, TQ
+        // conversion, other) are listed with their time rather than dropped.
+        for iv in p.interventions where [.ivAccess, .ioAccess, .tourniquetConversion, .other].contains(iv.kind) {
+            let text = iv.description.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { continue }
+            lines.append("\(text) \(timeFormatter.string(from: iv.timestamp))")
+        }
         return lines.joined(separator: "\n")
     }
 

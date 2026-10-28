@@ -17,6 +17,8 @@ public struct Vitals: Sendable, Codable, Equatable, Hashable {
     public var gcs: Int?
     public var temperatureCelsius: Double?
     public var capillaryRefillSeconds: Double?
+    /// DD 1380 Section C "Pain Scale (0-10)". Swift-only (no Python source).
+    public var painScore: Int?
 
     /// Plausible physiological ranges. Out-of-range values are dropped.
     public static let hrRange: ClosedRange<Int> = 0...300
@@ -25,6 +27,7 @@ public struct Vitals: Sendable, Codable, Equatable, Hashable {
     public static let gcsRange: ClosedRange<Int> = 3...15
     public static let temperatureRange: ClosedRange<Double> = 20.0...45.0
     public static let capillaryRefillRange: ClosedRange<Double> = 0.0...20.0
+    public static let painScoreRange: ClosedRange<Int> = 0...10
 
     /// Non-throwing initialiser. Values outside the documented ranges become
     /// `nil` instead of raising — there is no crash path.
@@ -35,7 +38,8 @@ public struct Vitals: Sendable, Codable, Equatable, Hashable {
         rr: Int? = nil,
         gcs: Int? = nil,
         temperatureCelsius: Double? = nil,
-        capillaryRefillSeconds: Double? = nil
+        capillaryRefillSeconds: Double? = nil,
+        painScore: Int? = nil
     ) {
         self.hr = hr.flatMap { Vitals.hrRange.contains($0) ? $0 : nil }
         self.bp = bp
@@ -48,5 +52,6 @@ public struct Vitals: Sendable, Codable, Equatable, Hashable {
         self.capillaryRefillSeconds = capillaryRefillSeconds.flatMap {
             Vitals.capillaryRefillRange.contains($0) ? $0 : nil
         }
+        self.painScore = painScore.flatMap { Vitals.painScoreRange.contains($0) ? $0 : nil }
     }
 }

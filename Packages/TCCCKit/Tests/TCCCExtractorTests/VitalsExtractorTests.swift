@@ -287,4 +287,36 @@ final class VitalsExtractorTests: XCTestCase {
         let s = extractor.apply(emptyState(), context: ctx("GCS 15"))
         XCTAssertNil(s.vitals.gcs, "GCS extraction is the head extractor's job, not vitals")
     }
+
+
+    // MARK: - Swift-only: pain score 0-10 (DD 1380 Section C "Pain Scale (0-10)")
+
+    func testPainScoreOutOfTen() {
+        XCTAssertEqual(extractor.apply(emptyState(), context: ctx("He's an eight out of 10 pain.")).vitals.painScore, 8)
+        XCTAssertEqual(extractor.apply(emptyState(), context: ctx("Pain 6/10.")).vitals.painScore, 6)
+        XCTAssertEqual(extractor.apply(emptyState(), context: ctx("pain is ten out of ten")).vitals.painScore, 10)
+    }
+
+    func testPainScoreScaleWording() {
+        XCTAssertEqual(extractor.apply(emptyState(), context: ctx("pain score is 7")).vitals.painScore, 7)
+        XCTAssertEqual(extractor.apply(emptyState(), context: ctx("Pain scale of three.")).vitals.painScore, 3)
+        XCTAssertEqual(extractor.apply(emptyState(), context: ctx("pain level 0")).vitals.painScore, 0)
+    }
+
+    func testPainScoreRequiresPainAndAValidScore() {
+        // No pain word, out-of-range score, negated, or a bare pain mention.
+        XCTAssertNil(extractor.apply(emptyState(), context: ctx("GCS is 8 out of 10 checks")).vitals.painScore)
+        XCTAssertNil(extractor.apply(emptyState(), context: ctx("pain 12 out of 10")).vitals.painScore)
+        XCTAssertNil(extractor.apply(emptyState(), context: ctx("he's screaming pain")).vitals.painScore)
+        XCTAssertNil(extractor.apply(emptyState(), context: ctx("Pain is worse than 10 minutes ago.")).vitals.painScore)
+        XCTAssertNil(extractor.apply(emptyState(), context: ctx("He denies pain, not 8 out of 10.")).vitals.painScore)
+    }
+
+    func testPainScoreKeepsOtherVitals() {
+        var start = emptyState(); start.vitals = Vitals(hr: 99, spo2: 96)
+        let s = extractor.apply(start, context: ctx("Pain is 5 out of 10."))
+        XCTAssertEqual(s.vitals, Vitals(hr: 99, spo2: 96, painScore: 5))
+        let later = extractor.apply(s, context: ctx("heart rate 104"))
+        XCTAssertEqual(later.vitals.painScore, 5)
+    }
 }

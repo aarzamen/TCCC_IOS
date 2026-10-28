@@ -205,4 +205,43 @@ final class DD1380MapperTests: XCTestCase {
         XCTAssertEqual(card.mechanisms.otherText, "blast injury")
         XCTAssertTrue(card.notes.contains("MOI: blast injury"))
     }
+
+
+    // MARK: - Live recording gaps (2026-10-27)
+
+    func testLowerAndUpperExtremityMapToLegAndArmCorners() {
+        XCTAssertEqual(DD1380Mapper.limb(from: "left lower extremity"), .leftLeg)
+        XCTAssertEqual(DD1380Mapper.limb(from: "right lower extremity"), .rightLeg)
+        XCTAssertEqual(DD1380Mapper.limb(from: "left upper extremity"), .leftArm)
+        XCTAssertEqual(DD1380Mapper.limb(from: "right upper extremity"), .rightArm)
+        XCTAssertNil(DD1380Mapper.limb(from: "right extremity"))   // limb not said → no corner guessed
+    }
+
+    func testLowerExtremityTourniquetFillsTheLegCorner() {
+        let p = PatientState(
+            patientId: "P",
+            march: MARCHState(hemorrhageLocation: "left lower extremity"),
+            interventions: [Intervention(timestamp: encounterStart, kind: .tourniquet,
+                                         description: "Tourniquet applied")])
+        let tq = DD1380Mapper.map(input(patient: p)).tourniquets
+        XCTAssertEqual(tq.count, 1)
+        XCTAssertEqual(tq.first?.limb, .leftLeg)
+        XCTAssertNil(tq.first?.locationText)
+    }
+
+    func testInterventionsWithNoCardBoxAreListedInNotesWithTheirTime() {
+        let p = PatientState(
+            patientId: "P",
+            interventions: [
+                Intervention(timestamp: encounterStart, kind: .ivAccess, description: "IV access established"),
+                Intervention(timestamp: encounterStart, kind: .ioAccess, description: "IO access established"),
+                Intervention(timestamp: encounterStart, kind: .tourniquetConversion, description: "Tourniquet repositioned"),
+                Intervention(timestamp: encounterStart, kind: .splint, description: "Splint applied"),
+            ])
+        let notes = DD1380Mapper.map(input(patient: p)).notes
+        XCTAssertTrue(notes.contains("IV access established 2213"), notes)
+        XCTAssertTrue(notes.contains("IO access established 2213"), notes)
+        XCTAssertTrue(notes.contains("Tourniquet repositioned 2213"), notes)
+        XCTAssertFalse(notes.contains("Splint applied"), notes)    // has its own box
+    }
 }

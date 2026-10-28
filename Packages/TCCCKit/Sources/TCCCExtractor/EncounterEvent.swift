@@ -25,6 +25,7 @@ public enum PatientStateDelta: Sendable, Codable, Equatable {
     case vitalsGCS(Int?)
     case vitalsTemperatureCelsius(Double?)
     case vitalsCapillaryRefillSeconds(Double?)
+    case vitalsPainScore(Int?)
     // MARCHState
     case hemorrhageIdentified(Bool)
     case hemorrhageAssessed(Bool)

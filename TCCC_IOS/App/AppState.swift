@@ -963,7 +963,7 @@ final class AppState {
         }
 
         /// Convert to the pure DD1380 grid column (pre-formatted display
-        /// strings; AVPU text → letter; no pain source in Vitals → blank).
+        /// strings; AVPU text → letter; pain as recorded, else blank).
         func toDD1380() -> DD1380SectionCReading {
             // Local formatter: a static one on @MainActor AppState can't be
             // referenced from this nonisolated nested type.
@@ -1046,7 +1046,8 @@ final class AppState {
         let reading = SectionCReading(
             timestamp: Date(),
             vitals: observedVitals,
-            avpu: p.march.consciousness
+            avpu: p.march.consciousness,
+            pain: observedVitals.painScore.map(String.init)
         )
         if let last = vitalsLog.last,
            last.vitals == reading.vitals,

@@ -134,7 +134,8 @@ public struct TBIExtractor: ExtractorPass {
                     rr: s.vitals.rr,
                     gcs: value,
                     temperatureCelsius: s.vitals.temperatureCelsius,
-                    capillaryRefillSeconds: s.vitals.capillaryRefillSeconds)
+                    capillaryRefillSeconds: s.vitals.capillaryRefillSeconds,
+                    painScore: s.vitals.painScore)
             }
         }
 

@@ -151,6 +151,25 @@ final class DD1380OfficialFormFillerTests: XCTestCase {
         print("DD1380_DEMO_PATH=\(url.path)")
     }
 
+    /// Apple Speech segments from the first on-device recording (2026-10-27),
+    /// verbatim, minus the identity sentence: facts the first export left off.
+    @MainActor
+    func testLiveRecordingFactsReachTheCard() async throws {
+        let state = AppState()
+        await state.loadDemoTranscript("""
+            The patient is a actor duty male Gunshot went to the lower extremity he has learned oriented times for applying tourniquet To the left lower extremity above the knee
+            I'm gonna go ahead and get a set of vitals Heart rate is 99 bpm. His blood pressure is 120/60.
+            Is it true rate 16 his SPO2 is 96% he's he's screaming pain. He's an eight out of 10 pain. Established IV access in the right AC I'm doing a blood sweep. I don't see any massive hemorrhage anywhere his airways clear.
+            """)
+        let card = try XCTUnwrap(state.makeDD1380Card())
+        XCTAssertEqual(card.tourniquets.first?.limb, .leftLeg)
+        XCTAssertTrue(card.treatments.airwayIntact)
+        XCTAssertEqual(card.sectionCReadings.last?.pain, "8")
+        XCTAssertTrue(card.notes.contains("IV access established"), card.notes)
+        let doc = try document(try DD1380OfficialFormFiller.render(card))
+        XCTAssertFalse(pageText(doc, 1).contains("location unknown"))
+    }
+
     /// Writes the sample for a visual check; prints its path.
     func testWritesSampleForVisualCheck() throws {
         var card = sampleCard()

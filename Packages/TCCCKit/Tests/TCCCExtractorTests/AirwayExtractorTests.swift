@@ -219,4 +219,22 @@ final class AirwayExtractorTests: XCTestCase {
         XCTAssertNotNil(s.march.airwayIntervention)
         XCTAssertTrue(s.march.airwayIntervention!.lowercased().contains("npa"))
     }
+
+
+    // MARK: - Swift-only: contracted and plural spoken forms (live recording, 2026-10-27)
+
+    func testAirwaysClearAndAirwaysContractionArePatent() {
+        for sentence in ["I don't see any massive hemorrhage anywhere his airways clear.",
+                         "His airway's clear.", "Airway's open."] {
+            let s = a.apply(PatientState(patientId: "PATIENT_1"), context: freshContext(sentence))
+            XCTAssertEqual(s.march.airwayStatus, "patent", sentence)
+        }
+    }
+
+    func testAirwayIsNotClearIsNotPatent() {
+        for sentence in ["His airway isn't clear.", "Airway is not clear."] {
+            let s = a.apply(PatientState(patientId: "PATIENT_1"), context: freshContext(sentence))
+            XCTAssertNotEqual(s.march.airwayStatus, "patent", sentence)
+        }
+    }
 }
