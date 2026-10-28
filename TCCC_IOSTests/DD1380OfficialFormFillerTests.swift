@@ -116,6 +116,23 @@ final class DD1380OfficialFormFillerTests: XCTestCase {
         }
     }
 
+    /// The real path: a demo transcript through the engine, the app's card
+    /// builder and the official form. Writes the PDF for a visual check.
+    @MainActor
+    func testDemoScenarioFillsOfficialForm() async throws {
+        let state = AppState()
+        await state.loadDemoTranscript(DemoScenarios.scenario1)
+        let card = try XCTUnwrap(state.makeDD1380Card())
+        XCTAssertTrue(DD1380Readiness.evaluate(card: card).hasClinicalContent)
+        let data = try DD1380OfficialFormFiller.render(card)
+        let doc = try document(data)
+        XCTAssertGreaterThanOrEqual(doc.pageCount, 2)
+        XCTAssertTrue(pageText(doc, 0).contains(DD1380OfficialForm.edition))
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("DD1380_demo_scenario1.pdf")
+        try data.write(to: url)
+        print("DD1380_DEMO_PATH=\(url.path)")
+    }
+
     /// Writes the sample for a visual check; prints its path.
     func testWritesSampleForVisualCheck() throws {
         var card = sampleCard()
