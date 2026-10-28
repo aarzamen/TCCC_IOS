@@ -85,6 +85,10 @@ approximate and a little messy. The DD 1380 cannot.
   `tools/prepare_dd1380_template.py` with a new pin and a fresh position
   check. References, local-only:
   `reference/rubric/TCCC rubrics and guidelines/2025 updates/`.
+  Searched again 2026-10-28: no unrestricted JUL 2025 copy is on this Mac.
+  `~/Desktop/dd1380-2025.pdf` is the same restricted esd.whs.mil file (same
+  SHA-256). The Google Drive `DD-1380-TCCC-Card-Full-Size.pdf` is cloud-only
+  and dated 2025-07-01, before the edition. Waiting on DHA or JTS for a copy.
 - Body diagram: the JTS Module 23 skills checklist (TCCC-CPP-12-02, 15 MAY
   2025) grades "marked injury sites with an X" as a **critical** task. v1.0
   leaves the diagram blank and lists injuries in Notes; marking confident
