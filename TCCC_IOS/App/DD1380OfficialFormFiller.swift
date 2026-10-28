@@ -8,7 +8,7 @@ enum DD1380FillError: Error, Equatable {
     case emptyOutput
 }
 
-/// Fills the official DD Form 1380 (JUN 2014) template bundled with the app
+/// Fills the official DD Form 1380 (JUL 2025) template bundled with the app
 /// and flattens it. Every value comes from `DD1380OfficialForm.cardSet(for:)`
 /// (TCCCKit, deterministic); this type only writes them into PDFKit widgets.
 /// When Notes overflow, each further card is another copy of the official

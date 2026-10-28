@@ -10,7 +10,7 @@ struct DD1380ExportResult: Sendable {
 }
 
 /// Renders a `DD1380CardData` to a protected PDF on disk and returns its URL.
-/// The official DD Form 1380 (JUN 2014) is filled and flattened; the vector
+/// The official DD Form 1380 (JUL 2025) is filled and flattened; the vector
 /// fallback layout is used only if the bundled template is missing or
 /// unreadable, so an export never fails for that reason. The file is CUI when
 /// filled — written with `NSFileProtectionComplete` via `ProtectedWrite`, never

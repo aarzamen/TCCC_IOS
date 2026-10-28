@@ -3,7 +3,7 @@ import TCCCDomain
 
 // MARK: - DD Form 1380 field model
 //
-// A pure, deterministic representation of the DD Form 1380 (JUN 2014) FIELDS —
+// A pure, deterministic representation of the DD Form 1380 FIELDS (JUL 2025; same fields as JUN 2014) —
 // not the UI, not the rendered layout. Keyed to the §A–H field inventory in
 // `reference/rubric/extracted/dd1380_field_inventory.json`. Filled
 // deterministically from structured `PatientState` + app metadata by

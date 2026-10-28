@@ -70,30 +70,18 @@ approximate and a little messy. The DD 1380 cannot.
 - DevTools: hidden in Release builds, or kept?
 - Qwen3-ASR 4-bit or 8-bit: decide after running the TCCC benchmark recordings
   with Apple Speech in the same run.
-- DD 1380 edition: the bundled form is DD Form 1380, JUN 2014. The current
-  edition is **JUL 2025** (DoD forms site; official instructions "DD FORM 1380
-  INSTRUCTIONS, JUL 2025, Updated 20250721"). Its instructions list the same
-  fields as JUN 2014; the visible change is "Gender" printed as "Sex".
-  The JUL 2025 PDF from esd.whs.mil (SHA-256 `2e5df8d7…f633523`, checked
-  2026-10-27) cannot be the template: Apple's PDF engine (PDFKit, used by the
-  app and by Preview) renders its pages blank and reads its field names as
-  scrambled bytes, and its security settings forbid modifying the document
-  and assembling pages. Both of those are needed to rename the mislabelled
-  fields, lift the length caps and add #2 cards. v1.0 therefore fills the
-  JUN 2014 form, whose fields are the same. Switch only with an unrestricted
-  JUL 2025 file that PDFKit can open: re-run
-  `tools/prepare_dd1380_template.py` with a new pin and a fresh position
-  check. References, local-only:
+- DD 1380 edition: done 2026-10-28. The app fills **DD Form 1380, JUL 2025**
+  (instructions "Updated 20250721"; same fields as JUN 2014, "Gender" printed
+  as "Sex"), from the esd.whs.mil file the owner chose (SHA-256
+  `2e5df8d7…f633523`). That file is damaged, not just restricted: it was
+  optimized after encryption, so 493 of 1,438 objects decrypt under the wrong
+  key and every reader except Adobe's shows blank pages.
+  `tools/repair_dd1380_jul2025.py` repairs it; `tools/prepare_dd1380_template.py`
+  redraws the pages with `pdftocairo` (PDFKit draws the repaired pages blank)
+  and keeps the form's own 305 fields, renamed to the app's flat names. Every
+  field was checked against the print on a render; key ones are pinned in the
+  tool. References, local-only:
   `reference/rubric/TCCC rubrics and guidelines/2025 updates/`.
-  2026-10-28: the owner chose this esd.whs.mil JUL 2025 file as the form to
-  use; it only has to look like the official card. Its fault is a damaged
-  file, not the permissions: it was optimized after encryption, so 493 of
-  1,438 objects decrypt under the wrong key in every reader except Adobe's.
-  `tools/repair_dd1380_jul2025.py` fixes that (both pages and 305 honestly
-  named fields read correctly; PDFium draws it), and `pdftocairo -pdf` of the
-  repaired copy gives artwork PDFKit draws. Switching the template means
-  artwork plus our own fields at the JUL 2025 positions, then the usual
-  position check. Not done yet.
 - Body diagram: the JTS Module 23 skills checklist (TCCC-CPP-12-02, 15 MAY
   2025) grades "marked injury sites with an X" as a **critical** task. v1.0
   leaves the diagram blank and lists injuries in Notes; marking confident

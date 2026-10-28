@@ -68,7 +68,7 @@ final class DD1380OfficialFormFillerTests: XCTestCase {
             XCTAssertTrue(widgets.isEmpty, "page \(index) still has \(widgets.count) form fields")
         }
         let front = pageText(doc, 0)
-        for expected in ["DD Form 1380, JUN 2014", "DOE, J.", "4471", "JD4471", "120", "80", "96 radial",
+        for expected in [DD1380OfficialForm.edition, "DOE, J.", "4471", "JD4471", "120", "80", "96 radial",
                          "2/75 RGR", "PCN"] {
             XCTAssertTrue(front.contains(expected), "front page lacks \(expected)")
         }
@@ -81,7 +81,7 @@ final class DD1380OfficialFormFillerTests: XCTestCase {
     func testBlankCardStillRendersTheForm() throws {
         let doc = try document(DD1380OfficialFormFiller.render(DD1380CardData()))
         XCTAssertEqual(doc.pageCount, 2)
-        XCTAssertTrue(pageText(doc, 0).contains("DD Form 1380, JUN 2014"))
+        XCTAssertTrue(pageText(doc, 0).contains(DD1380OfficialForm.edition))
         XCTAssertFalse(pageText(doc, 0).contains("NKDA"))
     }
 

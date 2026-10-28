@@ -3,9 +3,9 @@ import Foundation
 // MARK: - Official DD Form 1380 field values
 //
 // Maps a `DD1380CardData` onto the fields of the official DD Form 1380
-// (JUN 2014) template bundled with the app. Field names are the honest flat
-// names written by `tools/prepare_dd1380_template.py` (the official form's own
-// names are wrong in places); `DD1380_JUN2014_fields.json` lists them.
+// (JUL 2025) template bundled with the app. Field names are the flat names
+// written by `tools/prepare_dd1380_template.py` (the same names the JUN 2014
+// template used); `DD1380_JUL2025_fields.json` lists them.
 // Pure and deterministic: nothing is inferred, blank stays blank, and nothing
 // is dropped. Entries that have no row left, and notes that do not fit the
 // Notes box, are carried forward instead.
@@ -23,10 +23,11 @@ public struct DD1380FormValues: Sendable, Equatable {
 }
 
 public enum DD1380OfficialForm {
-    public static let edition = "DD Form 1380, JUN 2014"
+    /// As printed at the foot of both sides of the form.
+    public static let edition = "DD FORM 1380, JUL 2025"
     /// Bundle resource name (`.pdf`) of the template, and of its `_fields.json` manifest.
-    public static let templateResource = "DD1380_JUN2014_template"
-    public static let manifestResource = "DD1380_JUN2014_fields"
+    public static let templateResource = "DD1380_JUL2025_template"
+    public static let manifestResource = "DD1380_JUL2025_fields"
 
     /// The last line of a Notes box whose text continues on card `nextCard`.
     public static func continuationMarker(nextCard: Int) -> String {
@@ -68,8 +69,9 @@ public enum DD1380OfficialForm {
     /// Safety bound only; each card takes at least nine lines of Notes.
     static let maxCards = 200
 
-    /// Notes box capacity at 7 pt (356 × 90 pt box): a render showed 10 lines
-    /// fit (the 11th was clipped) and about 110 characters per line.
+    /// Notes box capacity at 7 pt. Measured on JUN 2014 (356 × 90 pt box): 10
+    /// lines fit (the 11th was clipped), about 110 characters per line. The
+    /// JUL 2025 box is 362 × 89 pt; a 2026-10-28 render shows 10 lines fit.
     public static let notesCharsPerLine = 95
     public static let notesMaxLines = 10
 

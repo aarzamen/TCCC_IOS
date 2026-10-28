@@ -404,9 +404,9 @@ struct HandoffScreen: View {
         guard let card = state.makeDD1380Card() else { return "No casualty state" }
         let readiness = DD1380Readiness.evaluate(card: card)
         if readiness.criticalMissing.isEmpty {
-            return "Official form (JUN 2014) · required fields present · review before sharing"
+            return "Official form (JUL 2025) · required fields present · review before sharing"
         }
-        return "Official form (JUN 2014) · \(readiness.criticalMissing.count) missing required fields"
+        return "Official form (JUL 2025) · \(readiness.criticalMissing.count) missing required fields"
     }
 
     /// Render the deterministic DD-1380 to a protected PDF and hand it to the

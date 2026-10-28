@@ -7,80 +7,133 @@ it is AES-encrypted with an empty open password, and after encryption it was
 number, so 493 of 1,438 encrypted objects decrypt to garbage in Apple PDFKit,
 poppler and PDFium: blank pages, scrambled field names. This tool finds each
 object's original number (shifts of 1795, 1457, 243 and a few others), decrypts
-it with the right key and writes a plain copy. Apple PDFKit still draws that
-copy blank; `pdftocairo -pdf repaired.pdf vector.pdf` gives artwork PDFKit
-draws correctly (no fields). The repaired copy keeps the form's own widgets:
-305 fields with honest names (form1[0].P1[0].info[0].male[0], ...).
+it with the right key and writes a plain copy: both pages and the form's own
+305 widgets with honest names (form1[0].P1[0].info[0].male[0], ...).
+
+PDFKit still draws the repaired pages blank; `tools/prepare_dd1380_template.py`
+redraws them with `pdftocairo` and keeps the widgets.
 
 Run (tool-only dependencies, never shipped):
     uv run --python 3.12 --with pypdf --with cryptography python -I \
         tools/repair_dd1380_jul2025.py ~/Desktop/dd1380-2025.pdf /tmp/dd1380_jul2025_repaired.pdf
 """
-import sys, copy, zlib, hashlib, collections
+import collections
+import copy
+import hashlib
+import sys
+import zlib
+from pathlib import Path
+
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from pypdf import PdfReader, PdfWriter
-from pypdf import _encryption as E
+from pypdf import _encryption
 from pypdf.errors import PdfStreamError
-from pypdf.generic import StreamObject, DictionaryObject, ArrayObject, ByteStringObject, TextStringObject
+from pypdf.generic import ArrayObject, ByteStringObject, DictionaryObject, StreamObject, TextStringObject
 
-src, out = sys.argv[1], sys.argv[2]
-stats = collections.Counter(); fixes = {}
-orig = E.Encryption.decrypt_object
-MAXN = 4400
+SOURCE_SHA256 = "2e5df8d75f8dfcc0fa17ac8b70c4493c1f26c9866e733192919bb4918f633523"
+# Most moved objects shifted by this much; the rest are found by search.
+COMMON_SHIFT = 1795
+MAX_OBJECT_NUMBER = 4400
 
-def leaves(o):
-    if isinstance(o, StreamObject):
-        yield o._data
-        for v in o.values(): yield from leaves(v)
-    elif isinstance(o, (ByteStringObject, TextStringObject)): yield o.original_bytes
-    elif isinstance(o, DictionaryObject):
-        for v in o.values(): yield from leaves(v)
-    elif isinstance(o, ArrayObject):
-        for v in o: yield from leaves(v)
 
-def flate_ok(o):
-    if isinstance(o, StreamObject):
-        f = o.get("/Filter"); names = list(f) if isinstance(f, ArrayObject) else [f]
+def _leaves(obj):
+    """Every encrypted byte string inside an object (stream data and strings)."""
+    if isinstance(obj, StreamObject):
+        yield obj._data
+        for value in obj.values():
+            yield from _leaves(value)
+    elif isinstance(obj, (ByteStringObject, TextStringObject)):
+        yield obj.original_bytes
+    elif isinstance(obj, DictionaryObject):
+        for value in obj.values():
+            yield from _leaves(value)
+    elif isinstance(obj, ArrayObject):
+        for value in obj:
+            yield from _leaves(value)
+
+
+def _flate_ok(obj):
+    if isinstance(obj, StreamObject):
+        filters = obj.get("/Filter")
+        names = list(filters) if isinstance(filters, ArrayObject) else [filters]
         if names and names[0] == "/FlateDecode":
-            try: zlib.decompressobj().decompress(o._data)
-            except Exception: return False
+            try:
+                zlib.decompressobj().decompress(obj._data)
+            except zlib.error:
+                return False
     return True
 
-def try_n(self, obj, n, gen):
-    trial = copy.deepcopy(obj)
-    try: res = self._make_crypt_filter(n, gen).decrypt_object(trial, strict=True)
-    except PdfStreamError: return None
-    return res if flate_ok(res) else None
 
-def pad_ok(key, ct):
-    if len(ct) < 32 or len(ct) % 16: return False
-    d = Cipher(algorithms.AES(key), modes.CBC(ct[-32:-16])).decryptor()
-    b = d.update(ct[-16:]); p = b[-1]
-    return 1 <= p <= 16 and b.endswith(bytes([p])*p)
+def _padding_ok(key, ciphertext):
+    """Cheap pre-check: does the last AES block end in valid PKCS#7 padding under this key?"""
+    if len(ciphertext) < 32 or len(ciphertext) % 16:
+        return False
+    block = Cipher(algorithms.AES(key), modes.CBC(ciphertext[-32:-16])).decryptor().update(ciphertext[-16:])
+    pad = block[-1]
+    return 1 <= pad <= 16 and block.endswith(bytes([pad]) * pad)
 
-def patched(self, obj, idnum, generation, *, strict=True):
-    if not self._is_encryption_object(obj): return obj
-    ls = [l for l in leaves(obj) if len(l) >= 32]
-    if not ls: return orig(self, obj, idnum, generation, strict=False)
-    cands = [idnum, idnum - 1795]
-    for n in cands:
-        if n > 0 and (res := try_n(self, obj, n, generation)) is not None:
-            stats["own" if n == idnum else "-1795"] += 1; return res
-    # search: object key = md5(filekey + n + gen + sAlT)
-    fk = self._key if hasattr(self, "_key") else None
-    longest = max(ls, key=len)
-    for n in range(1, MAXN):
-        k = hashlib.md5(fk + n.to_bytes(3, "little") + generation.to_bytes(2, "little") + b"sAlT").digest()[:16]
-        if pad_ok(k, longest) and (res := try_n(self, obj, n, generation)) is not None:
-            stats["searched"] += 1; fixes[idnum] = n; return res
-    stats["unrepaired"] += 1
-    return orig(self, obj, idnum, generation, strict=False)
 
-E.Encryption.decrypt_object = patched
-r = PdfReader(src, strict=False)
-r.decrypt("")
-assert getattr(r._encryption, "_key", None), "no file key"
-w = PdfWriter(clone_from=r)
-w.write(out)
-print("objects:", dict(stats))
-offs = collections.Counter(i - n for i, n in fixes.items()); print("searched offsets:", offs.most_common(8))
+def repair(source: Path, out: Path) -> collections.Counter:
+    """Write a decrypted, readable copy of `source` to `out`. Returns how each object was keyed."""
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    if digest != SOURCE_SHA256:
+        raise ValueError(f"source SHA-256 {digest} is not the inspected DD 1380 JUL 2025 ({SOURCE_SHA256})")
+    stats = collections.Counter()
+    original = _encryption.Encryption.decrypt_object
+
+    def decrypt_trial(self, obj, number, generation):
+        trial = copy.deepcopy(obj)
+        try:
+            result = self._make_crypt_filter(number, generation).decrypt_object(trial, strict=True)
+        except PdfStreamError:
+            return None
+        return result if _flate_ok(result) else None
+
+    def decrypt_object(self, obj, idnum, generation, *, strict=True):
+        if not self._is_encryption_object(obj):
+            return obj
+        leaves = [leaf for leaf in _leaves(obj) if len(leaf) >= 32]
+        if not leaves:
+            return original(self, obj, idnum, generation, strict=False)
+        for number, label in ((idnum, "own number"), (idnum - COMMON_SHIFT, f"shift {COMMON_SHIFT}")):
+            if number > 0 and (result := decrypt_trial(self, obj, number, generation)) is not None:
+                stats[label] += 1
+                return result
+        longest = max(leaves, key=len)
+        for number in range(1, MAX_OBJECT_NUMBER):
+            key = hashlib.md5(self._key + number.to_bytes(3, "little") + generation.to_bytes(2, "little")
+                              + b"sAlT").digest()[:16]
+            if _padding_ok(key, longest) and (result := decrypt_trial(self, obj, number, generation)) is not None:
+                stats["searched"] += 1
+                return result
+        stats["unrepaired"] += 1
+        return original(self, obj, idnum, generation, strict=False)
+
+    _encryption.Encryption.decrypt_object = decrypt_object
+    try:
+        reader = PdfReader(source, strict=False)
+        reader.decrypt("")
+        writer = PdfWriter(clone_from=reader)
+    finally:
+        _encryption.Encryption.decrypt_object = original
+    if stats["unrepaired"]:
+        raise ValueError(f"{stats['unrepaired']} objects could not be repaired")
+    with out.open("wb") as stream:
+        writer.write(stream)
+    return stats
+
+
+def main():
+    if len(sys.argv) != 3:
+        print(__doc__, file=sys.stderr)
+        sys.exit(2)
+    try:
+        stats = repair(Path(sys.argv[1]).expanduser(), Path(sys.argv[2]).expanduser())
+    except ValueError as error:
+        print(f"error: {error}", file=sys.stderr)
+        sys.exit(1)
+    print(f"repaired {sum(stats.values())} encrypted objects: {dict(stats)}")
+
+
+if __name__ == "__main__":
+    main()
