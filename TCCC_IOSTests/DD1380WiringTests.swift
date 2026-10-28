@@ -159,7 +159,7 @@ final class DD1380WiringTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tmp) }
 
         let url = try await DD1380PDFExportService().export(
-            card: card, casualtyId: s.casualtyId, documentsURL: tmp)
+            card: card, casualtyId: s.casualtyId, documentsURL: tmp).url
         XCTAssertEqual(url.pathExtension, "pdf")
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
     }

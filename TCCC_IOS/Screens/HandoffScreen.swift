@@ -404,9 +404,9 @@ struct HandoffScreen: View {
         guard let card = state.makeDD1380Card() else { return "No casualty state" }
         let readiness = DD1380Readiness.evaluate(card: card)
         if readiness.criticalMissing.isEmpty {
-            return "Draft · required fields present · review before sharing"
+            return "Official form (JUN 2014) · required fields present · review before sharing"
         }
-        return "Draft · \(readiness.criticalMissing.count) missing required fields"
+        return "Official form (JUN 2014) · \(readiness.criticalMissing.count) missing required fields"
     }
 
     /// Render the deterministic DD-1380 to a protected PDF and hand it to the
@@ -426,12 +426,14 @@ struct HandoffScreen: View {
         Task { @MainActor in
             defer { isExportingPDF = false }
             do {
-                let url = try await dd1380Export.export(
+                let result = try await dd1380Export.export(
                     card: card, casualtyId: casualtyId, documentsURL: documentsURL)
                 guard state.casualtyId == casualtyId, state.sessionStart == sessionStart else { return }
-                shareItems = [url]
+                shareItems = [result.url]
                 shareSheetVisible = true
-                state.appendSystem("DD-1380 PDF · generated on-device")
+                state.appendSystem(result.usedOfficialForm
+                    ? "DD-1380 PDF · official form, generated on-device"
+                    : "DD-1380 PDF · fallback layout (official template unavailable), generated on-device")
             } catch {
                 failExport("pdf", error.localizedDescription)
             }

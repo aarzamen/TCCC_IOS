@@ -37,7 +37,9 @@ approximate and a little messy. The DD 1380 cannot.
 
 ## Work left before tagging v1.0
 
-1. **Official DD Form 1380.** Bundle the official fillable form (a US
+1. **Official DD Form 1380.** Done 2026-10-27 on branch
+   `claude/dd1380-official-form` (plan:
+   `docs/superpowers/plans/2026-10-27-dd1380-official-form.md`). Bundle the official fillable form (a US
    government form, public domain) and fill its fields from the engine's
    structured state: deterministic, the same mapping as today's
    `DD1380Mapper`, no language model. Flatten it, and export it from Handoff
@@ -68,5 +70,5 @@ approximate and a little messy. The DD 1380 cannot.
 - DevTools: hidden in Release builds, or kept?
 - Qwen3-ASR 4-bit or 8-bit: decide after running the TCCC benchmark recordings
   with Apple Speech in the same run.
-- DD 1380 edition: confirm that the bundled form matches the current edition
-  on the DoD forms site.
+- DD 1380 edition: the bundled form is DD Form 1380, JUN 2014 (printed on the
+  form). Confirm that this is still the current edition on the DoD forms site.

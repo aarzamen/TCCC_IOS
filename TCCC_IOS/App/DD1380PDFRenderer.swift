@@ -5,8 +5,9 @@ enum DD1380RenderError: Error { case emptyOutput }
 
 /// Vector-rendered DD Form 1380 layout.
 ///
-/// ⚠️ FALLBACK renderer — this is a clean, legible facsimile-style layout, NOT
-/// the official DD Form 1380 PDF template (none is bundled in the app target).
+/// ⚠️ FALLBACK renderer — a clean, legible facsimile-style layout, NOT the
+/// official DD Form 1380. Exports use `DD1380OfficialFormFiller`; this runs
+/// only if the bundled official template is missing or unreadable.
 /// Every value comes from `DD1380CardData` (deterministically mapped from
 /// structured state); the renderer invents nothing. Two pages: front (§A–C),
 /// back (§D–H). Layout constants live in `L` so coordinates are centralized.
