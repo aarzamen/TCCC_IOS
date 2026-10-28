@@ -1,6 +1,6 @@
-# TCCC.ai iOS — v1.0 scope
+DECIDED 2026-10-27 · stopping-point
 
-Decided 2026-10-27. Kind: **stopping-point**.
+# TCCC.ai iOS — v1.0 scope
 
 v1.0 is a declared stopping point, not more features: what exists today minus
 anything broken or half-built, plus the one deliverable this app was always
