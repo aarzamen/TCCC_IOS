@@ -9,25 +9,42 @@ enum DD1380FillError: Error, Equatable {
 }
 
 /// Fills the official DD Form 1380 (JUN 2014) template bundled with the app
-/// and flattens it. Every value comes from `DD1380OfficialForm.values(for:)`
+/// and flattens it. Every value comes from `DD1380OfficialForm.cardSet(for:)`
 /// (TCCCKit, deterministic); this type only writes them into PDFKit widgets.
-/// Notes that do not fit the box are printed on an extra page after the back.
+/// When Notes overflow, each further card is another copy of the official
+/// form, labelled "DD 1380 #2", "#3"… above the card on both sides.
 enum DD1380OfficialFormFiller {
-
-    /// Continuation page capacity at 10 pt in a 528 × 660 pt text area.
-    static let continuationCharsPerLine = 95
-    static let continuationMaxLines = 50
 
     static func render(_ card: DD1380CardData, bundle: Bundle = .main) throws -> Data {
         guard let url = bundle.url(forResource: DD1380OfficialForm.templateResource, withExtension: "pdf") else {
             throw DD1380FillError.templateMissing
         }
-        guard let doc = PDFDocument(url: url), doc.pageCount == 2 else {
+        let output = PDFDocument()
+        for values in DD1380OfficialForm.cardSet(for: card) {
+            // Each card is filled and flattened on its own copy: copies share
+            // field names, and live fields with one name in one document can
+            // share a value.
+            guard let flat = PDFDocument(data: try fillCard(templateURL: url, values: values)) else {
+                throw DD1380FillError.emptyOutput
+            }
+            for index in 0..<flat.pageCount {
+                if let page = flat.page(at: index) { output.insert(page, at: output.pageCount) }
+            }
+        }
+        guard output.pageCount >= 2, let data = output.dataRepresentation(), !data.isEmpty else {
+            throw DD1380FillError.emptyOutput
+        }
+        return data
+    }
+
+    /// One card, front and back, filled and flattened.
+    private static func fillCard(templateURL: URL, values: DD1380FormValues) throws -> Data {
+        guard let doc = PDFDocument(url: templateURL), doc.pageCount == 2 else {
             throw DD1380FillError.templateUnreadable
         }
-        let values = DD1380OfficialForm.values(for: card)
         for index in 0..<doc.pageCount {
-            for annotation in doc.page(at: index)?.annotations ?? [] {
+            guard let page = doc.page(at: index) else { continue }
+            for annotation in page.annotations {
                 guard annotation.type == "Widget", let name = annotation.fieldName else { continue }
                 switch annotation.widgetFieldType {
                 case .text:
@@ -44,15 +61,7 @@ enum DD1380OfficialFormFiller {
                     continue
                 }
             }
-        }
-        // As many continuation pages as the overflow needs, each ending in the marker but the last.
-        var remaining = values.continuationNotes
-        while let text = remaining {
-            let split = DD1380OfficialForm.splitNotes(text, charsPerLine: continuationCharsPerLine,
-                                                      maxLines: continuationMaxLines)
-            guard let page = continuationPage(card: card, notes: split.onForm) else { break }
-            doc.insert(page, at: doc.pageCount)
-            remaining = split.overflow
+            if let label = values.cardLabel { stampLabel("DD 1380 \(label)", on: page) }
         }
         guard let data = doc.dataRepresentation(options: [PDFDocumentWriteOption.burnInAnnotationsOption: true]),
               !data.isEmpty else {
@@ -74,25 +83,20 @@ enum DD1380OfficialFormFiller {
         annotation.font = font
     }
 
-    /// One US-Letter page carrying the rest of Notes, identified by BR#, name and date.
-    private static func continuationPage(card: DD1380CardData, notes: String) -> PDFPage? {
-        let bounds = CGRect(x: 0, y: 0, width: 612, height: 792)
-        let margin: CGFloat = 42
-        let data = UIGraphicsPDFRenderer(bounds: bounds).pdfData { ctx in
-            ctx.beginPage()
-            let title: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 13)]
-            let label: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 10),
-                                                        .foregroundColor: UIColor.darkGray]
-            let body: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 10)]
-            "\(DD1380OfficialForm.edition) — NOTES (continued)".draw(at: CGPoint(x: margin, y: margin), withAttributes: title)
-            let identity = [("BATTLE ROSTER #", card.battleRosterNumber), ("NAME", card.nameLastFirst),
-                            ("DATE", card.dateDDMMMYY)]
-                .map { "\($0.0): \($0.1.isEmpty ? "—" : $0.1)" }
-                .joined(separator: "     ")
-            identity.draw(at: CGPoint(x: margin, y: margin + 22), withAttributes: label)
-            notes.draw(in: CGRect(x: margin, y: margin + 48, width: bounds.width - margin * 2,
-                                  height: bounds.height - margin * 2 - 48), withAttributes: body)
-        }
-        return PDFDocument(data: data)?.page(at: 0)
+    /// "#2" label in the top margin, right-aligned to the card's edge (x ≈ 398 pt).
+    private static func stampLabel(_ text: String, on page: PDFPage) {
+        let height = page.bounds(for: .mediaBox).height
+        let label = PDFAnnotation(bounds: CGRect(x: 248, y: height - 38, width: 150, height: 18),
+                                  forType: .freeText, withProperties: nil)
+        label.contents = text
+        // A named PDF base font: the system font falls back to Times when burned in.
+        label.font = UIFont(name: "Helvetica-Bold", size: 13) ?? UIFont.boldSystemFont(ofSize: 13)
+        label.fontColor = .black
+        label.color = .clear
+        label.alignment = .right
+        let border = PDFBorder()
+        border.lineWidth = 0
+        label.border = border
+        page.addAnnotation(label)
     }
 }

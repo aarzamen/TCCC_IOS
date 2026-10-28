@@ -85,29 +85,41 @@ final class DD1380OfficialFormFillerTests: XCTestCase {
         XCTAssertFalse(pageText(doc, 0).contains("NKDA"))
     }
 
-    func testLongNotesAddContinuationPage() throws {
+    // JTS card guide (TCCC-CMC-SC-64, 15 MAY 2025): attach another DD 1380,
+    // labelled #2, showing the casualty's name and unit.
+    func testLongNotesAddALabelledSecondCard() throws {
         var card = sampleCard()
-        card.notes = (1...40).map { "Note line \($0)" }.joined(separator: "\n")
+        card.notes = (1...15).map { "Note line \($0)" }.joined(separator: "\n")
         let doc = try document(DD1380OfficialFormFiller.render(card))
-        XCTAssertEqual(doc.pageCount, 3)
-        XCTAssertTrue(pageText(doc, 1).contains(DD1380OfficialForm.continuationMarker))
-        let continuation = pageText(doc, 2)
-        XCTAssertTrue(continuation.contains("Note line 40"), continuation)
-        XCTAssertTrue(continuation.contains("JD4471"), continuation)
+        XCTAssertEqual(doc.pageCount, 4, "original front and back, then card #2 front and back")
+        XCTAssertTrue(pageText(doc, 1).contains(DD1380OfficialForm.continuationMarker(nextCard: 2)))
+        XCTAssertFalse(pageText(doc, 0).contains("DD 1380 #2"), "the original is not labelled")
+        let secondFront = pageText(doc, 2)
+        for expected in ["DD 1380 #2", DD1380OfficialForm.edition, "DOE, J.", "2/75 RGR", "JD4471"] {
+            XCTAssertTrue(secondFront.contains(expected), "card #2 front lacks \(expected)")
+        }
+        XCTAssertFalse(secondFront.contains("96 radial"), "clinical values are not repeated on card #2")
+        let secondBack = pageText(doc, 3)
+        XCTAssertTrue(secondBack.contains("DD 1380 #2"))
+        XCTAssertTrue(secondBack.contains("Note line 15"), secondBack)
+        // "Ketamine" is printed on every back ("e.g., Ketamine, Fentanyl"); the dose is ours.
+        XCTAssertFalse(secondBack.contains("50 mg"), "meds are not repeated on card #2")
+        for index in 0..<doc.pageCount {
+            XCTAssertTrue(doc.page(at: index)?.annotations.filter { $0.type == "Widget" }.isEmpty == true)
+        }
     }
 
-    func testVeryLongNotesSpanSeveralContinuationPages() throws {
+    func testVeryLongNotesMakeNumberedCards() throws {
         var card = sampleCard()
-        card.notes = (1...200).map { "Note line \($0)" }.joined(separator: "\n")
+        card.notes = (1...60).map { "Note line \($0)" }.joined(separator: "\n")
         let doc = try document(DD1380OfficialFormFiller.render(card))
-        XCTAssertGreaterThanOrEqual(doc.pageCount, 6)
-        let last = pageText(doc, doc.pageCount - 1)
-        XCTAssertTrue(last.contains("Note line 200"), last)
-        XCTAssertFalse(last.contains(DD1380OfficialForm.continuationMarker))
-        let all = (2..<doc.pageCount).map { pageText(doc, $0) }.joined(separator: "\n")
-        for n in [11, 60, 61, 120, 199] {
-            XCTAssertTrue(all.contains("Note line \(n)\n") || all.contains("Note line \(n)"), "line \(n) missing")
-        }
+        XCTAssertEqual(doc.pageCount % 2, 0, "every card has a front and a back")
+        let cards = doc.pageCount / 2
+        XCTAssertEqual(cards, DD1380OfficialForm.cardSet(for: card).count)
+        let lastBack = pageText(doc, doc.pageCount - 1)
+        XCTAssertTrue(lastBack.contains("DD 1380 #\(cards)"), lastBack)
+        XCTAssertTrue(lastBack.contains("Note line 60"), lastBack)
+        XCTAssertFalse(lastBack.contains("(continued on DD 1380"))
     }
 
     func testMissingTemplateThrows() {
@@ -124,10 +136,16 @@ final class DD1380OfficialFormFillerTests: XCTestCase {
         await state.loadDemoTranscript(DemoScenarios.scenario1)
         let card = try XCTUnwrap(state.makeDD1380Card())
         XCTAssertTrue(DD1380Readiness.evaluate(card: card).hasClinicalContent)
+        // "Applying a tourniquet now, CAT tourniquet" → R Leg corner and the TQ Type line.
+        XCTAssertEqual(card.tourniquets.first?.limb, .rightLeg)
+        XCTAssertEqual(card.tourniquets.first?.type, "CAT")
+        XCTAssertEqual(card.treatments.tqTypeText, "CAT")
         let data = try DD1380OfficialFormFiller.render(card)
         let doc = try document(data)
         XCTAssertGreaterThanOrEqual(doc.pageCount, 2)
         XCTAssertTrue(pageText(doc, 0).contains(DD1380OfficialForm.edition))
+        XCTAssertTrue(pageText(doc, 0).contains("CAT"))
+        XCTAssertTrue(pageText(doc, 1).contains("CAT"))
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("DD1380_demo_scenario1.pdf")
         try data.write(to: url)
         print("DD1380_DEMO_PATH=\(url.path)")

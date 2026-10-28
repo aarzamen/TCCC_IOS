@@ -286,28 +286,68 @@ final class DD1380OfficialFormTests: XCTestCase {
         XCTAssertTrue(notes.hasPrefix("Hemorrhage: right thigh\n"), notes)
     }
 
+    // MARK: - Continuation cards (JTS card guide TCCC-CMC-SC-64, 15 MAY 2025:
+    // "attach another DD Form 1380 to the original. Label the second DD Form
+    // 1380 #2. It will show the soldier's name and unit.")
+
+    func testShortNotesMakeOneCard() {
+        let cards = DD1380OfficialForm.cardSet(for: fullCard())
+        XCTAssertEqual(cards.count, 1)
+        XCTAssertNil(cards[0].cardLabel)
+        XCTAssertEqual(cards[0], DD1380OfficialForm.values(for: fullCard()))
+    }
+
+    func testLongNotesMakeLabelledSecondCardWithNameAndUnit() {
+        var c = fullCard()
+        c.notes = (1...25).map { "Note line \($0)" }.joined(separator: "\n")
+        let cards = DD1380OfficialForm.cardSet(for: c)
+        XCTAssertEqual(cards.count, 3)
+        XCTAssertEqual(cards.map(\.cardLabel), [nil, "#2", "#3"])
+        XCTAssertTrue(cards[0].text["notes"]?.hasSuffix("(continued on DD 1380 #2)") == true)
+        XCTAssertTrue(cards[1].text["notes"]?.hasSuffix("(continued on DD 1380 #3)") == true)
+        XCTAssertFalse(cards[2].text["notes"]?.contains("continued") == true)
+
+        let second = cards[1]
+        for field in ["name", "last4", "unit", "service", "allergies", "date", "time",
+                      "br_number", "br_number_back", "responder_name", "responder_last4"] {
+            XCTAssertEqual(second.text[field], cards[0].text[field], field)
+        }
+        XCTAssertEqual(second.checked, ["evac_urgent", "evac_urgent_back", "sex_m"],
+                       "only the header boxes repeat; clinical boxes are not double-counted")
+        XCTAssertNil(second.text["vitals1_time"])
+        XCTAssertNil(second.text["analgesic1_name"])
+
+        // Every note line appears exactly once, in order, across the cards.
+        let lines = cards.compactMap { $0.text["notes"] }
+            .flatMap { $0.components(separatedBy: "\n") }
+            .filter { !$0.hasPrefix("(continued on DD 1380") }
+        let expected = (1...25).map { "Note line \($0)" }
+        XCTAssertEqual(lines.filter { $0.hasPrefix("Note line") }, expected)
+    }
+
     // MARK: - §G notes capacity
 
     func testNotesSplitAtLineBoundary() {
         let lines = (1...30).map { String(format: "line %02d of the notes.", $0) }
-        let split = DD1380OfficialForm.splitNotes(lines.joined(separator: "\n"), charsPerLine: 95, maxLines: 11)
+        let split = DD1380OfficialForm.splitNotes(lines.joined(separator: "\n"), charsPerLine: 95, maxLines: 11,
+                                                  marker: "(continued on DD 1380 #2)")
         XCTAssertEqual(split.onForm.components(separatedBy: "\n").count, 11)
-        XCTAssertTrue(split.onForm.hasSuffix("line 10 of the notes.\n(continued on next page)"), split.onForm)
+        XCTAssertTrue(split.onForm.hasSuffix("line 10 of the notes.\n(continued on DD 1380 #2)"), split.onForm)
         XCTAssertEqual(split.overflow?.components(separatedBy: "\n").first, "line 11 of the notes.")
         XCTAssertEqual(split.overflow?.components(separatedBy: "\n").count, 20)
     }
 
     func testNotesThatFitAreNotSplit() {
-        let split = DD1380OfficialForm.splitNotes("short note\nsecond line", charsPerLine: 95, maxLines: 11)
+        let split = DD1380OfficialForm.splitNotes("short note\nsecond line", charsPerLine: 95, maxLines: 11, marker: "M")
         XCTAssertEqual(split.onForm, "short note\nsecond line")
         XCTAssertNil(split.overflow)
     }
 
     func testOneLongLineSplitsAtAWord() {
         let text = Array(repeating: "word", count: 400).joined(separator: " ")   // 1,999 characters
-        let split = DD1380OfficialForm.splitNotes(text, charsPerLine: 95, maxLines: 11)
-        XCTAssertTrue(split.onForm.hasSuffix("\n(continued on next page)"))
-        let kept = split.onForm.replacingOccurrences(of: "\n(continued on next page)", with: "")
+        let split = DD1380OfficialForm.splitNotes(text, charsPerLine: 95, maxLines: 11, marker: "M")
+        XCTAssertTrue(split.onForm.hasSuffix("\nM"))
+        let kept = String(split.onForm.dropLast(2))
         XCTAssertLessThanOrEqual(kept.count, 95 * 10)
         XCTAssertTrue(kept.hasSuffix("word"))
         XCTAssertEqual((kept + " " + (split.overflow ?? "")).count, text.count, "nothing is lost")
@@ -317,7 +357,7 @@ final class DD1380OfficialFormTests: XCTestCase {
         var c = DD1380CardData()
         c.notes = (1...40).map { "Note line \($0)" }.joined(separator: "\n")
         let values = DD1380OfficialForm.values(for: c)
-        XCTAssertTrue(values.text["notes"]?.hasSuffix("(continued on next page)") == true)
+        XCTAssertTrue(values.text["notes"]?.hasSuffix("(continued on DD 1380 #2)") == true)
         XCTAssertTrue(values.continuationNotes?.hasSuffix("Note line 40") == true)
     }
 }

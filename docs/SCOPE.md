@@ -82,9 +82,9 @@ approximate and a little messy. The DD 1380 cannot.
   2025) grades "marked injury sites with an X" as a **critical** task. v1.0
   leaves the diagram blank and lists injuries in Notes; marking confident
   sites is the next DD 1380 change.
-- Tourniquet type: the JUL 2025 instructions say "write type of tourniquet
-  used". Fill it when the medic names the device ("CAT tourniquet"); never
-  guess one.
-- Continuation: the JTS card guide (TCCC-CMC-SC-64, 15 MAY 2025) says to
-  attach a second DD 1380 labelled "#2" showing name and unit. v1.0 adds a
-  plain continuation page with BR#, name and date.
+- Tourniquet type: done. The JUL 2025 instructions say "write type of
+  tourniquet used"; a device the medic names ("CAT tourniquet") fills the limb
+  box and the Treatments Type line. None is ever guessed.
+- Continuation: done. Per the JTS card guide (TCCC-CMC-SC-64, 15 MAY 2025),
+  notes that overflow go onto a second official DD 1380 labelled "#2" (then
+  "#3"…), repeating the header, name and unit.

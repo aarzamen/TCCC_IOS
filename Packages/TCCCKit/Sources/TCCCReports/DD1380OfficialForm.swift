@@ -10,12 +10,14 @@ import Foundation
 // is dropped. Entries that have no row left, and notes that do not fit the
 // Notes box, are carried forward instead.
 
-/// Values to write into the official form. `continuationNotes` holds the part
-/// of Notes that does not fit the box; the app prints it on an extra page.
+/// Values to write into one official card. `continuationNotes` holds the part
+/// of Notes that does not fit this card's box; `cardLabel` is "#2", "#3"… on
+/// a continuation card and nil on the original.
 public struct DD1380FormValues: Sendable, Equatable {
     public var text: [String: String] = [:]
     public var checked: Set<String> = []
     public var continuationNotes: String?
+    public var cardLabel: String?
 
     public init() {}
 }
@@ -25,7 +27,46 @@ public enum DD1380OfficialForm {
     /// Bundle resource name (`.pdf`) of the template, and of its `_fields.json` manifest.
     public static let templateResource = "DD1380_JUN2014_template"
     public static let manifestResource = "DD1380_JUN2014_fields"
-    public static let continuationMarker = "(continued on next page)"
+
+    /// The last line of a Notes box whose text continues on card `nextCard`.
+    public static func continuationMarker(nextCard: Int) -> String {
+        "(continued on DD 1380 #\(nextCard))"
+    }
+
+    /// Every card to print: the original, then continuation cards while Notes
+    /// overflow. Per the JTS card guide (TCCC-CMC-SC-64, 15 MAY 2025) each
+    /// extra card is another DD 1380 labelled "#2", "#3"… showing the
+    /// casualty's name and unit. It repeats the header (BR#, EVAC, identity,
+    /// date, time, service, unit, allergies) and the first responder, and
+    /// carries the next part of Notes. Clinical boxes are not repeated.
+    public static func cardSet(for card: DD1380CardData) -> [DD1380FormValues] {
+        var cards = [values(for: card)]
+        var number = 2
+        while let remaining = cards[cards.count - 1].continuationNotes, number <= maxCards {
+            var header = DD1380CardData()
+            header.battleRosterNumber = card.battleRosterNumber
+            header.evacCategory = card.evacCategory
+            header.nameLastFirst = card.nameLastFirst
+            header.last4 = card.last4
+            header.sex = card.sex
+            header.dateDDMMMYY = card.dateDDMMMYY
+            header.timeHHMM = card.timeHHMM
+            header.service = card.service
+            header.unit = card.unit
+            header.allergies = card.allergies
+            header.firstResponderName = card.firstResponderName
+            header.firstResponderLast4 = card.firstResponderLast4
+            header.notes = remaining
+            var next = values(for: header, cardNumber: number)
+            next.cardLabel = "#\(number)"
+            cards.append(next)
+            number += 1
+        }
+        return cards
+    }
+
+    /// Safety bound only; each card takes at least nine lines of Notes.
+    static let maxCards = 200
 
     /// Notes box capacity at 7 pt (356 × 90 pt box): a render showed 10 lines
     /// fit (the 11th was clipped) and about 110 characters per line.
@@ -39,7 +80,9 @@ public enum DD1380OfficialForm {
     static let bloodRows = 2
     static let vitalsColumns = 4
 
-    public static func values(for card: DD1380CardData) -> DD1380FormValues {
+    /// The fields of one card. `cardNumber` only sets which card the Notes
+    /// continuation marker points to.
+    public static func values(for card: DD1380CardData, cardNumber: Int = 1) -> DD1380FormValues {
         var v = DD1380FormValues()
         var overflow: [String] = []
 
@@ -190,7 +233,8 @@ public enum DD1380OfficialForm {
         // §G — notes: the card's own notes first, then everything without a row
         let cardNotes = card.notes.trimmingCharacters(in: .whitespacesAndNewlines)
         let allNotes = ([cardNotes] + overflow).filter { !$0.isEmpty }.joined(separator: "\n")
-        let split = splitNotes(allNotes, charsPerLine: notesCharsPerLine, maxLines: notesMaxLines)
+        let split = splitNotes(allNotes, charsPerLine: notesCharsPerLine, maxLines: notesMaxLines,
+                               marker: continuationMarker(nextCard: cardNumber + 1))
         put("notes", split.onForm)
         v.continuationNotes = split.overflow
 
@@ -201,9 +245,10 @@ public enum DD1380OfficialForm {
     }
 
     /// Splits notes so the part on the form fits `maxLines` wrapped lines,
-    /// ending in `continuationMarker` when anything is carried over. Cuts at a
+    /// ending in `marker` when anything is carried over. Cuts at a
     /// line break where possible, else at the last space; nothing is lost.
-    public static func splitNotes(_ notes: String, charsPerLine: Int, maxLines: Int) -> (onForm: String, overflow: String?) {
+    public static func splitNotes(_ notes: String, charsPerLine: Int, maxLines: Int,
+                                  marker: String) -> (onForm: String, overflow: String?) {
         let lines = notes.components(separatedBy: "\n")
         func wrapped(_ line: String) -> Int { max(1, (line.count + charsPerLine - 1) / charsPerLine) }
         if notes.isEmpty || lines.map(wrapped).reduce(0, +) <= maxLines { return (notes, nil) }
@@ -237,7 +282,7 @@ public enum DD1380OfficialForm {
             rest.append(contentsOf: lines[(index + 1)...])
             break
         }
-        return (kept.joined(separator: "\n") + "\n" + continuationMarker, rest.joined(separator: "\n"))
+        return (kept.joined(separator: "\n") + "\n" + marker, rest.joined(separator: "\n"))
     }
 
     // MARK: - Helpers
