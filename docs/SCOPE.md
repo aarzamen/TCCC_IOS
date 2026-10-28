@@ -70,5 +70,21 @@ approximate and a little messy. The DD 1380 cannot.
 - DevTools: hidden in Release builds, or kept?
 - Qwen3-ASR 4-bit or 8-bit: decide after running the TCCC benchmark recordings
   with Apple Speech in the same run.
-- DD 1380 edition: the bundled form is DD Form 1380, JUN 2014 (printed on the
-  form). Confirm that this is still the current edition on the DoD forms site.
+- DD 1380 edition: the bundled form is DD Form 1380, JUN 2014. The current
+  edition is **JUL 2025** (DoD forms site; official instructions "DD FORM 1380
+  INSTRUCTIONS, JUL 2025, Updated 20250721"). Its instructions list the same
+  fields as JUN 2014; the visible change is "Gender" printed as "Sex". Swap in
+  the JUL 2025 fillable PDF (re-run `tools/prepare_dd1380_template.py` with a
+  new pin and a fresh position check) once it is downloaded from
+  esd.whs.mil. References, local-only:
+  `reference/rubric/TCCC rubrics and guidelines/2025 updates/`.
+- Body diagram: the JTS Module 23 skills checklist (TCCC-CPP-12-02, 15 MAY
+  2025) grades "marked injury sites with an X" as a **critical** task. v1.0
+  leaves the diagram blank and lists injuries in Notes; marking confident
+  sites is the next DD 1380 change.
+- Tourniquet type: the JUL 2025 instructions say "write type of tourniquet
+  used". Fill it when the medic names the device ("CAT tourniquet"); never
+  guess one.
+- Continuation: the JTS card guide (TCCC-CMC-SC-64, 15 MAY 2025) says to
+  attach a second DD 1380 labelled "#2" showing name and unit. v1.0 adds a
+  plain continuation page with BR#, name and date.
