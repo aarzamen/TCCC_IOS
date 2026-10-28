@@ -1078,6 +1078,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
 			);
 			name = "Stamp build identity";
 			outputFileListPaths = (
@@ -1086,7 +1087,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "set -euo pipefail\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\nif [ ! -f \"$PLIST\" ]; then exit 0; fi\nGIT_SHA=$(git -C \"${SRCROOT}\" rev-parse --short HEAD 2>/dev/null || echo unknown)\nGIT_BRANCH=$(git -C \"${SRCROOT}\" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)\nif [ -n \"$(git -C \"${SRCROOT}\" status --porcelain 2>/dev/null)\" ]; then GIT_SHA=\"${GIT_SHA}+\"; fi\nBUILD_DATE=$(date \"+%Y-%m-%d %H:%M\")\nfor KEY in TCCCGitSHA TCCCGitBranch TCCCBuildDate; do\n  /usr/libexec/PlistBuddy -c \"Delete :${KEY}\" \"$PLIST\" 2>/dev/null || true\ndone\n/usr/libexec/PlistBuddy -c \"Add :TCCCGitSHA string ${GIT_SHA}\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Add :TCCCGitBranch string ${GIT_BRANCH}\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Add :TCCCBuildDate string ${BUILD_DATE}\" \"$PLIST\"\n";
+			shellScript = "set -euo pipefail\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\nif [ ! -f \"$PLIST\" ]; then echo \"warning: build stamp skipped, no Info.plist at $PLIST\"; exit 0; fi\nGIT_SHA=$(git -C \"${SRCROOT}\" rev-parse --short HEAD 2>/dev/null || echo unknown)\nGIT_BRANCH=$(git -C \"${SRCROOT}\" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)\nif [ -n \"$(git -C \"${SRCROOT}\" status --porcelain 2>/dev/null)\" ]; then GIT_SHA=\"${GIT_SHA}+\"; fi\nBUILD_DATE=$(date \"+%Y-%m-%d %H:%M\")\nfor KEY in TCCCGitSHA TCCCGitBranch TCCCBuildDate; do\n  /usr/libexec/PlistBuddy -c \"Delete :${KEY}\" \"$PLIST\" 2>/dev/null || true\ndone\n/usr/libexec/PlistBuddy -c \"Add :TCCCGitSHA string ${GIT_SHA}\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Add :TCCCGitBranch string ${GIT_BRANCH}\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Add :TCCCBuildDate string ${BUILD_DATE}\" \"$PLIST\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

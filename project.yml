@@ -111,11 +111,16 @@ targets:
     postBuildScripts:
       - name: "Stamp build identity"
         basedOnDependencyAnalysis: false
+        # Declaring the processed Info.plist as an input orders this script after
+        # ProcessInfoPlistFile; without it Xcode 26 could run it first, find no
+        # plist, and ship an unstamped app.
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
         shell: /bin/bash
         script: |
           set -euo pipefail
           PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
-          if [ ! -f "$PLIST" ]; then exit 0; fi
+          if [ ! -f "$PLIST" ]; then echo "warning: build stamp skipped, no Info.plist at $PLIST"; exit 0; fi
           GIT_SHA=$(git -C "${SRCROOT}" rev-parse --short HEAD 2>/dev/null || echo unknown)
           GIT_BRANCH=$(git -C "${SRCROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)
           if [ -n "$(git -C "${SRCROOT}" status --porcelain 2>/dev/null)" ]; then GIT_SHA="${GIT_SHA}+"; fi
