@@ -62,10 +62,45 @@ final class DD1380MapperTests: XCTestCase {
         XCTAssertFalse(card.mechanisms.other)
         XCTAssertEqual(card.tourniquets.count, 1)
         XCTAssertEqual(card.tourniquets.first?.limb, .rightLeg)   // "right thigh" → R Leg
-        XCTAssertNil(card.tourniquets.first?.type)                // never inferred
+        XCTAssertEqual(card.tourniquets.first?.type, "CAT")        // named by the medic
+        XCTAssertEqual(card.treatments.tqTypeText, "CAT")
         XCTAssertEqual(card.tourniquets.first?.timeHHMM, "2213")
         XCTAssertTrue(card.treatments.tqExtremity)
         XCTAssertTrue(card.notes.contains("Hemorrhage: right thigh"))
+    }
+
+    // DD 1380 JUL 2025: write the type of tourniquet used — only when named, never guessed.
+    func testUnnamedTourniquetLeavesTypeBlank() {
+        let tq = Intervention(timestamp: encounterStart, kind: .tourniquet, description: "Tourniquet applied")
+        let p = PatientState(patientId: "PATIENT_1",
+                             march: MARCHState(hemorrhageLocation: "left arm"), interventions: [tq])
+        let card = DD1380Mapper.map(input(patient: p))
+        XCTAssertEqual(card.tourniquets.first?.limb, .leftArm)
+        XCTAssertNil(card.tourniquets.first?.type)
+        XCTAssertEqual(card.treatments.tqTypeText, "")
+    }
+
+    func testJunctionalDeviceIsJunctionalNotALimbCorner() {
+        let tq = Intervention(timestamp: encounterStart, kind: .tourniquet,
+                              description: "Tourniquet applied (SAM-JT)")
+        let p = PatientState(patientId: "PATIENT_1",
+                             march: MARCHState(hemorrhageLocation: "left groin"), interventions: [tq])
+        let card = DD1380Mapper.map(input(patient: p))
+        XCTAssertTrue(card.treatments.tqJunctional)
+        XCTAssertFalse(card.treatments.tqExtremity)
+        XCTAssertEqual(card.treatments.tqTypeText, "SAM-JT")
+        XCTAssertNil(card.tourniquets.first?.limb, "a junctional device has no limb corner")
+        XCTAssertEqual(card.tourniquets.first?.type, "SAM-JT")
+        XCTAssertEqual(card.tourniquets.first?.locationText, "left groin")
+    }
+
+    func testTwoNamedDevicesBothAppearOnTheTypeLine() {
+        let p = PatientState(patientId: "PATIENT_1", march: MARCHState(hemorrhageLocation: "right thigh"),
+                             interventions: [
+                                Intervention(timestamp: encounterStart, kind: .tourniquet, description: "Tourniquet applied (CAT)"),
+                                Intervention(timestamp: encounterStart, kind: .tourniquet, description: "Tourniquet applied (SOFTT-W)"),
+                             ])
+        XCTAssertEqual(DD1380Mapper.map(input(patient: p)).treatments.tqTypeText, "CAT, SOFTT-W")
     }
 
     // 3. Classification maps to evacuation category.

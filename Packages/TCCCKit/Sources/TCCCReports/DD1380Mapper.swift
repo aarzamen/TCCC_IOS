@@ -138,11 +138,16 @@ public enum DD1380Mapper {
         }
 
         return tqInterventions.map { iv in
-            DD1380TourniquetEntry(
-                limb: limb,
-                type: nil,                       // never inferred
+            // Type only when the medic named the device; never guessed. A
+            // junctional device has no limb corner on the card.
+            let device = TourniquetDevice.named(in: iv.description)
+            let junctional = device?.isJunctional == true
+            return DD1380TourniquetEntry(
+                limb: junctional ? nil : limb,
+                type: device?.name,
                 timeHHMM: timeFormatter.string(from: iv.timestamp),
-                locationText: locationText
+                locationText: junctional ? p.march.hemorrhageLocation?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) : locationText
             )
         }
     }
@@ -170,9 +175,15 @@ public enum DD1380Mapper {
 
         // C — hemorrhage control
         if kinds.contains(.tourniquet) { t.tqExtremity = true }
+        let tqDevices = p.interventions.filter { $0.kind == .tourniquet }
+            .compactMap { TourniquetDevice.named(in: $0.description) }
         if p.interventions.contains(where: {
             $0.kind == .tourniquet && $0.description.lowercased().contains("junctional")
-        }) { t.tqJunctional = true; t.tqExtremity = false }
+        }) || tqDevices.contains(where: \.isJunctional) { t.tqJunctional = true; t.tqExtremity = false }
+        // "write name of TQ(s) used" (DD 1380 instructions, JUL 2025) — named devices only.
+        var seenDevices: [String] = []
+        for device in tqDevices where !seenDevices.contains(device.name) { seenDevices.append(device.name) }
+        t.tqTypeText = seenDevices.joined(separator: ", ")
 
         if kinds.contains(.pressureDressing) { t.dressingPressure = true }
         if kinds.contains(.dressing) || kinds.contains(.woundCare) {

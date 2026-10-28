@@ -178,14 +178,26 @@ public struct HemorrhageExtractor: ExtractorPass {
             } else {
                 march.hemorrhageIntervention = "Tourniquet applied"
             }
-            // Append to interventions if not already present.
+            // Append to interventions if not already present. Swift-only: a
+            // named device is kept for the DD 1380 TQ type ("Tourniquet
+            // applied (CAT)"); naming it later upgrades the unnamed entry,
+            // keeping its id and application time.
+            let device = TourniquetDevice.named(in: text)
             let existingDesc = s.interventions.map { $0.description.lowercased() }
                 .joined(separator: "|")
             if !existingDesc.contains("tourniquet") {
                 s.interventions.append(Intervention(
                     timestamp: context.timestamp,
                     kind: .tourniquet,
-                    description: "Tourniquet applied"))
+                    description: TourniquetDevice.appliedDescription(device: device)))
+            } else if device != nil,
+                      let index = s.interventions.firstIndex(where: {
+                          $0.kind == .tourniquet && $0.description == TourniquetDevice.appliedDescription(device: nil)
+                      }) {
+                let unnamed = s.interventions[index]
+                s.interventions[index] = Intervention(
+                    id: unnamed.id, timestamp: unnamed.timestamp, kind: .tourniquet,
+                    description: TourniquetDevice.appliedDescription(device: device))
             }
         }
 

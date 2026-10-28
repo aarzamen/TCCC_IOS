@@ -159,6 +159,33 @@ final class HemorrhageExtractorTests: XCTestCase {
         XCTAssertEqual(s.interventions.first?.kind, .tourniquet)
     }
 
+    // Swift-only (DD 1380 JUL 2025: "write type of tourniquet used").
+    func testNamedTourniquetDeviceIsRecorded() {
+        let s = h.apply(
+            PatientState(patientId: "PATIENT_1"),
+            context: freshContext("Applying a tourniquet now, CAT tourniquet,"))
+        XCTAssertEqual(s.interventions.map(\.description), ["Tourniquet applied (CAT)"])
+        XCTAssertEqual(s.march.hemorrhageIntervention, "Tourniquet applied", "MARCH string keeps Python parity")
+    }
+
+    func testUnnamedTourniquetHasNoDevice() {
+        let s = h.apply(
+            PatientState(patientId: "PATIENT_1"),
+            context: freshContext("Tourniquet applied high and tight."))
+        XCTAssertEqual(s.interventions.map(\.description), ["Tourniquet applied"])
+    }
+
+    func testDeviceNamedLaterUpgradesTheSameTourniquet() {
+        let first = h.apply(PatientState(patientId: "PATIENT_1"),
+                            context: freshContext("Tourniquet applied high and tight."))
+        let original = try! XCTUnwrap(first.interventions.first)
+        let second = h.apply(first, context: freshContext("That tourniquet is a SOFT-T wide."))
+        XCTAssertEqual(second.interventions.count, 1)
+        XCTAssertEqual(second.interventions.first?.description, "Tourniquet applied (SOFTT-W)")
+        XCTAssertEqual(second.interventions.first?.id, original.id)
+        XCTAssertEqual(second.interventions.first?.timestamp, original.timestamp, "application time is kept")
+    }
+
     func testTourniquetIncludesLocationWhenKnown() {
         var initial = PatientState(patientId: "PATIENT_1")
         initial.march.hemorrhageLocation = "right thigh"
