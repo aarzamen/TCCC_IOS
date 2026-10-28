@@ -73,10 +73,17 @@ approximate and a little messy. The DD 1380 cannot.
 - DD 1380 edition: the bundled form is DD Form 1380, JUN 2014. The current
   edition is **JUL 2025** (DoD forms site; official instructions "DD FORM 1380
   INSTRUCTIONS, JUL 2025, Updated 20250721"). Its instructions list the same
-  fields as JUN 2014; the visible change is "Gender" printed as "Sex". Swap in
-  the JUL 2025 fillable PDF (re-run `tools/prepare_dd1380_template.py` with a
-  new pin and a fresh position check) once it is downloaded from
-  esd.whs.mil. References, local-only:
+  fields as JUN 2014; the visible change is "Gender" printed as "Sex".
+  The JUL 2025 PDF from esd.whs.mil (SHA-256 `2e5df8d7…f633523`, checked
+  2026-10-27) cannot be the template: Apple's PDF engine (PDFKit, used by the
+  app and by Preview) renders its pages blank and reads its field names as
+  scrambled bytes, and its security settings forbid modifying the document
+  and assembling pages. Both of those are needed to rename the mislabelled
+  fields, lift the length caps and add #2 cards. v1.0 therefore fills the
+  JUN 2014 form, whose fields are the same. Switch only with an unrestricted
+  JUL 2025 file that PDFKit can open: re-run
+  `tools/prepare_dd1380_template.py` with a new pin and a fresh position
+  check. References, local-only:
   `reference/rubric/TCCC rubrics and guidelines/2025 updates/`.
 - Body diagram: the JTS Module 23 skills checklist (TCCC-CPP-12-02, 15 MAY
   2025) grades "marked injury sites with an X" as a **critical** task. v1.0
