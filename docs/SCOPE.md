@@ -72,16 +72,16 @@ approximate and a little messy. The DD 1380 cannot.
   with Apple Speech in the same run.
 - DD 1380 edition: done 2026-10-28. The app fills **DD Form 1380, JUL 2025**
   (instructions "Updated 20250721"; same fields as JUN 2014, "Gender" printed
-  as "Sex"), from the esd.whs.mil file the owner chose (SHA-256
-  `2e5df8d7…f633523`). That file is damaged, not just restricted: it was
-  optimized after encryption, so 493 of 1,438 objects decrypt under the wrong
-  key and every reader except Adobe's shows blank pages.
-  `tools/repair_dd1380_jul2025.py` repairs it; `tools/prepare_dd1380_template.py`
-  redraws the pages with `pdftocairo` (PDFKit draws the repaired pages blank)
-  and keeps the form's own 305 fields, renamed to the app's flat names. Every
-  field was checked against the print on a render; key ones are pinned in the
-  tool. References, local-only:
-  `reference/rubric/TCCC rubrics and guidelines/2025 updates/`.
+  as "Sex"), from the copy the owner chose (`~/Desktop/dd1380-2025.pdf`,
+  SHA-256 `2e5df8d7…f633523`). That copy's encryption is damaged: 493 of
+  1,438 objects decrypt under the wrong key, so every reader except Adobe's
+  shows blank pages. Its metadata says macOS Quartz last wrote it on
+  2026-10-27 22:16, so a Mac re-save probably did it; the esd.whs.mil file
+  itself was not re-checked. `tools/repair_dd1380_jul2025.py` repairs it, and
+  `tools/prepare_dd1380_template.py` keeps the official drawing, fonts and
+  305 fields, renamed to the app's flat names. Every field was checked against
+  the print on a render; key ones are pinned in the tool. References,
+  local-only: `reference/rubric/TCCC rubrics and guidelines/2025 updates/`.
 - Body diagram: the JTS Module 23 skills checklist (TCCC-CPP-12-02, 15 MAY
   2025) grades "marked injury sites with an X" as a **critical** task. v1.0
   leaves the diagram blank and lists injuries in Notes; marking confident

@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 """Turn the official fillable DD Form 1380 (JUL 2025) into the app's fill template.
 
-The published file (esd.whs.mil, SHA-256 pinned in the repair tool) is
-damaged: it was optimized after encryption, so no reader except Adobe's can
-draw it (`tools/repair_dd1380_jul2025.py` explains and repairs it). Even
-repaired, Apple PDFKit draws its pages blank. This tool therefore:
+The source copy (SHA-256 pinned in the repair tool) has damaged encryption,
+so no reader except Adobe's can draw it; `tools/repair_dd1380_jul2025.py`
+explains and repairs it. This tool therefore:
 
 - refuses any source other than the inspected one (SHA-256 pin);
-- repairs it, then redraws both pages with poppler's `pdftocairo -pdf`, which
-  PDFKit draws correctly, and puts that artwork under the form's own widgets
-  (same page size, same coordinates);
+- repairs it and keeps the official page drawing and fonts as they are;
 - asserts the page position of key fields (verified 2026-10-28 by drawing every
   field's name onto a render and reading it against the print);
 - renames every field to the app's flat names (`FIELD_MAP`, the same names the
@@ -20,16 +17,13 @@ repaired, Apple PDFKit draws its pages blank. This tool therefore:
 - sets Arial text appearances, as on the JUN 2014 template;
 - writes the template PDF and a JSON manifest of the new names.
 
-Run (pypdf and cryptography are tool-only dependencies, never shipped;
-`pdftocairo` comes from Homebrew's poppler):
+Run (pypdf and cryptography are tool-only dependencies, never shipped):
     uv run --python 3.12 --with pypdf --with cryptography python -I \
         tools/prepare_dd1380_template.py --source ~/Desktop/dd1380-2025.pdf \
         --out-dir TCCC_IOS/Resources/DD1380
 """
 import argparse
 import json
-import shutil
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -180,13 +174,6 @@ def type1_font(base_font, encoding=True):
     return font
 
 
-def redraw(repaired: Path, artwork: Path):
-    pdftocairo = shutil.which("pdftocairo")
-    if pdftocairo is None:
-        fail("pdftocairo not found (brew install poppler)")
-    subprocess.run([pdftocairo, "-pdf", str(repaired), str(artwork)], check=True)
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--source", required=True, type=Path)
@@ -194,24 +181,15 @@ def main():
     args = parser.parse_args()
 
     with tempfile.TemporaryDirectory() as tmp:
-        repaired, artwork_path = Path(tmp) / "repaired.pdf", Path(tmp) / "artwork.pdf"
+        repaired = Path(tmp) / "repaired.pdf"
         try:
             repair(args.source.expanduser(), repaired)
         except ValueError as error:
             fail(f"{error}; re-inspect field positions before changing the pin")
-        redraw(repaired, artwork_path)
         writer = PdfWriter(clone_from=PdfReader(repaired))
-        artwork = PdfReader(artwork_path)
-
-        if len(artwork.pages) != 2 or len(writer.pages) != 2:
-            fail("expected two pages in both the form and its redrawn artwork")
-        for page, art in zip(writer.pages, artwork.pages):
-            if [float(v) for v in page.mediabox] != [float(v) for v in art.mediabox]:
-                fail(f"artwork page size {art.mediabox} differs from the form's {page.mediabox}")
-            page[NameObject("/Contents")] = art.raw_get("/Contents").clone(writer)
-            page[NameObject("/Resources")] = art.raw_get("/Resources").clone(writer)
-            if "/Group" in art:
-                page[NameObject("/Group")] = art.raw_get("/Group").clone(writer)
+        if len(writer.pages) != 2:
+            fail("expected two pages")
+        for page in writer.pages:
             if "/StructParents" in page:
                 del page["/StructParents"]
 
@@ -309,8 +287,8 @@ def main():
             fail(f"mapped fields not found in source: {missing}")
         acroform[NameObject("/Fields")] = fields
 
-        # Re-clone so only reachable objects are written: the replaced page
-        # content (the original drawing and its images) stays behind.
+        # Re-clone so only reachable objects are written: the dropped
+        # structure tree and parent fields stay behind.
         draft = Path(tmp) / "draft.pdf"
         with draft.open("wb") as stream:
             writer.write(stream)

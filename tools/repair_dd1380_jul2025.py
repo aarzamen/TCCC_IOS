@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Repair the official DD Form 1380 JUL 2025 PDF from esd.whs.mil so every reader can draw it.
+"""Repair a damaged copy of the official DD Form 1380 JUL 2025 PDF so every reader can draw it.
 
-What is wrong with the published file (SHA-256 2e5df8d7...f633523, checked 2026-10-28):
-it is AES-encrypted with an empty open password, and after encryption it was
-"optimized" (linearized), which renumbered objects. AES keys are per object
-number, so 493 of 1,438 encrypted objects decrypt to garbage in Apple PDFKit,
-poppler and PDFium: blank pages, scrambled field names. This tool finds each
-object's original number (shifts of 1795, 1457, 243 and a few others), decrypts
-it with the right key and writes a plain copy: both pages and the form's own
-305 widgets with honest names (form1[0].P1[0].info[0].male[0], ...).
-
-PDFKit still draws the repaired pages blank; `tools/prepare_dd1380_template.py`
-redraws them with `pdftocairo` and keeps the widgets.
+What is wrong with the copy (SHA-256 2e5df8d7...f633523, checked 2026-10-28):
+it is AES-encrypted with an empty open password, and its encrypted objects
+were renumbered after encryption. AES keys are per object number, so 493 of
+1,438 objects decrypt to garbage in Apple PDFKit, poppler and PDFium: blank
+pages, scrambled field names. Its metadata says it was last written by macOS
+Quartz on 2026-10-27 22:16, so a Mac re-save probably did the damage; whether
+the file served by esd.whs.mil has the same fault is not checked. This tool
+finds each object's original number (shifts of 1795, 1457, 243 and a few
+others), decrypts it with the right key and writes a plain copy: both pages
+as published and the form's own 305 widgets with honest names
+(form1[0].P1[0].info[0].male[0], ...). Apple PDFKit draws the repaired copy.
 
 Run (tool-only dependencies, never shipped):
     uv run --python 3.12 --with pypdf --with cryptography python -I \
