@@ -173,8 +173,9 @@ docs/                        # SCOPE.md, specs, plans, testing records, history/
 ```
 
 Where to read next: [ARCHITECTURE.md](ARCHITECTURE.md) (walkthrough map,
-draft), [docs/SCOPE.md](docs/SCOPE.md), [CLAUDE.md](CLAUDE.md) (constraints
-and invariants), [THIRD_PARTY.md](THIRD_PARTY.md).
+draft), [docs/SCOPE.md](docs/SCOPE.md), [CHANGELOG.md](CHANGELOG.md),
+[CLAUDE.md](CLAUDE.md) (constraints and invariants),
+[THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Clinical alignment
 
