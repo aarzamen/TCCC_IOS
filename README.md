@@ -1,288 +1,188 @@
-# Swift TCCC
+# TCCC.ai iOS
 
-iOS app for documenting Tactical Combat Casualty Care (TCCC)
-encounters. Voice intake → on-device speech recognition →
-deterministic state extraction (MARCH/PAWS, vitals, MOI) → DD Form
-1380 sections + 9-line MEDEVAC + ZMIST handoff.
+Combat-medic documentation app for iPhone (bundle name "Swift TCCC"). Voice
+intake → on-device speech recognition → deterministic state extraction
+(MARCH/PAWS, vitals, mechanism of injury) → a filled-in, official **DD Form
+1380** produced at the end of care, plus an approximate 9-line MEDEVAC and
+ZMIST handoff. Landscape, chest-mounted, and offline for everything that
+touches casualty data.
 
-The app runs entirely on-device. It does not send casualty data over
-the network — there is no client for ATAK, MEDHUB, or any other
-external system, and no telemetry, analytics, or cloud-based
-transcription. Outputs are files (JSON, audio, transcript, CSV) the
-user shares manually via the iOS share sheet, plus an offline QR code
-generated locally for scanning by another device. The only network
-activity in the entire app is the optional, operator-gated one-time
-model download for the alternate ASR/LLM backends (see below); the
-Apple system assets are managed separately by iOS. Field builds can embed the
-non-Apple model pack so new installs work without a first-run download.
+**v1.0 is a declared stopping point**, decided 2026-10-27 in
+[docs/SCOPE.md](docs/SCOPE.md): what exists today minus anything broken or
+half-built, plus the one deliverable this app was always for, the DD 1380. The
+9-line and ZMIST are happy accidents along the way and may stay approximate.
+The DD 1380 cannot.
 
 > **Status: working prototype, not a cleared medical device.** It runs
-> end-to-end on an iPhone 17 Pro and has been used to capture real
-> dictation, but it has not been clinically validated, security-audited,
-> or certified for operational use. Treat it as an engineering prototype.
+> end-to-end on an iPhone 17 Pro and has captured real dictation, but it has not
+> been clinically validated, security-audited or certified for operational use.
 
-## What actually works today
+## What v1.0 is
 
-Verification is feature-specific: the existing capture path has physical-device
-evidence; the September 9 interface/lab pass has simulator and source-test evidence.
-See [field interface and Yap Lab](docs/field-interface-and-yap-lab.md) for the current workflow.
+- **Five screens:** Live Capture, Vital Signs Log (DD 1380 §C), TCCC Card,
+  MEDEVAC (GPS Line 1) and Handoff.
+- **Speech recognition:** Apple Speech, on-device only
+  (`requiresOnDeviceRecognition = true`), with a 30-second pre-roll and a
+  30-second tail. **Qwen3-ASR 0.6B** (on-device, optional) is the planned
+  second option; it is not in this build yet.
+- **Language model:** Apple Foundation Models, on-device, for optional drafts
+  only (narrative, ZMIST wording, radio script). No language model writes the
+  DD 1380 or any clinical state.
+- **Vibeat S5W pulse oximeter** over local Bluetooth, labelled as an
+  unvalidated consumer sensor. Readings enter the record only after the
+  operator associates the sensor with the current casualty.
+- **Continuous encrypted persistence:** crash recovery, New / End archive, Wipe.
+- **Exports:** DD 1380 PDF (the official JUL 2025 form), JSON, audio +
+  transcript, vitals CSV, offline QR.
+- **Build stamp** in Settings → System: version, build number, git SHA, branch,
+  build date.
 
-| Screen | Works | Not yet / caveats |
+## What this build still carries
+
+SCOPE removes these before the v1.0 tag. They are present in the tree today and
+are not part of the supported configuration:
+
+- **Yap Lab** (`TCCC_IOS/TranscriptionLab/`), an audio-and-transcription
+  experiment workspace, and **DevTools** (scenario playback, Granite
+  diagnostics), both still reachable from the launcher.
+- **Alternative backends** still listed in Settings: Parakeet and Granite
+  Speech for speech; LFM2.5, Qwen 3 1.7B and Granite text for the language
+  model. Their weights leave the offline model pack with them.
+- Dead scaffolding: the NFC handoff destination (disabled), the DevTools
+  "Receiver mode" placeholder, an unused placeholder view.
+- No blood-pressure monitor or any sensor family other than the S5W. There is
+  no generic `VitalsSensor` protocol; `PulseOximeter.swift` decodes the one
+  observed stream.
+
+## The five screens
+
+| Screen | What it does today | Caveats |
 |---|---|---|
-| 01 Live Capture | On-device ASR with live transcript; engine-extracted facts panel; 30 s pre-roll + 30 s tail; two "Load demo" buttons to seed the engine without speaking | Engine runs on committed lines, not partials |
-| 02 Vital Signs Log | DD 1380 Section C grid (4 timestamped columns × 7 rows) populated from engine snapshots; interventions panel | Add / correct reading opens manual entry; the grid retains four readings |
-| 03 TCCC Card | Front/back regional body diagram with patient laterality and explicit unknowns, MARCH (incl. Hypothermia §7 + TBI §8 sub-rows), PAWS, meds log, front/back card with §D–H scaffold | §D–H fields are best-effort from extracted state; not all are populated |
-| 04 MEDEVAC | GPS Line 1, editable operational fields with explicit unknowns, source-checked radio worksheet | Call made records an operator confirmation; QR/share does not imply a transmitted request |
-| 05 Handoff | Encounter summary, timeline, immediate structured ZMIST plus optional on-device model drafts, JSON / audio+transcript / CSV exports, offline QR, **DD-1380 PDF** (the official DD Form 1380, JUL 2025, filled deterministically from structured state and flattened; protected at rest, shared via the sheet) | Injury-diagram boxes are not marked (injuries go to Notes); unentered identity fields stay blank |
+| 01 Live Capture | On-device transcript with live partial previews; the engine extracts facts from finalized speech; two "Load demo" buttons seed the engine without speaking | Extraction runs on finalized segments, not partials. Medical words are the known weak spot (below) |
+| 02 Vital Signs Log | DD 1380 Section C grid: the four most recent timestamped readings from speech, the pulse oximeter or **Add / correct reading** (manual entry through the engine) | Four readings on screen; the encounter log keeps the full stream |
+| 03 TCCC Card | Front and back of the card: body diagram shading from recorded hemorrhage regions, MARCH (with hypothermia §7 and TBI §8 rows), PAWS, medications, §D–H fields; **Casualty details** and **Assessment** editors for identity, mechanism, injuries and precedence | Identity fields stay blank unless entered; unknown allergies never become NKDA |
+| 04 MEDEVAC | 9-line with GPS Line 1 (WGS-84 → MGRS in-house), editable operational fields with explicit unknowns, radio worksheet | Approximate by design; "Call made" records an operator confirmation, nothing is transmitted |
+| 05 Handoff | Structured ZMIST; optional Apple Foundation Models drafts; **DD-1380 PDF** export; JSON, audio + transcript, CSV; offline QR | Drafts need review; the QR confirms nothing about receipt |
 
-**Lifecycle & persistence (shipped, device-validated):** each casualty's
-encounter is an append-only event log written continuously to disk
-(`Documents/encounters/<id>/events.jsonl` + a manifest), so a mid-care
-crash recovers the in-progress encounter on relaunch. New Casualty / End
-Care **archive** the record (never delete); WIPE (hold 3 s) purges the
-whole archive and re-arms a fresh casualty. Every write is made with
-`NSFileProtectionComplete`. (Encryption is code-set on every write; the
-locked-device-unreadability property has not been independently audited.)
+## How the record is kept
 
-## Launcher tools
+`PatientState` is a projection of an append-only event log. The engine
+(`PatientStateEngine`, in `Packages/TCCCKit`) is its sole writer; views, the
+language model and the sensor path can only hand it evidence. Every event is
+written continuously to `Documents/encounters/<id>/events.jsonl` with
+`NSFileProtectionComplete`, so a mid-care crash replays on relaunch. **New
+Casualty** and **End Care** archive the record (never delete); **WIPE** (hold
+3 s) purges the archive. Encryption is set on every write; the
+locked-device-unreadability property has not been independently audited.
 
-**Yap Lab** records/imports local audio, compares recognizers, keeps raw text
-separate from editable-prompt LLM drafts, and saves source-linked experiments.
-It includes local playback, search, word counts, prompts and elapsed generation
-time. **DevTools** provides optional scenario playback and Granite diagnostics.
-See the [interactive architecture explorer](reference/system-explorer/tccc-switchboard.html)
-and [offline installation guide](docs/research/2026-09-09-offline-model-installation.md).
+## The DD 1380 export
 
-## Transcript pipeline
+Handoff fills the official **DD Form 1380, JUL 2025** from structured state
+only: the same deterministic `DD1380Mapper` the card uses, no language model.
+Fields that were never captured stay blank. A tourniquet device the medic names
+("CAT") fills the limb box and the TQ type line; medication rows carry the drug
+the medic named; notes that do not fit continue on a second official card
+labelled "#2". The injury-diagram boxes are not marked yet (injury locations go
+to Notes); there is no roster integration. The template in
+`TCCC_IOS/Resources/DD1380/` is produced by `tools/prepare_dd1380_template.py`
+from a repaired copy of the official PDF (`tools/repair_dd1380_jul2025.py`).
 
-Apple Speech and Parakeet show partial words as previews. Finalized capture
-segments enter extraction once, under their capture/request identity. Incomplete
-segments remain audit evidence instead of becoming clinical facts. STOP includes
-a 30-second tail; wait for finalization before reviewing the completed encounter.
-Parakeet drains ordered audio through conversion and decoding before completion.
-The experimental Granite path retains its provisional-replace compatibility flow.
+**Review every extracted intervention before export.** Speech recognition still
+misses medical words; the 2026-09-08 benchmark failed 2 of 8 fields on
+tourniquet / tranexamic-acid recognition. Errors seen on device are repaired
+deterministically where they recur (`MedicalTermNormalizer`), never guessed.
 
-`PatientState` is an event-sourced projection. The engine is its sole writer;
-a language model cannot mutate the clinical record. See the September capture,
-speech-coverage and Parakeet plans under `docs/superpowers/plans/` for verification
-and remaining speech-accuracy limits.
+## Pulse oximeter
 
-## Clinical alignment
+Auto-connect to a supported S5W is on by default, with a persistent toggle and
+connection status in Settings. The transport only discovers, connects and
+subscribes; decoding is pure code in `PulseOximeter.swift`; nothing enters the
+record until the operator associates the sensor with the casualty, and that
+authority ends with Stop/Off, a new casualty, End Care or an app restart.
+Values are recorded as unvalidated consumer-sensor measurements with receipt
+times and raw frames kept as evidence. Open physical checks are listed in
+[the validation record](docs/testing/2026-09-18-wireless-vitals-validation.md).
 
-The extraction layer is aligned to the 01 May 2026 TCCC Guidelines and
-the DD Form 1380. The field inventory and MARCH/PAWS vocabulary live in
-`reference/rubric/extracted/` as JSON, extracted verbatim from JTS/CoTCCC
-sources; the extractor patterns and DD-1380-bound UI elements reference
-them directly. New UI elements are intended to trace to a DD 1380 field
-or a MARCH/PAWS phase-status change. See `CLAUDE.md` for the audit log.
+## Accepted limits in v1.0
 
-## Tests
+- Not a cleared medical device; not clinically validated or security-audited.
+- The 9-line and ZMIST are approximations for the operator to check.
+- Pulse-oximeter values are unvalidated.
+- Medical-word speech errors (tourniquet, tranexamic acid) still occur; review
+  every extracted intervention before handoff.
+- Identity fields are blank unless entered on the TCCC Card.
 
-- **TCCCKit (pure logic): 836 tests, 0 failures** (2026-09-09) — run in isolation
-  with `swift test`, no simulator needed. These mirror the Python
-  prototype's assertions plus Swift-only coverage of the event-sourcing
-  fold, projection equivalence, and the transcript pipeline.
-- **App target: 242 tests, 3 expected skips, 0 failures** (2026-09-09) — AppState lifecycle, persistence,
-  exports, and capture identity, regional body-map presentation, handoff isolation and draft generation.
+## Build and test
 
-The 2026-09-08 body-map/handoff change includes simulator navigation, native
-renders in all three themes, and an independent source review. Automated
-vertical-drag checks are inconclusive even with page gestures removed; final
-physical touch verification is deferred while the operator records field audio.
-There is no end-to-end UI-automation suite.
-
-## Architecture
-
-```
-TCCC_IOS/
-├── TCCC_IOS.xcodeproj         # generated by xcodegen — never hand-edit
-├── project.yml                 # source of truth for Xcode config
-├── TCCC_IOS/                   # SwiftUI app target (thin shell)
-│   ├── App/                    # AppState, lifecycle, EncounterStore (persistence), exports
-│   ├── Audio/                  # SpeechRecognizer, Parakeet + Granite streams, TranscriptStream
-│   ├── Chrome/ Components/      # StatusStrip, PageHeader, Panel, FooterHints, SettingsOverlay
-│   ├── Design/                 # Theme tokens, typography, layout
-│   ├── Intelligence/           # TCCCLLMBackend conformers (Apple FM / LFM2 / Qwen / Granite)
-│   ├── DevTools/               # scenario playback and Granite diagnostics
-│   ├── TranscriptionLab/       # independent raw ASR and prompt experiments
-│   ├── OfflineModels/          # validated local resolver and preparation UI
-│   ├── Pager/ Screens/          # 5-screen swipe pager + screen views
-├── Packages/TCCCKit/           # local SPM — pure logic, testable in isolation
-│   └── Sources/
-│       ├── TCCCDomain/         # PatientState, MARCHState, Vitals, MGRS, enums
-│       ├── TCCCExtractor/      # PatientStateEngine, event log + projection, extractors, normalizer
-│       ├── TCCCReports/        # 9-Line + ZMIST generators + validators
-│       └── TCCCDesign/         # shared design tokens
-└── reference/rubric/extracted/ # DD 1380 + 2026 TCCC Guidelines as JSON
-```
-
-All clinical logic, the event log, the projection, and the report
-generators live in `TCCCKit` and are unit-testable without launching the
-simulator. The app target is SwiftUI views, view models, audio, on-device
-inference, and file I/O.
-
-## Constraints
-
-These shape the dependency choices in this repo:
-
-1. **No networking with casualty data at runtime.** No Wi-Fi, Bluetooth,
-   Cellular, UWB, or NFC clients are wired. No analytics, crash
-   reporting, or telemetry. ASR uses `requiresOnDeviceRecognition = true`;
-   the on-device LLM is on-device by design. The only network calls in
-   the app are operator-gated one-time model downloads for the alternate
-   backends (below), each a single HTTPS GET, cached locally thereafter.
-2. Landscape-only, iPhone-only, locked in `project.yml`.
-3. Data-at-rest protection via `NSFileProtectionComplete` on the data
-   directory (not independently audited).
-4. Minimum hit target 44 pt; long-press only for destructive actions,
-   with a visual progress fill.
-5. Default theme is Dark; Tactical (deep near-black + desaturated red) and
-   Light are operator-selectable.
-
-## ASR backends
-
-Settings → Audio · ASR offers three backends. **Apple Speech is the
-default and the only one validated for routine use; the other two are
-experimental and require operator setup.**
-
-- **Apple Speech** (default). `SFSpeechRecognizer` with
-  `requiresOnDeviceRecognition = true`. No download.
-- **Parakeet (alt, experimental).** NVIDIA Parakeet TDT 0.6B v2 (English
-  only) via FluidInference's
-  [FluidAudio](https://github.com/FluidInference/FluidAudio). CoreML
-  bundle downloads on first activation (~300 MB, one HTTPS GET, gated
-  behind a Settings tap), cached thereafter.
-- **Granite Speech (alt, experimental).** Requires the operator to point
-  Settings → "Select Granite Speech Model Folder" at a local model bundle
-  first; without it the backend refuses to start.
-
-The 30 s pre-roll + 30 s tail and the Settings dynamic mic gain
-(−20 to +20 dB) apply to all backends.
-
-## On-device language model (narrative / ZMIST / radio script)
-
-Settings exposes a three-way LLM backend picker. These power the optional
-prose generation on Handoff/MEDEVAC; the structured DD-1380 record is
-produced deterministically by the engine and does **not** depend on an LLM.
-
-- **Apple Foundation Models** (default). On-device; on a fresh device the
-  system model may still be downloading on first use, in which case
-  generation reports "unavailable" until it finishes.
-- **LFM2.5-1.2B-Instruct** and **Qwen 3 1.7B** (alt, experimental). MLX
-  4-bit, via `huggingface/AnyLanguageModel`. Functional but require an
-  explicit Settings-gated model download before first generation.
-- A Granite text backend exists for an experimental "hot-seat" patch-review
-  flow; it does not directly mutate clinical state.
-
-Generated MEDEVAC/ZMIST text is cross-checked against engine state by
-validators and falls back to the deterministic generators when the model
-output disagrees.
-
-## Build
+`project.yml` is the source of truth; the `.xcodeproj` is generated. The
+signing team ID is not in git: copy `Config/Signing.xcconfig.example` to
+`Config/Signing.xcconfig` for device builds (see `APPLE_DEVELOPER_WARNING.md`).
 
 ```bash
-# regenerate the .xcodeproj from project.yml
 xcodegen generate
-
-# build for simulator
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
-  -configuration Debug build CODE_SIGNING_ALLOWED=NO \
-  -skipMacroValidation
+  -configuration Debug build CODE_SIGNING_ALLOWED=NO -skipMacroValidation
 ```
 
-`-skipMacroValidation` is required for CLI builds because the
-`AnyLanguageModel` dependency ships Swift macros that Xcode otherwise asks
-you to trust interactively. On a fresh machine you may also need the Metal
-toolchain once (`xcodebuild -downloadComponent MetalToolchain`) for
-MLX-Swift's GPU kernels.
+`-skipMacroValidation` is required for CLI builds (`AnyLanguageModel` ships
+Swift macros). The Metal toolchain may be needed once on a fresh Mac
+(`xcodebuild -downloadComponent MetalToolchain`).
 
 ```bash
-# run the kit unit tests in isolation (no simulator)
+# all clinical logic, no simulator needed; also runs on Linux with Swift 6.2
 cd Packages/TCCCKit && swift test
 ```
 
-Device install (free provisioning; substitute your team/device):
-
 ```bash
-xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
-  -destination 'generic/platform=iOS' -configuration Debug \
-  -skipMacroValidation -allowProvisioningUpdates \
-  -derivedDataPath /tmp/tccc-device-dd build
-
-xcrun devicectl device install app --device <device-uuid> \
-  /tmp/tccc-device-dd/Build/Products/Debug-iphoneos/TCCC_IOS.app
-xcrun devicectl device process launch --device <device-uuid> com.aarzamen.TCCCai
+# app-target tests need a booted simulator
+xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
 ```
 
-`xcrun devicectl list devices` lists connected device UUIDs.
+Device install: `xcodebuild … -destination 'generic/platform=iOS' build`, then
+`xcrun devicectl device install app --device <id> <path>.app` and
+`xcrun devicectl device process launch --device <id> com.aarzamen.TCCCai`.
+`scripts/archive_and_export.sh` produces a signed `TCCC-<version>-<sha>.ipa`.
 
-The standalone [body-map SVG](reference/body-map.svg) matches the native vector
-outline. Runtime region shading comes from the recorded assessment.
+Dated test evidence: TCCCKit 992 tests, 0 failures (2026-11-05, Linux); app
+target 242 tests, 3 expected skips, 0 failures (2026-09-09, simulator). CI
+(`.github/workflows/ci.yml`) runs the package tests and a simulator build.
 
-## Field walkthrough
+## Repository layout
 
-1. On Capture, start recording and check the timer and incoming transcript.
-   Speech recognition can miss words: audio capture, transcription, and extracted
-   facts are separate things to check. MED GIVEN is a marker, not a completed
-   medication entry; dictate the actual medication, dose, route and time.
-2. Use the footer arrows or swipe to Vitals and the Card. Check the values against
-   what was actually said. Empty fields mean not recorded, not normal.
-3. On the Card, both figures show the same casualty. R/L always means the patient's
-   right/left. Shading indicates a recorded bleeding region, not an exact wound,
-   injury count, or treatment position. With no front/back surface recorded, the
-   same region is dashed on both figures. An unknown side or unmappable location
-   stays in text. Tourniquet interventions remain text because their position is
-   not independently recorded. This is not a complete injury inventory.
-4. Scroll the card for longer findings; the card-side tabs and page controls stay
-   available. Back of card means DD 1380 sections D–H, not the posterior body view.
-5. STOP recording and allow the tail/finalization to finish. On Handoff, read the
-   structured ZMIST directly. Optional model prose is separate and needs review;
-   changing findings or casualty invalidates it. No model download is required
-   for the structured handoff.
-6. Review and explicitly share the selected export. The PDF uses a fallback layout;
-   no transmission occurs merely by viewing or generating it. NEW and END archive
-   care; WIPE purges the archive. Use NEW when moving to another casualty.
+```
+project.yml                  # xcodegen spec, source of truth
+TCCC_IOS/                    # SwiftUI app target (thin shell)
+  App/                       # AppState, EncounterStore (persistence), exports, DD 1380 filler
+  Audio/                     # SpeechRecognizer, utterance assembler, alt-backend streams (leaving)
+  Sensors/                   # Core Bluetooth S5W transport
+  Screens/ Pager/ Chrome/ Components/ Design/
+  Intelligence/              # Apple FM backend; alt LLM backends (leaving)
+  DevTools/ TranscriptionLab/  # leaving in v1.0
+  Resources/DD1380/          # official form template + field manifest
+Packages/TCCCKit/            # all clinical logic, testable without a simulator
+  Sources/TCCCDomain/        # PatientState, MARCH/PAWS, Vitals, MGRS, PulseOximeter decoder
+  Sources/TCCCExtractor/     # engine, event log, projection, extractors, normalizers
+  Sources/TCCCReports/       # DD 1380 mapper + official-form values, 9-line, ZMIST, validators
+Packages/TCCCLLM, TCCCAudio  # thin shims around MLX / AnyLanguageModel / mlx-audio-swift
+reference/rubric/extracted/  # DD 1380 field inventory + 2026 TCCC vocabulary (JSON)
+tools/ scripts/              # DD 1380 template tooling, model staging, archive/export
+docs/                        # SCOPE.md, specs, plans, testing records, history/
+```
 
-## Demo path
+Where to read next: [ARCHITECTURE.md](ARCHITECTURE.md) (walkthrough map,
+draft), [docs/SCOPE.md](docs/SCOPE.md), [CLAUDE.md](CLAUDE.md) (constraints
+and invariants), [THIRD_PARTY.md](THIRD_PARTY.md).
 
-1. Live Capture is the default screen. Tap **Load demo · GSW thigh**
-   (or **Load demo · Femur**) to seed the engine without speaking.
-2. The EXTRACTED panel populates with engine-derived facts (MOI,
-   hemorrhage location, vitals, classification, etc.).
-3. Swipe through the five screens; each renders the same engine state.
-4. On Handoff, **ZMIST · Current assessment** is ready immediately.
-   Optional **AI Narrative** / **AI Rewrite** model drafts require review; unavailable
-   models do not block the structured handoff.
-5. **JSON Encounter** and **Audio + Transcript** open the iOS share sheet
-   with the corresponding files.
-6. Hold **Transmit** for two seconds with **QR · OFFLINE** selected to
-   render an offline QR code containing the patient JSON locally — nothing
-   is sent.
-7. Footer **NEW** / **END** / **WIPE** drive the casualty lifecycle, each
-   with a confirmation step.
+## Clinical alignment
 
-## Known gaps / not yet built
-
-- DD-1380 PDF export — **shipped**: the official DD Form 1380 (JUL 2025),
-  filled from structured state (no LLM) and flattened, protected at rest,
-  shared only on explicit operator action. Entries without a row go to Notes,
-  and Notes longer than the box continue on a second DD 1380 labelled "#2"
-  (JTS card guide, 15 MAY 2025); nothing is dropped. A tourniquet device the
-  medic names ("CAT") fills the TQ type. The
-  template is generated by `tools/prepare_dd1380_template.py` (the source
-  copy's encryption is damaged; `tools/repair_dd1380_jul2025.py` explains and repairs it). Remaining gaps:
-  the injury-diagram boxes are not marked (injury locations go to Notes);
-  unentered identity and clinical values remain blank; there is no roster
-  integration.
-- Section C grid tap-to-edit — read-only today.
-- Over-the-air MEDEVAC transmission — intentionally absent (RF discipline);
-  "Transmit" is script + logged event only.
-- Sensor integration (ANT+ chest strap, Jetson companion) — no hardware
-  exists; the `VitalsSensor` protocol is scaffolding.
-- Alternate ASR/LLM backends — functional but experimental and gated
-  behind operator downloads/setup.
-- No formal security audit, no clinical validation, no CI-driven UI tests.
+Extraction is aligned to the 01 May 2026 TCCC Guidelines and the DD Form
+1380. The field inventory and MARCH/PAWS vocabulary live in
+`reference/rubric/extracted/` as JSON, extracted verbatim from JTS/CoTCCC
+sources. A clinical display element must trace to a DD 1380 field or a
+MARCH/PAWS phase-status change.
 
 ## Origin
 
