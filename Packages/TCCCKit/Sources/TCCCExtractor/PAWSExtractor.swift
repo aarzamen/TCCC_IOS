@@ -28,6 +28,15 @@
 //      extractor refuses to record any PAWS finding. Python's `_extract_paws`
 //      lacks this guard.
 //
+//   3. Named drugs each become their own intervention (2026-10-27 live
+//      recording). `paws.pain` / `paws.antibiotics` keep the Python first-match
+//      descriptor, but every specific drug the medic names — in the same
+//      sentence as the generic phrase ("combat pill pack ... Mobic ... ketamine")
+//      or after the slot is already filled — is appended once as a
+//      `.painManagement` / `.antibiotic` intervention with the drug's own
+//      descriptor. That is what reaches the DD 1380 §F MEDS rows. Mobic is
+//      recognised as meloxicam; ertapenem has its own descriptor.
+//
 // The Python "already-recorded" guard (the `not in str(patient.interventions)`
 // check) is mirrored here using the typed `state.paws.<field>` slot — once a
 // pain/antibiotic/wound descriptor is set, repeated mentions in later
@@ -69,8 +78,10 @@ public struct PAWSExtractor: ExtractorPass {
     /// "two 650 mg" out of the sentence so the descriptor includes the
     /// actual dose for the §F MEDS row on DD 1380.
     private let acetaminophenDoseRegex: NSRegularExpression
+    /// Meloxicam by generic or brand name (Mobic, as said in the field).
     private let meloxicamRegex: NSRegularExpression
     private let antibioticsRegex: NSRegularExpression
+    private let ertapenemRegex: NSRegularExpression
     private let cefadroxilRegex: NSRegularExpression
     private let cephalexinRegex: NSRegularExpression
     private let ceftriaxoneRegex: NSRegularExpression
@@ -87,7 +98,7 @@ public struct PAWSExtractor: ExtractorPass {
     public init() {
         // Pain medications — 2026 CWMP + ketamine family + Esketamine IN.
         let painMedsPattern =
-            "combat\\s*pill\\s*pack|tylenol|meloxicam|acetaminophen|" +
+            "combat\\s*pill\\s*pack|tylenol|meloxicam|\\bmobic\\b|acetaminophen|" +
             "motrin|ibuprofen|ketamine|esketamine|suzetrigine|pain\\s*meds?"
 
         let combatPillPackPattern = "combat\\s*pill\\s*pack"
@@ -117,7 +128,7 @@ public struct PAWSExtractor: ExtractorPass {
             "(?:acetaminophen|tylenol)[^.;]{0,60}?(\\d{3,4})\\s*mg|" +
             "(\\d{3,4})\\s*mg[^.;]{0,60}?(?:acetaminophen|tylenol)|" +
             "two\\s+650\\s*mg"
-        let meloxicamPattern = "meloxicam"
+        let meloxicamPattern = "meloxicam|\\bmobic\\b"
 
         // Antibiotics — 2026 PO regimen (cefadroxil, cephalexin) and
         // IV/IO/IM regimen (ceftriaxone), plus retained moxi/ertapenem
@@ -129,6 +140,7 @@ public struct PAWSExtractor: ExtractorPass {
         let cephalexinPattern = "cephalexin"
         let ceftriaxonePattern = "ceftriaxone"
         let moxiPattern = "moxifloxacin|moxi"
+        let ertapenemPattern = "ertapenem"
 
         // Wound care (irrigation, packing, dressing care).
         let woundCarePattern =
@@ -171,6 +183,8 @@ public struct PAWSExtractor: ExtractorPass {
             pattern: ceftriaxonePattern, options: [.caseInsensitive])
         self.moxiRegex = try! NSRegularExpression(
             pattern: moxiPattern, options: [.caseInsensitive])
+        self.ertapenemRegex = try! NSRegularExpression(
+            pattern: ertapenemPattern, options: [.caseInsensitive])
         self.woundCareRegex = try! NSRegularExpression(
             pattern: woundCarePattern, options: [.caseInsensitive])
         self.plasmaRegex = try! NSRegularExpression(
@@ -228,6 +242,10 @@ public struct PAWSExtractor: ExtractorPass {
                 )
             )
         }
+        // Extension 3: every specific analgesic named in the sentence gets its
+        // own intervention (once), whatever `paws.pain` already says.
+        record(namedAnalgesics(in: sentence), kind: .painManagement,
+               in: &updated, at: context.timestamp)
 
         // ---- Antibiotics (2026 §12 — cefadroxil/cephalexin PO,
         //                   ceftriaxone IV/IO/IM; legacy moxi/ertapenem
@@ -243,6 +261,8 @@ public struct PAWSExtractor: ExtractorPass {
                 abxType = "Cephalexin administered"
             } else if hasMatch(sentence, regex: moxiRegex) {
                 abxType = "Moxifloxacin administered"
+            } else if hasMatch(sentence, regex: ertapenemRegex) {
+                abxType = "Ertapenem administered"
             } else {
                 abxType = "Antibiotics administered"
             }
@@ -255,6 +275,8 @@ public struct PAWSExtractor: ExtractorPass {
                 )
             )
         }
+        record(namedAntibiotics(in: sentence), kind: .antibiotic,
+               in: &updated, at: context.timestamp)
 
         updated = extractWoundCare(updated, context: context)
 
@@ -325,6 +347,69 @@ public struct PAWSExtractor: ExtractorPass {
             return "1300 mg (two 650 mg)"
         }
         return nil
+    }
+
+    // MARK: - Named drugs (extension 3)
+
+    /// Descriptors for every specific analgesic named in `sentence`, in order
+    /// of first mention. Same descriptors as the first-match branch above, so
+    /// a drug recorded there is not recorded twice.
+    private func namedAnalgesics(in sentence: String) -> [String] {
+        var found: [(location: Int, descriptor: String)] = []
+        if let at = firstMatchLocation(sentence, regex: suzetrigineRegex) {
+            found.append((at, "Suzetrigine administered"))
+        }
+        if let at = firstMatchLocation(sentence, regex: esketamineRegex) {
+            found.append((at, "Esketamine administered"))
+        }
+        if let at = firstMatchLocation(sentence, regex: ketamineRegex) {
+            found.append((at, hasMatch(sentence, regex: ketamineProceduralRegex)
+                ? "Ketamine procedural sedation administered" : "Ketamine administered"))
+        }
+        if let at = firstMatchLocation(sentence, regex: acetaminophenRegex) {
+            let dose = extractAcetaminophenDose(sentence)
+            found.append((at, dose.map { "Acetaminophen \($0) administered" } ?? "Acetaminophen administered"))
+        }
+        if let at = firstMatchLocation(sentence, regex: meloxicamRegex) {
+            found.append((at, "Meloxicam administered"))
+        }
+        return found.sorted { $0.location < $1.location }.map { $0.descriptor }
+    }
+
+    /// Descriptors for every specific antibiotic named in `sentence`, in order
+    /// of first mention.
+    private func namedAntibiotics(in sentence: String) -> [String] {
+        let table: [(regex: NSRegularExpression, descriptor: String)] = [
+            (cefadroxilRegex, "Cefadroxil administered"),
+            (ceftriaxoneRegex, "Ceftriaxone administered"),
+            (cephalexinRegex, "Cephalexin administered"),
+            (moxiRegex, "Moxifloxacin administered"),
+            (ertapenemRegex, "Ertapenem administered"),
+        ]
+        var found: [(location: Int, descriptor: String)] = []
+        for entry in table {
+            if let at = firstMatchLocation(sentence, regex: entry.regex) {
+                found.append((at, entry.descriptor))
+            }
+        }
+        return found.sorted { $0.location < $1.location }.map { $0.descriptor }
+    }
+
+    /// Append one intervention per descriptor the state does not already hold
+    /// under `kind`; a second mention of the same drug is not a second row.
+    private func record(_ descriptors: [String], kind: InterventionKind,
+                        in state: inout PatientState, at timestamp: Date) {
+        for descriptor in descriptors
+        where !state.interventions.contains(where: { $0.kind == kind && $0.description == descriptor }) {
+            state.interventions.append(
+                Intervention(timestamp: timestamp, kind: kind, description: descriptor))
+        }
+    }
+
+    private func firstMatchLocation(_ text: String, regex: NSRegularExpression) -> Int? {
+        let nsText = text as NSString
+        let fullRange = NSRange(location: 0, length: nsText.length)
+        return regex.firstMatch(in: text, options: [], range: fullRange)?.range.location
     }
 
     // MARK: - Helpers

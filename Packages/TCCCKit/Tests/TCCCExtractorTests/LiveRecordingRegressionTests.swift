@@ -51,6 +51,31 @@ final class LiveRecordingRegressionTests: XCTestCase {
         XCTAssertTrue(p.interventions.contains { $0.kind == .ivAccess })
     }
 
+    // MARK: - Leftovers from the first on-device export (f-6055bd90)
+
+    func testRespiratoryRateSurvivesTheMisheardLabel() async throws {
+        // "Is it true rate 16" is Apple Speech for "respiratory rate 16".
+        let p = try await patient()
+        XCTAssertEqual(p.vitals.rr, 16)
+    }
+
+    func testErtapenemSurvivesTheMisheardName() async throws {
+        // "her pen" and "a pen him" are Apple Speech for ertapenem.
+        let p = try await patient()
+        XCTAssertEqual(p.paws.antibiotics, "Ertapenem administered")
+        XCTAssertEqual(p.interventions.filter { $0.kind == .antibiotic }.map(\.description),
+                       ["Ertapenem administered"])
+    }
+
+    func testNamedPainMedicationsAreEachRecorded() async throws {
+        // The kit stays the first-match descriptor; Mobic and ketamine, said in
+        // the same breath, are their own rows, recorded once each.
+        let p = try await patient()
+        XCTAssertEqual(p.paws.pain, "Combat pill pack administered")
+        XCTAssertEqual(p.interventions.filter { $0.kind == .painManagement }.map(\.description),
+                       ["Combat pill pack administered", "Meloxicam administered", "Ketamine administered"])
+    }
+
     func testFactsAlreadyCapturedStayCaptured() async throws {
         let p = try await patient()
         XCTAssertEqual(p.vitals.hr, 99)

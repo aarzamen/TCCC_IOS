@@ -5,7 +5,8 @@
 //
 // Per-sentence dispatch order from `update_from_transcript` (state.py:481–528):
 //
-//   1. Normalize spoken numbers across the whole chunk.
+//   1. Repair observed medical-term recognition errors (MedicalTermNormalizer),
+//      then normalize spoken numbers across the whole chunk.
 //   2. Sentence-tokenise the chunk (lookbehind regex on .!?\s+ or \n+).
 //   3. For each sentence:
 //        a. Patient-switch detection FIRST  -> may mutate currentPatientID
@@ -78,6 +79,7 @@ public actor PatientStateEngine {
     // MARK: - Dependencies
 
     private let passes: [any ExtractorPass]
+    private let termNormalizer: MedicalTermNormalizer
     private let normalizer: SpokenNumberNormalizer
     private let tokenizer: SentenceTokenizer
     private let negation: NegationDetector
@@ -90,9 +92,11 @@ public actor PatientStateEngine {
         normalizer: SpokenNumberNormalizer = SpokenNumberNormalizer(),
         tokenizer: SentenceTokenizer = SentenceTokenizer(),
         negation: NegationDetector = NegationDetector(),
-        switcher: PatientSwitcher = PatientSwitcher()
+        switcher: PatientSwitcher = PatientSwitcher(),
+        termNormalizer: MedicalTermNormalizer = MedicalTermNormalizer()
     ) {
         self.passes = passes
+        self.termNormalizer = termNormalizer
         self.normalizer = normalizer
         self.tokenizer = tokenizer
         self.negation = negation
@@ -110,14 +114,15 @@ public actor PatientStateEngine {
     /// Process a transcript chunk and update the patient state(s).
     ///
     /// Mirrors `state.py:PatientStateEngine.update_from_transcript`:
-    ///   1. Normalize spoken vital-sign numbers in the chunk.
+    ///   1. Repair observed medical-term recognition errors, then normalize
+    ///      spoken vital-sign numbers in the chunk.
     ///   2. Sentence-tokenise.
     ///   3. For each sentence, detect a patient switch first, then ensure the
     ///      patient row exists, refresh timestamps, build the
     ///      `ExtractionContext`, and pass it through every extractor.
     public func processTranscript(_ text: String, timestamp: Date = Date(), backend: String = "engine") {
         let before = patients                               // A3: capture for the diff
-        let normalized = normalizer.normalize(text)
+        let normalized = normalizer.normalize(termNormalizer.normalize(text))
         let sentences = tokenizer.tokenize(normalized)
         let unixTimestamp = timestamp.timeIntervalSince1970
 
