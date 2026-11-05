@@ -327,6 +327,15 @@ struct HandoffScreen: View {
                 actionLabel: "Export draft",
                 action: { shareDD1380PDF() }
             )
+            // Speech still misses medical words (2026-09-08 benchmark: 2 of 8
+            // fields lost to tourniquet / tranexamic-acid recognition errors).
+            // Same register as the unvalidated-sensor banner in the summary column.
+            Text("Review every extracted intervention before export. Speech recognition can miss medical words (tourniquet, tranexamic acid, drug names).")
+                .font(.system(size: 11))
+                .foregroundStyle(palette.fg2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityLabel("Review every extracted intervention before export.")
 
             exportFailure(for: "pdf")
             if isExportingPDF { ProgressView("Preparing PDF…") }
