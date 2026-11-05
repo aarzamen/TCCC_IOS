@@ -115,8 +115,8 @@ times and raw frames kept as evidence. Open physical checks are listed in
 ## Build and test
 
 `project.yml` is the source of truth; the `.xcodeproj` is generated. The
-signing team ID is not in git: copy `Config/Signing.xcconfig.example` to
-`Config/Signing.xcconfig` for device builds (see `APPLE_DEVELOPER_WARNING.md`).
+signing team ID is not in git: copy `Config/Signing.local.xcconfig.example` to
+`Config/Signing.local.xcconfig` for device builds (see `APPLE_DEVELOPER_WARNING.md`).
 
 ```bash
 xcodegen generate

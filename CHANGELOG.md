@@ -55,7 +55,7 @@ once the removals below have landed.
 
 - MIT licence; `THIRD_PARTY.md`; `ARCHITECTURE.md` (draft walkthrough map);
   README rewritten from SCOPE; `CHANGELOG.md`.
-- Signing team ID moved to the untracked `Config/Signing.xcconfig`; the
+- Signing team ID moved to the untracked `Config/Signing.local.xcconfig`; the
   signing warning keeps only its public half; no home paths in tracked files;
   agent-era notes moved to `docs/history/`.
 - Build number from the commit count; `scripts/archive_and_export.sh`

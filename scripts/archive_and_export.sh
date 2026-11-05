@@ -10,8 +10,8 @@
 #              export (default); "release-testing" is ad hoc. Both install on
 #              registered devices only; neither touches App Store Connect.
 #   --team     Apple Developer team ID. Otherwise TCCC_DEVELOPMENT_TEAM, otherwise
-#              DEVELOPMENT_TEAM from Config/Signing.xcconfig (untracked; copy
-#              Config/Signing.xcconfig.example). Never written to a tracked file.
+#              DEVELOPMENT_TEAM from Config/Signing.local.xcconfig (untracked; copy
+#              Config/Signing.local.xcconfig.example). Never written to a tracked file.
 #   --out      Output folder (default build/export, ignored by git).
 #   --without-offline-models
 #              Release builds require TCCC_OFFLINE_MODELS_DIR (the verified
@@ -59,12 +59,12 @@ esac
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-if [[ -z "$TEAM" && -f Config/Signing.xcconfig ]]; then
-  TEAM="$(sed -n 's/^[[:space:]]*DEVELOPMENT_TEAM[[:space:]]*=[[:space:]]*\([A-Za-z0-9]*\).*/\1/p' Config/Signing.xcconfig | head -1)"
+if [[ -z "$TEAM" && -f Config/Signing.local.xcconfig ]]; then
+  TEAM="$(sed -n 's/^[[:space:]]*DEVELOPMENT_TEAM[[:space:]]*=[[:space:]]*\([A-Za-z0-9]*\).*/\1/p' Config/Signing.local.xcconfig | head -1)"
 fi
 if [[ -z "$TEAM" || "$TEAM" == "YOUR_TEAM_ID" ]]; then
-  echo "error: no team ID. Pass --team, set TCCC_DEVELOPMENT_TEAM, or create Config/Signing.xcconfig" >&2
-  echo "       from Config/Signing.xcconfig.example (see APPLE_DEVELOPER_WARNING.md)." >&2
+  echo "error: no team ID. Pass --team, set TCCC_DEVELOPMENT_TEAM, or create Config/Signing.local.xcconfig" >&2
+  echo "       from Config/Signing.local.xcconfig.example (see APPLE_DEVELOPER_WARNING.md)." >&2
   exit 2
 fi
 if [[ "$REQUIRE_MODELS" == "YES" && -z "${TCCC_OFFLINE_MODELS_DIR:-}" ]]; then

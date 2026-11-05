@@ -40,5 +40,5 @@ PROJECT.gdu
 OfflineModels-Staging/
 
 # Apple signing: the team ID and machine-specific signing facts stay local.
-Config/Signing.xcconfig
+Config/Signing.local.xcconfig
 APPLE_DEVELOPER_WARNING.local.md

@@ -16,10 +16,11 @@ identifiers and paths.
 ## Where signing identity lives
 
 - `project.yml` sets `CODE_SIGN_STYLE: Automatic` and no team. Both
-  configurations read `Config/Signing.xcconfig`, which is **untracked** and
-  holds `DEVELOPMENT_TEAM`. Copy `Config/Signing.xcconfig.example` to create it.
-  `xcodegen generate` works without the file (`disabledValidations:
-  missingConfigFiles`); CI builds with `CODE_SIGNING_ALLOWED=NO` and never needs it.
+  configurations read the tracked, identity-free `Config/Signing.xcconfig`,
+  which optionally includes `Config/Signing.local.xcconfig`: **untracked**, and
+  the only place `DEVELOPMENT_TEAM` is set. Copy
+  `Config/Signing.local.xcconfig.example` to create it. Fresh clones and CI
+  (`CODE_SIGNING_ALLOWED=NO`) build without the local file.
 - `scripts/archive_and_export.sh` reads the team ID from that file or from
   `TCCC_DEVELOPMENT_TEAM`.
 - Bundle identifiers: `com.aarzamen.TCCCai` (app), `com.aarzamen.TCCCaiTests`
@@ -27,7 +28,7 @@ identifiers and paths.
 
 ## Rules for AI agents
 
-1. The team ID comes from `Config/Signing.xcconfig` or the environment, never
+1. The team ID comes from `Config/Signing.local.xcconfig` or the environment, never
    from a literal in a tracked file. The 10-character ID that appears inside an
    `Apple Development: Name (XXXXXXXXXX)` certificate name is a certificate
    user ID, **not** a team ID; using it as `DEVELOPMENT_TEAM` fails with

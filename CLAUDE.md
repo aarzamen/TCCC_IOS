@@ -183,7 +183,7 @@ xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation
 ```
 
-Device build + install (signing team from the untracked `Config/Signing.xcconfig`; set `DEVICE_ID`
+Device build + install (signing team from the untracked `Config/Signing.local.xcconfig`; set `DEVICE_ID`
 to the phone's devicectl identifier from `xcrun devicectl list devices`):
 
 ```bash
@@ -317,5 +317,5 @@ local agent memory notes (outside this repository) carry the state.
 
 <!-- apple-developer-kit:pointer:start -->
 ## Apple signing — read `APPLE_DEVELOPER_WARNING.md` first
-The development team ID is not in git: it lives in the untracked `Config/Signing.xcconfig` (copy `Config/Signing.xcconfig.example`). The 10-character ID inside an "Apple Development: Name (…)" certificate name is a certificate user ID, never a team. Do not change signing, certificates, profiles, App IDs, or run `-allowProvisioningUpdates` without the user's explicit OK. Canonical facts: `~/apple-developer-kit/APPLE_DEVELOPER_ACCOUNT.md` (local, outside this repository).
+The development team ID is not in git: it lives in the untracked `Config/Signing.local.xcconfig` (copy `Config/Signing.local.xcconfig.example`), pulled in by the tracked, identity-free `Config/Signing.xcconfig`. The 10-character ID inside an "Apple Development: Name (…)" certificate name is a certificate user ID, never a team. Do not change signing, certificates, profiles, App IDs, or run `-allowProvisioningUpdates` without the user's explicit OK. Canonical facts: `~/apple-developer-kit/APPLE_DEVELOPER_ACCOUNT.md` (local, outside this repository).
 <!-- apple-developer-kit:pointer:end -->

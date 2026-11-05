@@ -4,13 +4,11 @@ options:
   deploymentTarget:
     iOS: "26.0"
   createIntermediateGroups: true
-  # Config/Signing.xcconfig is untracked (it holds DEVELOPMENT_TEAM); generate
-  # the project with or without it. CI builds with CODE_SIGNING_ALLOWED=NO.
-  disabledValidations:
-    - missingConfigFiles
-# Signing identity comes from an untracked xcconfig, never from a literal in a
-# public repository. Copy Config/Signing.xcconfig.example to
-# Config/Signing.xcconfig and set DEVELOPMENT_TEAM there.
+# Signing identity never appears as a literal in this public repository. The
+# tracked Config/Signing.xcconfig holds no identity; it optionally includes the
+# ignored Config/Signing.local.xcconfig, where DEVELOPMENT_TEAM is set (copy
+# Config/Signing.local.xcconfig.example). Xcode requires the referenced base
+# configuration file to exist, so the tracked file is the reference.
 configFiles:
   Debug: Config/Signing.xcconfig
   Release: Config/Signing.xcconfig
