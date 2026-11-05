@@ -1,13 +1,13 @@
 # TCCC_IOS — Granite Speech Foundation Sprint Spec (v3, Sprint 1)
 
 **Sprint owner:** Mike (LCDR, NMCB-4 Battalion Surgeon)
-**Repo root:** `/Users/ama/Projects/tccc-ai-ios` (private GitHub)
+**Repo root:** the repository root (private GitHub)
 **Target device:** physical iPhone 17 Pro (iOS 26)
 **Working branch:** `main` (single trunk; no feature branches; no Lane B)
 **Sprint scope:** Granite Speech transcribes on physical iPhone with sane memory. **Hot-seat integration is Sprint 2.**
 
 **v3 changelog** (vs `SPRINT_TCCC_AUDIO_LLM_V2.md`):
-- **Repo-aware, post-recon.** v2 assumed greenfield. The actual repo (per the agent's `RECON_NOTES.md`) already has `TranscriptStream`, `GraniteSpeechTranscriptStream` placeholder, `GraniteCandidatePatch`, hot-seat packet builder, `GraniteSchemaValidator`, `GraniteReviewQueue`, `MLXBackend.generateStructured(...)` wired through `Generable.Type`, `HFHubCache.contains(modelId:)` enforcing the no-RECORD-download policy, audio capture + `gainProvider` + `AudioLevels` patterns in `SpeechRecognizer` / `ParakeetTranscriptStream`. v3 patches into existing seams.
+- **Repo-aware, post-recon.** v2 assumed greenfield. The actual repo (per the agent's `docs/history/RECON_NOTES.md`) already has `TranscriptStream`, `GraniteSpeechTranscriptStream` placeholder, `GraniteCandidatePatch`, hot-seat packet builder, `GraniteSchemaValidator`, `GraniteReviewQueue`, `MLXBackend.generateStructured(...)` wired through `Generable.Type`, `HFHubCache.contains(modelId:)` enforcing the no-RECORD-download policy, audio capture + `gainProvider` + `AudioLevels` patterns in `SpeechRecognizer` / `ParakeetTranscriptStream`. v3 patches into existing seams.
 - **Sprint scope split.** v2 was G0–G6 in one document. v3 is **Sprint 1 only** — transcription works on device. Hot-seat integration becomes Sprint 2 (separate document, written when Sprint 1 lands).
 - **`Packages/TCCCAudio/` is the new code home,** not `TCCC_IOS/Audio_LLM/` (would violate AGENTS.md "no logic in app target") and not `Packages/TCCCKit/` (would pull MLX into pure-logic modules). Mirrors the existing `Packages/TCCCLLM` shim pattern.
 - **Storage decision: multi-source resolver, Files.app open-in-place primary.** Model files live in user-managed iCloud Drive or "On My iPhone" storage, accessed via `UIDocumentPickerViewController` + persistent security-scoped bookmark. Bundle resource and `MLXBackend.prefetch()` HF-cache stay as fallback resolution paths. Survives app reinstalls — bundling does not.
@@ -70,7 +70,7 @@ Replace the `GraniteSpeechTranscriptStream` placeholder with a real `mlx-audio-s
 
 ## 3. Repo Recon (Confirmed)
 
-The agent ran `RECON_NOTES.md` at the repo root. Key facts the spec relies on:
+The agent ran `docs/history/RECON_NOTES.md` at the repo root. Key facts the spec relies on:
 
 - `Packages/TCCCKit/` — pure-logic package; contains `TranscriptStream` protocol, `GraniteCandidatePatch`, `GraniteSchemaValidator`, `GraniteReviewQueue`, `HFHubCache`. No MLX deps. New code does not go here.
 - `Packages/TCCCLLM/` — LLM shim package; uses `AnyLanguageModel` 0.8.0 + `mlx-swift-lm` 2.25.5. Contains `MLXBackend` with `generateStructured(...generating: Generable.Type)` and `prefetch()`. Sprint 1's resolver-conflict mitigation (see §G0) avoids touching this package.
@@ -81,7 +81,7 @@ The agent ran `RECON_NOTES.md` at the repo root. Key facts the spec relies on:
 - `Info.plist` — `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`, `UIBackgroundModes: audio` already present. `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` already set (per agent recon) — required for the multi-source resolver's Files.app open-in-place path.
 - `project.yml` — XcodeGen config; iOS 26 deployment target; FluidAudio 0.14.4 already pinned; depends on local `TCCCKit` + `TCCCLLM` packages.
 
-If anything in this list contradicts what the agent finds at execution time, halt and update `RECON_NOTES.md` before proceeding.
+If anything in this list contradicts what the agent finds at execution time, halt and update `docs/history/RECON_NOTES.md` before proceeding.
 
 ---
 
@@ -125,7 +125,7 @@ If the agent finds itself writing any of the above, halt and reconcile against t
    ```
 6. Run the build:
    ```bash
-   cd /Users/ama/Projects/tccc-ai-ios
+   cd "$(git rev-parse --show-toplevel)"
    xcodegen generate
    xcodebuild -project TCCC_IOS.xcodeproj \
      -scheme TCCC_IOS \
@@ -149,7 +149,7 @@ If the agent finds itself writing any of the above, halt and reconcile against t
 - All three package test suites pass.
 - `Package.resolved` is committed.
 - `os_proc_available_memory()` logged at app launch on the simulator shows the entitlement took effect (value ≥ 6 GB on a clean iPhone 17 Pro simulator foreground).
-- `RECON_NOTES.md` updated with the chosen resolver-recovery path.
+- `docs/history/RECON_NOTES.md` updated with the chosen resolver-recovery path.
 
 **Commit:** `phase G0: add TCCCAudio package + mlx-audio-swift dep + memory entitlements`
 
@@ -306,7 +306,7 @@ func testGraniteSpeechPrimeWithConfiguredFolderOnSimulator() async throws {
 **Goal:** Walk §13 acceptance as a single pass/fail check on physical iPhone 17 Pro.
 
 **Tasks:**
-1. Walk the §13 checklist. Generate `SPRINT_1_ACCEPTANCE.md` with each criterion marked pass/fail/partial with evidence (timestamps, log excerpts, screenshots).
+1. Walk the §13 checklist. Generate `docs/history/SPRINT_1_ACCEPTANCE.md` with each criterion marked pass/fail/partial with evidence (timestamps, log excerpts, screenshots).
 2. Tag the commit `sprint-1-granite-speech-foundation`.
 
 **Commit:** `phase G4: sprint 1 acceptance gate signed off`
@@ -521,4 +521,4 @@ Single trunk on `main`. End every phase with `git push origin main`.
 
 ---
 
-*End of v3 (Sprint 1) spec. Hand to one Claude Code instance in `/Users/ama/Projects/tccc-ai-ios`. Single trunk. G0–G4 in order. Sprint 2 spec is written when Sprint 1 lands.*
+*End of v3 (Sprint 1) spec. Hand to one Claude Code instance in the repository root. Single trunk. G0–G4 in order. Sprint 2 spec is written when Sprint 1 lands.*

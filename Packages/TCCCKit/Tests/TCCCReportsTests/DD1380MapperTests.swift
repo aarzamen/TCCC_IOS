@@ -229,6 +229,78 @@ final class DD1380MapperTests: XCTestCase {
         XCTAssertNil(tq.first?.locationText)
     }
 
+    // f-6055bd90: a spoken drug name replaces the generic action on the row,
+    // and Notes do not repeat what the card already prints.
+    func testNamedDrugsReplaceGenericActionsOnMedicationRows() {
+        // Interventions as the engine records them for the 2026-10-27 recording.
+        let p = PatientState(
+            patientId: "P",
+            march: MARCHState(hypothermiaPrevention: "Hypothermia wrap applied"),
+            interventions: [
+                Intervention(timestamp: encounterStart, kind: .painManagement, description: "Combat pill pack administered"),
+                Intervention(timestamp: encounterStart, kind: .antibiotic, description: "Ertapenem administered"),
+                Intervention(timestamp: encounterStart, kind: .painManagement, description: "Meloxicam administered"),
+                Intervention(timestamp: encounterStart, kind: .painManagement, description: "Ketamine administered"),
+                Intervention(timestamp: encounterStart, kind: .medication, description: "Tranexamic acid (TXA) administered"),
+            ],
+            paws: PAWSAssessment(pain: "Combat pill pack administered", antibiotics: "Ertapenem administered"))
+        let card = DD1380Mapper.map(input(patient: p))
+        XCTAssertEqual(card.medications.filter { $0.category == .analgesic }.map(\.name), ["Meloxicam", "Ketamine"])
+        XCTAssertEqual(card.medications.filter { $0.category == .antibiotic }.map(\.name), ["Ertapenem"])
+        XCTAssertEqual(card.medications.filter { $0.category == .other }.map(\.name), ["Tranexamic acid (TXA)"])
+        XCTAssertEqual(card.medications.first?.timeHHMM, "2213")
+        XCTAssertTrue(card.otherTreatments.combatPillPack)
+        XCTAssertTrue(card.otherTreatments.hypothermiaPrevention)
+        XCTAssertEqual(card.otherTreatments.hypothermiaType, "Hypothermia wrap applied")
+        XCTAssertFalse(card.notes.contains("Antibiotics:"), card.notes)
+        XCTAssertFalse(card.notes.contains("Pain mgmt:"), card.notes)
+        XCTAssertFalse(card.notes.contains("Hypothermia:"), card.notes)
+    }
+
+    func testGenericMedicationRowsStayWhenNoDrugIsNamed() {
+        let p = PatientState(
+            patientId: "P",
+            interventions: [
+                Intervention(timestamp: encounterStart, kind: .painManagement, description: "Combat pill pack administered"),
+                Intervention(timestamp: encounterStart, kind: .antibiotic, description: "Antibiotics administered"),
+            ],
+            paws: PAWSAssessment(pain: "Combat pill pack administered", antibiotics: "Antibiotics administered"))
+        let card = DD1380Mapper.map(input(patient: p))
+        XCTAssertEqual(card.medications.map(\.name), ["Combat pill pack", "Antibiotic (name not recorded)"])
+        XCTAssertTrue(card.otherTreatments.combatPillPack)
+        XCTAssertFalse(card.notes.contains("Pain mgmt:"), card.notes)
+        XCTAssertFalse(card.notes.contains("Antibiotics:"), card.notes)
+    }
+
+    func testGenericAntibioticFollowedByANamedOneIsOneRow() {
+        // "I gave him antibiotics ... I gave him ertapenem" is one drug, not two.
+        let p = PatientState(
+            patientId: "P",
+            interventions: [
+                Intervention(timestamp: encounterStart, kind: .antibiotic, description: "Antibiotics administered"),
+                Intervention(timestamp: encounterStart, kind: .antibiotic, description: "Ertapenem administered"),
+            ])
+        XCTAssertEqual(DD1380Mapper.map(input(patient: p)).medications.map(\.name), ["Ertapenem"])
+    }
+
+    func testAcetaminophenDoseMovesToTheDoseColumn() {
+        XCTAssertEqual(DD1380Mapper.medicationRow(from: "Acetaminophen 1000 mg administered").name, "Acetaminophen")
+        XCTAssertEqual(DD1380Mapper.medicationRow(from: "Acetaminophen 1000 mg administered").dose, "1000 mg")
+        XCTAssertEqual(DD1380Mapper.medicationRow(from: "Acetaminophen 1300 mg (two 650 mg) administered").dose,
+                       "1300 mg (two 650 mg)")
+        XCTAssertEqual(DD1380Mapper.medicationRow(from: "Calcium administered (post-transfusion)").name,
+                       "Calcium (post-transfusion)")
+        // Operator-typed text is kept verbatim; nothing is parsed out of it.
+        XCTAssertEqual(DD1380Mapper.medicationRow(from: "Ketamine 50 mg IM").name, "Ketamine 50 mg IM")
+        XCTAssertNil(DD1380Mapper.medicationRow(from: "Ketamine 50 mg IM").dose)
+    }
+
+    func testNotesKeepPawsFactsThatHaveNoRow() {
+        // A PAWS descriptor with no recorded intervention has no row, so Notes keep it.
+        let p = PatientState(patientId: "P", paws: PAWSAssessment(antibiotics: "Antibiotics administered"))
+        XCTAssertTrue(DD1380Mapper.map(input(patient: p)).notes.contains("Antibiotics: Antibiotics administered"))
+    }
+
     func testInterventionsWithNoCardBoxAreListedInNotesWithTheirTime() {
         let p = PatientState(
             patientId: "P",

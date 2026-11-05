@@ -35,13 +35,13 @@ recordings, device backups or credentials. It preserves an existing output and
 requires a new output path for a revised package.
 
 ```bash
-cd '/Users/ama/Projects/_archive/tccc-project-chatgpt/ios-capture-reliability'
+cd "$HOME/Projects/_archive/tccc-project-chatgpt/ios-capture-reliability"
 UV_CACHE_DIR=/private/tmp/tccc-uv-cache uv venv --python 3.12 /private/tmp/tccc-offline-tools
 UV_CACHE_DIR=/private/tmp/tccc-uv-cache uv pip install \
   --python /private/tmp/tccc-offline-tools/bin/python huggingface_hub
 /private/tmp/tccc-offline-tools/bin/python tools/stage_offline_models.py \
-  --sources '/Users/ama/Projects/_archive/tccc-project-chatgpt/private-model-staging-20260909/sources' \
-  --output '/Users/ama/Projects/_archive/tccc-project-chatgpt/private-model-staging-20260909/OfflineModels-complete' \
+  --sources "$HOME/Projects/_archive/tccc-project-chatgpt/private-model-staging-20260909/sources" \
+  --output "$HOME/Projects/_archive/tccc-project-chatgpt/private-model-staging-20260909/OfflineModels-complete" \
   --download
 ```
 
@@ -65,13 +65,13 @@ The app target's XcodeGen `preBuildScripts` entry runs:
 Build for the real iPhone with:
 
 ```bash
-cd '/Users/ama/Projects/_archive/tccc-project-chatgpt/ios-capture-reliability'
+cd "$HOME/Projects/_archive/tccc-project-chatgpt/ios-capture-reliability"
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS' -configuration Debug \
   -skipMacroValidation -allowProvisioningUpdates \
   -derivedDataPath /private/tmp/tccc-offline-device \
   TCCC_REQUIRE_OFFLINE_MODELS=YES \
-  'TCCC_OFFLINE_MODELS_DIR=/Users/ama/Projects/_archive/tccc-project-chatgpt/private-model-staging-20260909/OfflineModels-complete' \
+  'TCCC_OFFLINE_MODELS_DIR=~/Projects/_archive/tccc-project-chatgpt/private-model-staging-20260909/OfflineModels-complete' \
   build
 ```
 
@@ -181,7 +181,7 @@ The pitch control applies to Device Speech, not the CoreML renderer.
 [Upstream Kokoro card and Apache-2.0 declaration](https://huggingface.co/FluidInference/kokoro-82m-coreml).
 
 Final six-model staging output on this Mac:
-`/Users/ama/Projects/_archive/tccc-project-chatgpt/private-model-staging-20260909/OfflineModels-complete`.
+`~/Projects/_archive/tccc-project-chatgpt/private-model-staging-20260909/OfflineModels-complete`.
 Its manifests cover **5,749,589,446 bytes** of model/auxiliary/license content.
 Earlier five-model staging outputs are superseded. No clinical data is included.
 

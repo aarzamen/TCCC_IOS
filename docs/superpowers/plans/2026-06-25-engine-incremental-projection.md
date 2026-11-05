@@ -19,8 +19,8 @@
 - `newEvents(since:)` is additive; `snapshot()`/`snapshot(of:)`/`snapshotLog()`/`project` signatures are unchanged.
 
 **Build / verify**
-- TCCCKit (Task 1, Task 2-engine): `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit`
-- App (Task 2-app): `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'platform=iOS Simulator,id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests`
+- TCCCKit (Task 1, Task 2-engine): `swift test --package-path Packages/TCCCKit`
+- App (Task 2-app): `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'platform=iOS Simulator,id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests`
   - bare `id=`/`generic/platform=` FAIL; class-level `-only-testing:Target/Class` reports 0 — use the full target. No new app FILES here, so the pbxproj should be unchanged (run `xcodegen generate` anyway; `git add` it only if it changed).
 
 ---
@@ -74,7 +74,7 @@ func testIncrementalProjectionNeverDivergesAcrossTranscriptAndAccepts() async th
 
 - [ ] **Step 2: Run it to confirm it passes PRE-change (locks current behavior)**
 
-Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit --filter LogEquivalenceTests`
+Run: `swift test --package-path Packages/TCCCKit --filter LogEquivalenceTests`
 Expected: PASS (current `patients = project(log)` makes `snapshot() == project(log)` trivially). This proves the test is a valid lock before we optimize.
 
 - [ ] **Step 3: Make the change — remove both re-folds**
@@ -108,7 +108,7 @@ In `recordOperatorAcceptedFact`, replace the `patients = Self.project(log)` line
 
 - [ ] **Step 4: Run the full TCCCKit suite — the equivalence tests are the gate**
 
-Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit`
+Run: `swift test --package-path Packages/TCCCKit`
 Expected: **all green** (was 755; +1 new = 756). The four scenario equivalence tests + `testAfterFlipSnapshotIsTheProjection` + the new stress test all asserting `snapshot() == project(log)` is the proof the materialized view never diverged. **If any equivalence test goes red, STOP** — the imperative path diverges from `project(log)` somewhere; do not weaken the test.
 
 - [ ] **Step 5: Commit**
@@ -148,7 +148,7 @@ func testNewEventsSinceReturnsSuffixOrEmpty() async throws {
 
 - [ ] **Step 2: Run RED**
 
-Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit --filter LogEquivalenceTests`
+Run: `swift test --package-path Packages/TCCCKit --filter LogEquivalenceTests`
 Expected: FAIL — `value of type 'PatientStateEngine' has no member 'newEvents'`.
 
 - [ ] **Step 3: Implement the accessor** (add to `PatientStateEngine.swift`, near `snapshotLog`)
@@ -165,7 +165,7 @@ public func newEvents(since index: Int) -> [EncounterEvent] {
 
 - [ ] **Step 4: Run GREEN (TCCCKit)**
 
-Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit` → all green (757).
+Run: `swift test --package-path Packages/TCCCKit` → all green (757).
 
 - [ ] **Step 5: Point `persistNewEvents` at the slice accessor** (`AppState.swift:554-565`)
 
@@ -192,7 +192,7 @@ Run the full app target (build cmd above). Expected: **84 green** (2 pre-existin
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
+xcodegen generate
 git add Packages/TCCCKit/Sources/TCCCExtractor/PatientStateEngine.swift TCCC_IOS/App/AppState.swift Packages/TCCCKit/Tests/TCCCExtractorTests/LogEquivalenceTests.swift
 # include project.pbxproj only if `git status` shows it changed (no new files expected)
 git commit -m "perf(persistence): persist via newEvents(since:) slice — no whole-EncounterLog copy per flush"
@@ -202,7 +202,7 @@ git commit -m "perf(persistence): persist via newEvents(since:) slice — no who
 
 ## Final verification (before whole-branch review)
 
-- [ ] Full TCCCKit suite green (`swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit`) — ~757.
+- [ ] Full TCCCKit suite green (`swift test --package-path Packages/TCCCKit`) — ~757.
 - [ ] Full app suite green on the working destination — 84.
 - [ ] Acceptance gate (spec §7): every `LogEquivalenceTests` assertion (`snapshot() == project(log)`) green = the materialized view never diverged; the new stress + slice tests green; persistence tests green.
 - [ ] Whole-branch opus review: re-verify (a) the imperative materialized view is provably equal to `project(log)` and can't silently diverge, (b) `project(log)` is still the `restore` authority, (c) LLM-never-mutates intact, (d) the persist slice yields identical on-disk results.

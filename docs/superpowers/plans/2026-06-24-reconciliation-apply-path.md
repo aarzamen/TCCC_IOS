@@ -20,8 +20,8 @@ Every task's requirements implicitly include these (verbatim from the spec + CLA
 - **All 724 existing TCCCKit tests stay green.** New app tests added on top.
 - **Scope fence:** no audio/ASR/Granite-Speech changes, no `EncounterEvent` log, no durable archive, no workflow engine. Those are deferred (spec §7). Evidence linkage is best-effort this cycle (debt gated on the event log).
 - **Build/test commands:**
-  - TCCCKit: `cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test`
-  - App: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/<Class>` (`-skipMacroValidation` is required; `xcodegen generate` re-globs sources so new files are picked up; if the sim ID is stale, pick an iPhone 17 Pro from `xcrun simctl list devices`).
+  - TCCCKit: `cd Packages/TCCCKit && swift test`
+  - App: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/<Class>` (`-skipMacroValidation` is required; `xcodegen generate` re-globs sources so new files are picked up; if the sim ID is stale, pick an iPhone 17 Pro from `xcrun simctl list devices`).
 
 **Reference shapes (verbatim, do not re-derive):**
 
@@ -111,7 +111,7 @@ final class PatientStateApplyTests: XCTestCase {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test --filter PatientStateApplyTests`
+Run: `cd Packages/TCCCKit && swift test --filter PatientStateApplyTests`
 Expected: FAIL — `PatientStateFieldWrite` and `apply` do not exist (compile error).
 
 - [ ] **Step 3: Create the typed write vocabulary**
@@ -179,18 +179,18 @@ If `BloodPressure(systolic:diastolic:palpated:)` is not `public`, add a `public 
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test --filter PatientStateApplyTests`
+Run: `cd Packages/TCCCKit && swift test --filter PatientStateApplyTests`
 Expected: PASS (2 tests).
 
 - [ ] **Step 6: Run the full TCCCKit suite (no regressions)**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test`
+Run: `cd Packages/TCCCKit && swift test`
 Expected: all 724 prior tests + 2 new = green.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add Packages/TCCCKit/Sources/TCCCExtractor/PatientStateFieldWrite.swift \
         Packages/TCCCKit/Sources/TCCCExtractor/PatientStateEngine.swift \
         Packages/TCCCKit/Tests/TCCCExtractorTests/PatientStateApplyTests.swift
@@ -250,7 +250,7 @@ final class FieldRouterBoundaryGateTests: XCTestCase {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/FieldRouterBoundaryGateTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/FieldRouterBoundaryGateTests`
 Expected: FAIL — `FieldRouter` does not exist (compile error).
 
 - [ ] **Step 3: Implement the router**
@@ -337,13 +337,13 @@ If `GraniteSchemaValidator.allowedFields` is declared `private`, change it to (p
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/FieldRouterBoundaryGateTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/FieldRouterBoundaryGateTests`
 Expected: PASS (5 tests — four rejections + the positive case).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add TCCC_IOS/Intelligence/FieldRouter.swift TCCC_IOSTests/FieldRouterBoundaryGateTests.swift
 git commit -m "feat(apply-path): rubric-bounded FieldRouter + both-directions boundary gate"
 ```
@@ -396,7 +396,7 @@ final class DeterministicFactProjectorTests: XCTestCase {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/DeterministicFactProjectorTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/DeterministicFactProjectorTests`
 Expected: FAIL — `DeterministicFactProjector` does not exist.
 
 - [ ] **Step 3: Implement the projector**
@@ -454,13 +454,13 @@ In `TCCC_IOS/Intelligence/GraniteReviewQueue.swift`, inside `runGraniteHotSeatRe
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/DeterministicFactProjectorTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/DeterministicFactProjectorTests`
 Expected: PASS (2 tests).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add TCCC_IOS/Intelligence/DeterministicFactProjector.swift TCCC_IOS/Intelligence/GraniteReviewQueue.swift TCCC_IOSTests/DeterministicFactProjectorTests.swift
 git commit -m "feat(apply-path): project deterministic facts into the hot-seat packet (no longer empty)"
 ```
@@ -541,7 +541,7 @@ final class GraniteApplyPathTests: XCTestCase {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteApplyPathTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteApplyPathTests`
 Expected: FAIL — `OperatorAcceptedFact` / `acceptGraniteFact` / `rejectGraniteReviewItem` do not exist.
 
 - [ ] **Step 3: Implement the guard type**
@@ -600,13 +600,13 @@ Add to the `AppState` extension in `TCCC_IOS/Intelligence/GraniteReviewQueue.swi
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteApplyPathTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteApplyPathTests`
 Expected: PASS (3 tests).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add TCCC_IOS/Intelligence/OperatorAcceptedFact.swift TCCC_IOS/Intelligence/GraniteReviewQueue.swift TCCC_IOSTests/GraniteApplyPathTests.swift
 git commit -m "feat(apply-path): OperatorAcceptedFact guard + engine-mediated accept/reject"
 ```
@@ -681,7 +681,7 @@ final class GraniteConflictRoutingTests: XCTestCase {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteConflictRoutingTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteConflictRoutingTests`
 Expected: FAIL — `lastConflictMessage` does not exist and the first test mutates to 120.
 
 - [ ] **Step 3: Add the conflict signal + contradiction check**
@@ -725,13 +725,13 @@ Update `acceptGraniteFact` in `GraniteReviewQueue.swift` to check for contradict
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteConflictRoutingTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteConflictRoutingTests`
 Expected: PASS (2 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add TCCC_IOS/Intelligence/GraniteReviewQueue.swift TCCC_IOS/App/AppState.swift TCCC_IOSTests/GraniteConflictRoutingTests.swift
 git commit -m "feat(apply-path): route contradictions to conflict (engine value holds, never silent)"
 ```
@@ -783,13 +783,13 @@ final class FieldRouterRubricDriftTests: XCTestCase {
 
 - [ ] **Step 2: Run the test to verify it fails or passes meaningfully**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/FieldRouterRubricDriftTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/FieldRouterRubricDriftTests`
 Expected: this test is assertion-first; on first run, fix any term that isn't literally present in the rubric files by adjusting it to the exact rubric spelling (open the JSON to confirm). Then it PASSES.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add TCCC_IOSTests/FieldRouterRubricDriftTests.swift
 git commit -m "test(apply-path): drift-protect the FieldRouter allow-table against the 2026 rubric"
 ```
@@ -843,7 +843,7 @@ final class GraniteReviewOverlayWiringTests: XCTestCase {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteReviewOverlayWiringTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteReviewOverlayWiringTests`
 Expected: PASS already at the logic level (Tasks 1–5 exist) — if this task is implemented in order it should compile and pass; if `reviewOpen`/overlay symbols are referenced before creation it FAILS to compile. Treat a compile failure here as the red state.
 
 - [ ] **Step 3: Add `reviewOpen` state and the overlay**
@@ -939,13 +939,13 @@ In `FooterHints.swift`, add a button that toggles `state.reviewOpen = true`, lab
 
 - [ ] **Step 4: Build + run the wiring test**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteReviewOverlayWiringTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/GraniteReviewOverlayWiringTests`
 Expected: PASS, and the build is green (overlay compiles).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add TCCC_IOS/Components/GraniteReviewOverlay.swift TCCC_IOS/ContentView.swift TCCC_IOS/App/AppState.swift TCCC_IOS/Chrome/FooterHints.swift TCCC_IOSTests/GraniteReviewOverlayWiringTests.swift
 git commit -m "feat(ui): operator review overlay (accept/reject, conflicts shown, gloved-hand)"
 ```
@@ -966,7 +966,7 @@ Make the two lifecycle actions unmistakably distinct *now*, before durability ma
 
 - [ ] **Step 1: Implementation-time parity check (the spec §5 build-phase verification — run first, do NOT auto-fix)**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && grep -rn "newPatient\|wipeSession\|NEW CASUALTY\|CARE ENDED" TCCC_IOSTests Packages/TCCCKit/Tests 2>/dev/null`
+Run: `grep -rn "newPatient\|wipeSession\|NEW CASUALTY\|CARE ENDED" TCCC_IOSTests Packages/TCCCKit/Tests 2>/dev/null`
 Read each hit. **This cycle does not change new-casualty's wipe semantics** (durable archive is deferred), so existing lifecycle tests should still pass as-is. If any test asserts the *old destructive new-casualty behavior as the desired end state* (i.e., it would block the future preserve-and-archive semantics), **do not edit it now** — record it in the commit message and in the deferred-cycle notes as a parity test to *correct, not satisfy* when the archive lands. Flag it to the human.
 
 - [ ] **Step 2: Write the failing test**
@@ -989,7 +989,7 @@ final class LifecycleAffordanceTests: XCTestCase {
 
 - [ ] **Step 3: Run to verify it fails**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/LifecycleAffordanceTests`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:TCCC_IOSTests/LifecycleAffordanceTests`
 Expected: FAIL if `ConfirmationAction.headline` does not already make WIPE distinct (inspect `ConfirmationAction.swift`); adjust the headline strings so WIPE is unmistakable.
 
 - [ ] **Step 4: Make the affordances distinct**
@@ -1000,13 +1000,13 @@ Expected: FAIL if `ConfirmationAction.headline` does not already make WIPE disti
 
 - [ ] **Step 5: Run to verify it passes + full app suite**
 
-Run: `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation`
+Run: `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation`
 Expected: `LifecycleAffordanceTests` PASS and the whole app + 724 TCCCKit tests green.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add TCCC_IOS/Chrome/FooterHints.swift TCCC_IOS/Components/ConfirmationBanner.swift TCCC_IOS/App/ConfirmationAction.swift TCCC_IOSTests/LifecycleAffordanceTests.swift
 git commit -m "feat(ui): make WIPE (hold-3s) and new-casualty unmistakably distinct before durability diverges them"
 ```
@@ -1015,8 +1015,8 @@ git commit -m "feat(ui): make WIPE (hold-3s) and new-casualty unmistakably disti
 
 ## Final verification (after all tasks)
 
-- [ ] **TCCCKit suite green:** `cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test` → 724 + new, 0 failures.
-- [ ] **App suite green:** `cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation` → all green.
+- [ ] **TCCCKit suite green:** `cd Packages/TCCCKit && swift test` → 724 + new, 0 failures.
+- [ ] **App suite green:** `xcodegen generate && xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation` → all green.
 - [ ] **Boundary gate (the §② acceptance gate) green:** `FieldRouterBoundaryGateTests` — four rejections + the positive case.
 - [ ] **Invariant intact:** the only `PatientState` writers are `processTranscript` (extraction) and `apply(_:to:)` (typed writes). No LLM generator returns `PatientState`. No networking added.
 - [ ] **Scope honored:** no audio/Granite-Speech, no event log, no durable archive, no workflow engine touched.

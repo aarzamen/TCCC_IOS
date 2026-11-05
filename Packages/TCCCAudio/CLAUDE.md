@@ -255,8 +255,8 @@ Recognized form is correct — keyword recall **6/20 (30%)**, expected because t
    single-shot pattern that crashes on the 5-min fixture per G2.
    Recordings beyond ~30 s will fail at transcribe time.
    Sprint 2/3 work is to wire chunked-encode using the patterns
-   documented in `RECON_NOTES.md`'s sibling
-   `PRIOR_AUDIO_PATTERNS.md` — specifically the 60 s-with-3 s-overlap
+   documented in `docs/history/RECON_NOTES.md`'s sibling
+   `docs/history/PRIOR_AUDIO_PATTERNS.md` — specifically the 60 s-with-3 s-overlap
    shape from Mike's Python prototype at
    `TCCC_FEB_2026/src/audio.py:115-173`.
 2. **Live-recording mailbox leak.** Tap-callback fires ~46 Hz at
@@ -269,7 +269,7 @@ Recognized form is correct — keyword recall **6/20 (30%)**, expected because t
    (post-load baseline 2.16 GB → +2.3 GB live-mic accumulation)
    inside ~30 s of mic capture. The fix is a back-pressured writer
    queue (bounded mailbox, drop-oldest on overflow) — captured in
-   `PRIOR_AUDIO_PATTERNS.md`'s anti-pattern list and slated for
+   `docs/history/PRIOR_AUDIO_PATTERNS.md`'s anti-pattern list and slated for
    Sprint 2's chunked-encode work where the same pipeline is
    rebuilt with explicit back-pressure.
 3. **MemoryMonitorLog.csv not yet wired during recording.** v3 §13
@@ -342,10 +342,10 @@ The three approaches to compare for chunked-encode in Granite Speech 4.0
   works).
 
 **Resumption pointer**: when Sprint 2 starts, the design pass reads
-back from `SPRINT_1_ACCEPTANCE.md` §"Sprint 2 carry-over" +
-`PRIOR_AUDIO_PATTERNS.md` Top Pattern #1 + this blocker section.
+back from `docs/history/SPRINT_1_ACCEPTANCE.md` §"Sprint 2 carry-over" +
+`docs/history/PRIOR_AUDIO_PATTERNS.md` Top Pattern #1 + this blocker section.
 Spawn a research subagent (same shape as the one that produced
-`PRIOR_AUDIO_PATTERNS.md`) to fetch the IBM Granite Speech model card +
+`docs/history/PRIOR_AUDIO_PATTERNS.md`) to fetch the IBM Granite Speech model card +
 any chunked-decode notes from the upstream `mlx-audio-swift` repo
 since v0.1.2 was tagged. The chunk-vs-overlap research is then a
 gated-by-spec activity, not a pure code activity.
@@ -387,16 +387,16 @@ only, not the live default.
 
 ### G4 — Sprint 1 acceptance gate (2026-05-10)
 
-- `SPRINT_1_ACCEPTANCE.md` written at repo root. Walks v3 §13's nine
+- `docs/history/SPRINT_1_ACCEPTANCE.md` (written at the repo root at the time). Walks v3 §13's nine
   criteria with pass / partial / fail markings + evidence per
   criterion.
 - Outcome: **partial Sprint 1 acceptance**. Granite Speech runs
   end-to-end on physical iPhone 17 Pro within the 6 GB entitlement
   cap for short audio (≤ 14 s file fixture, ≤ ~30 s live mic).
   Long-form audio + back-pressured live-mic capture are Sprint 2's
-  primary work, guided by the patterns in `PRIOR_AUDIO_PATTERNS.md`.
+  primary work, guided by the patterns in `docs/history/PRIOR_AUDIO_PATTERNS.md`.
 - Commit tagged `sprint-1-granite-speech-foundation` on push.
-- Sprint 2 carry-over enumerated in `SPRINT_1_ACCEPTANCE.md`
+- Sprint 2 carry-over enumerated in `docs/history/SPRINT_1_ACCEPTANCE.md`
   §"Carry-over to Sprint 2" — chunked-encode, back-pressured writer,
   CSV logger wiring, §6 5-min fixture re-run, hot-seat integration,
   real iCloud-Drive (not in-sandbox) reinstall test.

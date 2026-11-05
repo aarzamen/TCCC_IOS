@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-10
 
-**Repo:** `/Users/ama/.codex/worktrees/f864/TCCC_IOS`
+**Repo:** the repository root
 
 **Audience:** Sprint 2 planning session for the TCCC.ai iOS Granite Speech path.
 
@@ -95,8 +95,8 @@ stay bounded while the model is consuming chunks.
 This pass used four kinds of evidence.
 
 First, I read the three Sprint 1 resumption documents in the required order:
-`SPRINT_1_ACCEPTANCE.md`, `Packages/TCCCAudio/CLAUDE.md`, and
-`PRIOR_AUDIO_PATTERNS.md`.
+`docs/history/SPRINT_1_ACCEPTANCE.md`, `Packages/TCCCAudio/CLAUDE.md`, and
+`docs/history/PRIOR_AUDIO_PATTERNS.md`.
 
 Second, I inspected the current production code that owns Granite transcription and
 live capture:
@@ -119,18 +119,18 @@ as design memory, not copy-paste sources.
 The strongest measured evidence remains Sprint 1's physical iPhone 17 Pro runs.
 | Observation | Sprint 1 value | Source |
 | --- | ---: | --- |
-| Validation device | iPhone 17 Pro, iOS 26.2, UDID `<iPhone 17 Pro UDID>` | `SPRINT_1_ACCEPTANCE.md` |
-| Cold Granite prime | 1.99 s | `SPRINT_1_ACCEPTANCE.md` |
-| Cold-prime footprint delta | +2196.3 MB | `SPRINT_1_ACCEPTANCE.md` |
-| Post-load resident | 2.16 GB | `SPRINT_1_ACCEPTANCE.md` |
-| Available after model load | 3.84 GB | `SPRINT_1_ACCEPTANCE.md` |
-| Effective runtime cap | about 6.0 GB | `SPRINT_1_ACCEPTANCE.md` |
-| 14 s file transcribe time | 5.78 s | `SPRINT_1_ACCEPTANCE.md` |
-| 14 s decode speed | about 2.4 audio-seconds per wall-second | `SPRINT_1_ACCEPTANCE.md` |
-| 14 s peak `phys_footprint` | 2.46 GB | `SPRINT_1_ACCEPTANCE.md` |
-| Warm reprime | 1.04 s, +49 MB | `SPRINT_1_ACCEPTANCE.md` |
-| Long fixture failure | about 100 s fixture jetsam-killed about 3 s into transcribe | `SPRINT_1_ACCEPTANCE.md` |
-| Live capture failure | `phys_footprint` 2.16 GB to 4.46 GB in about 30 s, then jetsam | `SPRINT_1_ACCEPTANCE.md` |
+| Validation device | iPhone 17 Pro, iOS 26.2, UDID `<iPhone 17 Pro UDID>` | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Cold Granite prime | 1.99 s | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Cold-prime footprint delta | +2196.3 MB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Post-load resident | 2.16 GB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Available after model load | 3.84 GB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Effective runtime cap | about 6.0 GB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| 14 s file transcribe time | 5.78 s | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| 14 s decode speed | about 2.4 audio-seconds per wall-second | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| 14 s peak `phys_footprint` | 2.46 GB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Warm reprime | 1.04 s, +49 MB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Long fixture failure | about 100 s fixture jetsam-killed about 3 s into transcribe | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Live capture failure | `phys_footprint` 2.16 GB to 4.46 GB in about 30 s, then jetsam | `docs/history/SPRINT_1_ACCEPTANCE.md` |
 
 These numbers are not a substitute for the Strategy A/B/C sweep. They do establish
 that Granite itself can run under the 6 GB entitlement cap for short audio, and that
@@ -201,7 +201,7 @@ Recommended fixture set:
 Recommended generation path on macOS:
 
 ```bash
-cd /Users/ama/.codex/worktrees/f864/TCCC_IOS
+cd "$(git rev-parse --show-toplevel)"
 mkdir -p .tmp/audio-fixtures
 say -v Alex -o .tmp/audio-fixtures/section6-raw.aiff "$(cat TCCC_IOS/Resources/test_5min.txt)"
 afconvert -f WAVE -d LEF32@16000 -c 1 .tmp/audio-fixtures/section6-raw.aiff .tmp/audio-fixtures/section6-16k.wav
@@ -699,7 +699,7 @@ streaming classes for another ASR model.
 
 ---
 ## 7. Prior-Art Synthesis
-### 7.1 `PRIOR_AUDIO_PATTERNS.md`
+### 7.1 `docs/history/PRIOR_AUDIO_PATTERNS.md`
 
 The existing prior-art document remains the right starting point. It was scoped narrowly
 to ring-buffer and chunking patterns, not to final Granite architecture decisions.
@@ -711,7 +711,7 @@ Its most relevant findings were:
 
 This research extends it by answering the Granite source questions and by separating
 "useful prior design idea" from "safe to lift into this app."
-### 7.2 `/Users/ama/Projects/tccc-ai-feb2026-prototype`
+### 7.2 the TCCC_FEB_2026 Python prototype
 
 This is the most important prior project because it is the Python prototype this Swift
 app is porting.
@@ -726,7 +726,7 @@ backend and memory profile are different. The Sprint 1 Granite crash is direct e
 that 60-second single-call audio is too large for the current iPhone path.
 
 Sprint 2 should copy the pattern class, not the numeric constant.
-### 7.3 `/Users/ama/Projects/flowscribe`
+### 7.3 `~/Projects/flowscribe`
 
 FlowScribe uses a native Swift capture path with a 512-frame tap, resampling to 16 kHz,
 and accumulation to about 80,000 samples before emission. It also has force-flush logic
@@ -737,7 +737,7 @@ The useful idea is a capture segmenter that does not send every tap buffer to AS
 The unsafe parts are familiar: unstructured tasks, no robust back-pressure, possible
 full-buffer growth, Bluetooth/network assumptions, and fallback transcript behavior that
 would be unacceptable in TCCC_IOS.
-### 7.4 `/Users/ama/Projects/_archive/asr-2-flowscribe-snapshot`
+### 7.4 `~/Projects/_archive/asr-2-flowscribe-snapshot`
 
 ASR_2 is very close to the FlowScribe family. It repeats the 512-frame tap, 16 kHz
 resampling, about 80,000-sample batches, and VAD chunking around 512 samples.
@@ -746,7 +746,7 @@ Its most useful detail is Silero-style VAD state: fixed 512-sample chunks at 16 
 small context, and state that must remain ordered. That maps to a future TCCC VAD layer.
 
 It does not answer Granite chunking or MLX state retention.
-### 7.5 `/Users/ama/Projects/_archive/fluidaudio-notes-2025-09`
+### 7.5 `~/Projects/_archive/fluidaudio-notes-2025-09`
 
 This folder is documentation-heavy rather than source-heavy. It is still useful because
 it captures prior debugging conclusions.
@@ -761,7 +761,7 @@ The caution:
 
 The folder does not contain enough FluidAudio Swift source to treat its streaming
 internals as verified.
-### 7.6 `/Users/ama/Projects/simple-swift-scribe`
+### 7.6 `~/Projects/simple-swift-scribe`
 
 This repo is another FlowScribe-era shape. Its current tree has limited live source, but
 history shows the same pattern: native capture, resample, accumulate, then ASR.
@@ -769,7 +769,7 @@ history shows the same pattern: native capture, resample, accumulate, then ASR.
 Its main value is negative evidence. The old fixed 5-second accumulation shape is useful
 as a latency comparison point, but it is not enough for a five-minute TCCC encounter
 unless the pipeline has true back-pressure and chunk stitching.
-### 7.7 `/Users/ama/Projects/q2-edge-chat/handy_Pi`
+### 7.7 `~/Projects/q2-edge-chat/handy_Pi`
 
 The Pi-class project matters because memory is much tighter than on the iPhone 17 Pro.
 
@@ -779,7 +779,7 @@ right final shape for iOS.
 
 The Sprint 2 lesson is that constrained systems need bounded audio ownership, not
 whole-encounter arrays.
-### 7.8 `/Users/ama/Projects/q2-edge-chat/Q2 Edge Chat`
+### 7.8 `~/Projects/q2-edge-chat/Q2 Edge Chat`
 
 This Swift app has the most relevant modern iOS capture math outside TCCC_IOS.
 
@@ -793,7 +793,7 @@ publisher, and the consumer launches more tasks. There is no explicit back-press
 
 Sprint 2 should keep the hardware-aware conversion idea but replace the plumbing with a
 bounded actor-owned stream.
-### 7.9 `/Users/ama/Projects/tccc-ai-jetson`
+### 7.9 `~/Projects/tccc-ai-jetson`
 
 This older Python/Jetson-era TCCC project contains useful chunking and VAD ideas, but
 also integration drift.
@@ -810,7 +810,7 @@ The risky parts:
 - some verification scripts no longer match the real API.
 
 Use it as a design sketch library, not a dependency.
-### 7.10 `/Users/ama/Projects/_archive/tccc-reference-files`
+### 7.10 `~/Projects/_archive/tccc-reference-files`
 
 This older web/TypeScript combat medic app has a WebAudio worklet that emits 4096-sample
 chunks at 16 kHz, roughly 256 ms. It also has an `AudioChunk` structure with timestamp,
@@ -821,14 +821,14 @@ The useful idea is explicit chunk metadata.
 The bad lesson is silent `dropOldest` behavior and duplicated chunk risk on stop. TCCC
 iOS should surface overflow and should never silently pretend the transcript is complete
 if audio was dropped.
-### 7.11 `/Users/ama/Projects/gemini-voice-notes`
+### 7.11 `~/Projects/gemini-voice-notes`
 
 This is browser/API-only prior art. It records a whole browser clip, converts the whole
 blob to base64, and sends it to Gemini.
 
 It is not applicable to offline Granite ingestion. The only transferable idea is UI
 separation between recording state and post-processing state.
-### 7.12 `/Users/ama/Projects/_archive/live-asr-demo`
+### 7.12 `~/Projects/_archive/live-asr-demo`
 
 This is also browser/API-only. Speech recognition comes from the browser Web Speech API.
 Microphone audio is only used for waveform display.

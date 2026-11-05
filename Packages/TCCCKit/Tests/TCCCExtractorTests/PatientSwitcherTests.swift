@@ -1,9 +1,9 @@
 // PatientSwitcherTests
 //
 // Parity tests for `PatientSwitcher` against `_check_new_patient` from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py:530–567. Several assertions here are
+// the TCCC_FEB_2026 Python prototype, `src/state.py:530–567`. Several assertions here are
 // ported from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_negation.py:TestMultiPatientRouting.
+// the TCCC_FEB_2026 Python prototype, `tests/test_state_negation.py`:TestMultiPatientRouting.
 
 import XCTest
 @testable import TCCCExtractor

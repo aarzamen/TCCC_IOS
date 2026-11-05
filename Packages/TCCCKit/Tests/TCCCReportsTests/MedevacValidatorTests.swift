@@ -1,7 +1,7 @@
 // MedevacValidatorTests
 //
 // Mirrors the contract of `validate_medevac_against_state` in
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py (lines 20–92) and its helpers
+// the TCCC_FEB_2026 Python prototype, `src/reports.py` (lines 20–92) and its helpers
 // (_calculate_patient_counts, _infer_classification,
 // _calculate_litter_ambulatory, _determine_special_equipment,
 // _strip_slm_wrapper).

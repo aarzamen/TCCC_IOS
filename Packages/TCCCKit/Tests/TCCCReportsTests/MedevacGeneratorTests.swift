@@ -1,9 +1,9 @@
 // MedevacGeneratorTests
 //
 // Per-line assertions for the 9-Line MEDEVAC fallback. Mirrors the Python
-// fixtures in /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_reports_validation.py and
+// fixtures in the TCCC_FEB_2026 Python prototype, `tests/test_reports_validation.py` and
 // the helper-function semantics from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py.
+// the TCCC_FEB_2026 Python prototype, `src/reports.py`.
 
 import XCTest
 @testable import TCCCReports

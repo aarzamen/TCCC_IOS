@@ -22,10 +22,10 @@
 - **`Codable` strategy:** `EncounterStore`'s encoder/decoder both use `.dateDecodingStrategy`/`.dateEncodingStrategy = .secondsSince1970` so `Intervention.timestamp` round-trips exactly (the restore round-trip test gates this).
 
 **Build / verify commands**
-- TCCCKit (B0, B3): `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit`
+- TCCCKit (B0, B3): `swift test --package-path Packages/TCCCKit`
 - App (B1, B2, B4, B5, B6): regenerate + test on the working destination:
   ```bash
-  cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && \
+  xcodegen generate && \
   xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
     -destination 'platform=iOS Simulator,id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' \
     -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation \
@@ -93,7 +93,7 @@ func testFactlessPatientSwitchReconstructsRowInProjection() async throws {
 
 - [ ] **Step 2: Run RED**
 
-Run: `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit --filter LogEquivalenceTests`
+Run: `swift test --package-path Packages/TCCCKit --filter LogEquivalenceTests`
 Expected: the new test FAILS (no lifecycle event for PATIENT_2; the `contains` assertion fails).
 
 - [ ] **Step 3: Implement**
@@ -149,7 +149,7 @@ case .lifecycle(let p):
 
 - [ ] **Step 4: Run GREEN + full suite**
 
-Run: `--filter LogEquivalenceTests` → all pass. Then `swift test --package-path /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit` → all green (was 752; +1 here). **Confirm the equivalence/scenario tests still pass** — the extra lifecycle events are inert in `project` for state, and `project`'s key-set now matches the imperative dict exactly. If `testEveryFieldWriteMapsToADelta` or scenario equivalence breaks, investigate (it shouldn't — lifecycle events don't carry deltas).
+Run: `--filter LogEquivalenceTests` → all pass. Then `swift test --package-path Packages/TCCCKit` → all green (was 752; +1 here). **Confirm the equivalence/scenario tests still pass** — the extra lifecycle events are inert in `project` for state, and `project`'s key-set now matches the imperative dict exactly. If `testEveryFieldWriteMapsToADelta` or scenario equivalence breaks, investigate (it shouldn't — lifecycle events don't carry deltas).
 
 - [ ] **Step 5: Commit**
 
@@ -247,7 +247,7 @@ App target full run → both new tests pass; existing 72 stay green.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
+xcodegen generate
 git add TCCC_IOS/App/ProtectedWrite.swift TCCC_IOSTests/ProtectedWriteAppendTests.swift TCCC_IOS.xcodeproj/project.pbxproj
 git commit -m "feat(persistence): ProtectedWrite.appendLine — encrypted FileHandle append for JSONL"
 ```
@@ -461,7 +461,7 @@ actor EncounterStore {
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
+xcodegen generate
 git add TCCC_IOS/App/EncounterStore.swift TCCC_IOSTests/EncounterStoreTests.swift TCCC_IOS.xcodeproj/project.pbxproj
 git commit -m "feat(persistence): EncounterStore actor — per-casualty JSONL + manifest + corrupt-tail tolerance"
 ```
@@ -672,7 +672,7 @@ In `GraniteReviewQueue.swift`, persist after a rejection is recorded (reject doe
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
+xcodegen generate
 git add TCCC_IOS/App/AppState.swift TCCC_IOS/Intelligence/GraniteReviewQueue.swift TCCC_IOSTests/LifecyclePersistenceTests.swift TCCC_IOS.xcodeproj/project.pbxproj
 git commit -m "feat(persistence): continuous event persistence after each engine mutation (cursor-guarded)"
 ```
@@ -760,7 +760,7 @@ var body: some Scene {
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
+xcodegen generate
 git add TCCC_IOS/App/AppState.swift TCCC_IOS/TCCC_IOSApp.swift TCCC_IOSTests/LifecyclePersistenceTests.swift TCCC_IOS.xcodeproj/project.pbxproj
 git commit -m "feat(persistence): replay-on-launch — recover in-progress encounter from disk"
 ```
@@ -933,7 +933,7 @@ func testNewAndEndCopyDescribeArchivalNotErasure() {
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
+xcodegen generate
 git add -A
 git commit -m "feat(persistence): PRESERVE (archive) / PURGE (wipe) lifecycle wiring + copy"
 ```

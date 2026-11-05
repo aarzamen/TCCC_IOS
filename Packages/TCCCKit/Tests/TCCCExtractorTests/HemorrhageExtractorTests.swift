@@ -1,7 +1,7 @@
 // HemorrhageExtractorTests
 //
 // Parity tests for `HemorrhageExtractor` against `_extract_hemorrhage` from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py:579–661. Truth values were captured
+// the TCCC_FEB_2026 Python prototype, `src/state.py:579–661`. Truth values were captured
 // by running the Python implementation directly against each input string.
 
 import XCTest

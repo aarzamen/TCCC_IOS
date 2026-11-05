@@ -1,6 +1,6 @@
 # Kokoro Runtime Notes
 
-Checked `/Users/ama/Projects/_reference/kokoro-82m` on 2026-05-07.
+Checked `~/Projects/_reference/kokoro-82m` on 2026-05-07.
 
 ## Local asset state
 
@@ -16,7 +16,7 @@ The README frontmatter declares `license: apache-2.0`, but a real Apache-2.0 lic
 ## Local-clone blocker
 
 The exact blocker is that the available Kokoro artifacts are PyTorch-only:
-`/Users/ama/Projects/_reference/kokoro-82m/kokoro-v1_0.pth` plus `.pt` voice tensors. There is no Core ML, MLX Swift, or Swift/iOS runtime artifact to load. Enabling synthesis requires explicit confirmation of a PyTorch-to-native conversion path, including the model, voices, and text-to-phoneme/G2P path.
+`~/Projects/_reference/kokoro-82m/kokoro-v1_0.pth` plus `.pt` voice tensors. There is no Core ML, MLX Swift, or Swift/iOS runtime artifact to load. Enabling synthesis requires explicit confirmation of a PyTorch-to-native conversion path, including the model, voices, and text-to-phoneme/G2P path.
 
 Per the original Kokoro-only spec, no conversion was attempted before user confirmation.
 
@@ -29,8 +29,8 @@ FluidAudio is already in the app dependency graph and ships Swift/CoreML Kokoro 
 
 The development Mac already has FluidAudio Kokoro assets cached:
 
-- `/Users/ama/.cache/fluidaudio/Models/kokoro` at about 726 MB.
-- `/Users/ama/Library/Caches/fluidaudio/Models/kokoro` at about 620 MB.
+- `~/.cache/fluidaudio/Models/kokoro` at about 726 MB.
+- `~/Library/Caches/fluidaudio/Models/kokoro` at about 620 MB.
 
 This is much lighter than the ChoiceVoice/Qwen3-TTS path, which relies on a Mac-side Tauri/Python sidecar with `mlx-audio` and a 1.7B Qwen model. ChoiceVoice is useful proof that local TTS works on the Mac, but it is not an iPhone drop-in.
 

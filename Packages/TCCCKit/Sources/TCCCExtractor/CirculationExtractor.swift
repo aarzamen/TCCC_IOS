@@ -1,7 +1,7 @@
 // CirculationExtractor
 //
 // Faithful Swift port of `_extract_circulation` from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 730–764), using the
+// the TCCC_FEB_2026 Python prototype, `src/state.py` (lines 730–764), using the
 // `circulation_patterns` table at lines 410–424.
 //
 // Behaviour preserved verbatim from the Python source:

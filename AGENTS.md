@@ -25,9 +25,9 @@ Native SwiftUI port of the TCCC_FEB_2026 Python prototype. Combat-medic document
 
 ## Working home (2026-09-18)
 
-Use `/Users/ama/Projects/tccc-ai-ios` as the single working home for iOS development,
+Use the repository root as the single working home for iOS development,
 planning, builds and tests. The former
-`/Users/ama/Projects/_archive/tccc-project-chatgpt/ios-capture-reliability` path is a
+`~/Projects/_archive/tccc-project-chatgpt/ios-capture-reliability` path is a
 compatibility symlink to this checkout. Its already-merged worktree and ignored
 worker evidence are preserved in the old workspace under
 `preservation/workspace-consolidation-20260918/ios-capture-reliability`.
@@ -44,7 +44,7 @@ specifications and plans remain in `docs/superpowers/`.
 
 ## Source materials
 
-- **Python prototype** (reference, not a dep): `/Users/ama/Projects/tccc-ai-feb2026-prototype`. Authoritative for state extraction + report generation. State engine: `src/state.py`. Reports: `src/reports.py`. Scenario fixtures: `tests/scenarios/*.txt`. Python tests are the correctness contract — copy assertions verbatim into Swift XCTest. The Python `AGENTS.md` describes a v1.1 roadmap (pywebview, sounddevice, SPEC_V1_1.md) that was never implemented — ignore it.
+- **Python prototype** (reference, not a dep): the TCCC_FEB_2026 Python prototype (a private repository, kept outside this one). Authoritative for state extraction + report generation. State engine: `src/state.py`. Reports: `src/reports.py`. Scenario fixtures: `tests/scenarios/*.txt`. Python tests are the correctness contract — copy assertions verbatim into Swift XCTest. The Python `AGENTS.md` describes a v1.1 roadmap (pywebview, sounddevice, SPEC_V1_1.md) that was never implemented — ignore it.
 - **Design brief**: `reference/design_mockup/design_handoff_tccc_ios/README.md`. Open `reference/.../design/TCCC.ai standalone.html` in a desktop browser, navigate the 5 screens with arrow keys. Treat as load-bearing for visual structure and the hard constraints below. Some functionality in the prototype was speculatively assumed (ANT+ sensors, ATAK/MEDHUB, MDM radio kill) — those are aspirational, not blocking.
 - **Port notes**: `reference/python_source_notes.md` (created during Phase 0) — line-by-line map from Python source to Swift port targets.
 
@@ -146,7 +146,7 @@ App layer:
 ## Verifying the build
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
@@ -160,7 +160,7 @@ builds need the flag.
 
 For the package alone (faster iteration):
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit
+cd Packages/TCCCKit
 swift test
 ```
 
@@ -282,14 +282,14 @@ download button + gain slider.
 **Reference docs on disk** (all from sprint research):
   - `reference/rubric/extracted/dd1380_field_inventory.json`
   - `reference/rubric/extracted/march_paws_vocabulary_2026.json`
-  - `RESEARCH_PARAKEET.md` — FluidInference/FluidAudio path
-  - `RESEARCH_LLAMA32B.md` — Llama 3.2 3B does NOT fit on iPhone
+  - `docs/history/RESEARCH_PARAKEET.md` — FluidInference/FluidAudio path
+  - `docs/history/RESEARCH_LLAMA32B.md` — Llama 3.2 3B does NOT fit on iPhone
     17 Pro under MLX; AUP forbids medical/military use
-  - `RESEARCH_LLM_SMALL.md` — LFM2.5-1.2B-Instruct primary,
+  - `docs/history/RESEARCH_LLM_SMALL.md` — LFM2.5-1.2B-Instruct primary,
     Qwen 3 1.7B fallback
-  - `RESEARCH_MGRS.md` + `MGRS_VALIDATION.md`
-  - `RESEARCH_RAM_API.md`
-  - `OVERNIGHT_QUEUE.md`, `NIGHT_PLAN.md` — execution logs
+  - `docs/history/RESEARCH_MGRS.md` + `docs/history/MGRS_VALIDATION.md`
+  - `docs/history/RESEARCH_RAM_API.md`
+  - `docs/history/OVERNIGHT_QUEUE.md`, `docs/history/NIGHT_PLAN.md` — execution logs
 
 `xcodebuild build -scheme TCCC_IOS` is green. **697 TCCCKit
 tests, 0 failures.**
@@ -342,7 +342,7 @@ session.
    stubs throw `.notImplemented`. Bundling MLX-Swift +
    AnyLanguageModel (or LocalLLMClient), a model file, and the
    import affordance is the bulk of this work. Per
-   `RESEARCH_LLM_SMALL.md` recommend LFM2.5 first
+   `docs/history/RESEARCH_LLM_SMALL.md` recommend LFM2.5 first
    (LFM Open License, 660 MB MLX 4-bit, 59.7 tok/s on iPhone
    17 Pro).
 8. **Parakeet on-device verification.** The integration is
@@ -429,12 +429,11 @@ If a future session needs to pick up mid-stream after context
 compaction:
 - `git log --oneline -20` shows commits with descriptive
   subjects (e.g. `feat(asr):`, `fix(audio):`, `feat(ui):`).
-- `OVERNIGHT_QUEUE.md` and `NIGHT_PLAN.md` document the two
+- `docs/history/OVERNIGHT_QUEUE.md` and `docs/history/NIGHT_PLAN.md` document the two
   finished sprints and explicit deferrals.
 - `RESEARCH_*.md` files cover license, performance, and
   integration paths for the alt backends.
-- Memory notes at
-  `/Users/ama/.Codex/projects/-Users-ama-TCCC-IOS/memory/`
+- The operator's local agent memory notes (outside this repository)
   point at this state.
 
 Apple Speech ASR + Apple Foundation Models remain the runtime
@@ -445,5 +444,5 @@ changes until the alt path is field-validated.
 
 <!-- apple-developer-kit:pointer:start -->
 ## Apple signing — read `APPLE_DEVELOPER_WARNING.md` first
-Team ID is `XM6E4PUXTU` (paid membership; `434HG698U6` is a certificate ID, not a team). Do not change signing, certificates, profiles, App IDs, or run `-allowProvisioningUpdates` without the user's explicit OK. Canonical facts: `~/apple-developer-kit/APPLE_DEVELOPER_ACCOUNT.md`.
+The development team ID is not in git: it lives in the untracked `Config/Signing.local.xcconfig` (copy `Config/Signing.local.xcconfig.example`), pulled in by the tracked, identity-free `Config/Signing.xcconfig`. The 10-character ID inside an "Apple Development: Name (…)" certificate name is a certificate user ID, never a team. Do not change signing, certificates, profiles, App IDs, or run `-allowProvisioningUpdates` without the user's explicit OK. Canonical facts: `~/apple-developer-kit/APPLE_DEVELOPER_ACCOUNT.md` (local, outside this repository).
 <!-- apple-developer-kit:pointer:end -->

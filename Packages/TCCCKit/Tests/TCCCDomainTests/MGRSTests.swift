@@ -2,7 +2,7 @@
 //
 // Unit tests for the in-house MGRS encoder. Reference fixtures generated
 // via Python's `hobuinc/mgrs` (NGA GeoTrans wrapper) — see
-// `MGRS_VALIDATION.md` at repo root for methodology and the full diff
+// `docs/history/MGRS_VALIDATION.md` for methodology and the full diff
 // table. All fixtures here assert FULL 15-character MGRS strings at
 // 1m precision: zone(2)+band(1)+square(2)+easting(5)+northing(5).
 //
@@ -144,7 +144,7 @@ final class MGRSTests: XCTestCase {
     }
 
     func testNorway32VBergenExact() {
-        // 60.0N 5.0E from RESEARCH_MGRS.md fixtures list.
+        // 60.0N 5.0E from docs/history/RESEARCH_MGRS.md fixtures list.
         let m = MGRS.from(latitude: 60.0, longitude: 5.0)
         XCTAssertEqual(m, "32VKM7697958157")
     }

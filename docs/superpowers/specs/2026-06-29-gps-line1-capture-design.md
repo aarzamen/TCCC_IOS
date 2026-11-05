@@ -97,7 +97,7 @@ the MEDEVAC Line 1 MGRS grid. Location stays on this device unless the operator
 manually exports the casualty record."
 ```
 
-No new entitlement, no background mode, signing untouched (team `XM6E4PUXTU`,
+No new entitlement, no background mode, signing untouched (team unchanged,
 automatic). The optional `NSLocationTemporaryUsageDescriptionDictionary` is
 **not** added: reduced accuracy still yields a usable lat/lon, and MGRS encodes
 it fine (only loses digit precision), so temporary-full-accuracy is unnecessary

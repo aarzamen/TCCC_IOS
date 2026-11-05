@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the existing casualty-management shell intact behind a root route selected from `SplashView`. DevTools owns a small sender/receiver navigation surface; sender state lives in `SenderViewModel`, ambient capture lives in `AmbientMeter`, playback visualization reads real audio levels only, and `KokoroEngine` is the sole TTS boundary.
 
-**Tech Stack:** SwiftUI, Observation, AVFoundation, existing TCCC palette/type/layout tokens, local Kokoro-82M assets at `/Users/ama/Projects/_reference/kokoro-82m`.
+**Tech Stack:** SwiftUI, Observation, AVFoundation, existing TCCC palette/type/layout tokens, local Kokoro-82M assets at `~/Projects/_reference/kokoro-82m`.
 
 ---
 
@@ -63,8 +63,8 @@ Expected: `** BUILD SUCCEEDED **`.
 Confirm these local files exist:
 
 ```bash
-ls -lh /Users/ama/Projects/_reference/kokoro-82m/kokoro-v1_0.pth
-find /Users/ama/Projects/_reference/kokoro-82m/voices -maxdepth 1 -type f -name '*.pt'
+ls -lh ~/Projects/_reference/kokoro-82m/kokoro-v1_0.pth
+find ~/Projects/_reference/kokoro-82m/voices -maxdepth 1 -type f -name '*.pt'
 ```
 
 Expected: `kokoro-v1_0.pth` is present and `af_heart.pt` is among the voicepacks.

@@ -18,18 +18,18 @@ problem and surfaces the patterns most directly transferable.
 
 | Repo | Relevance | One-line |
 |---|---|---|
-| `/Users/ama/Projects/tccc-ai-feb2026-prototype` | **HIGH** | Python prototype — has the exact `chunks(chunk_duration_sec, overlap_sec)` generator + `transcribe_chunk(audio, offset_sec)` pattern this iOS port is meant to mirror. Authoritative reference. |
-| `/Users/ama/Projects/flowscribe` | **HIGH** | Native iOS, Parakeet via FluidAudio, AVAudioEngine tap → 80 000-sample (5 s) chunk emit + force-flush ceiling at 32 000 samples. Closest iOS analogue. |
-| `/Users/ama/Projects/_archive/asr-2-flowscribe-snapshot/FlowScribe` | duplicate | Older fork of FlowScribe, same files, no new patterns. |
-| `/Users/ama/Projects/q2-edge-chat/Q2 Edge Chat` | **MED** | Native iOS, `actor AudioCaptureService` with explicit hardware→16 kHz frame-count math, `bufferSize: AVAudioFrameCount = 4096` (256 ms @ 16 kHz). |
-| `/Users/ama/Projects/tccc-ai-ios` (current) | self | Already has `ParakeetTranscriptStream.ringBuffer: [AVAudioPCMBuffer]` lead-in pattern with frame-counted eviction (`Audio/ParakeetTranscriptStream.swift:541-548`). Producer side is solved. |
-| `/Users/ama/Projects/simple-swift-scribe` | none | LLM-only project, no audio code. |
-| `/Users/ama/Projects/q2-edge-chat/handy_Pi` | none | React/web project, no Swift. |
-| `/Users/ama/Projects/gemini-voice-notes` | none | TypeScript-only. |
-| `/Users/ama/Projects/_archive/live-asr-demo` | none | TypeScript demo, no native audio. |
-| `/Users/ama/Projects/_archive/tccc-reference-files` | none | No Swift audio code. |
-| `/Users/ama/Projects/tccc-ai-jetson` | none | No Swift audio code. |
-| `/Users/ama/Projects/_archive/fluidaudio-notes-2025-09` | none | Just `.rtf` reference docs + the silero tar — no source. |
+| the TCCC_FEB_2026 Python prototype | **HIGH** | Python prototype — has the exact `chunks(chunk_duration_sec, overlap_sec)` generator + `transcribe_chunk(audio, offset_sec)` pattern this iOS port is meant to mirror. Authoritative reference. |
+| `~/Projects/flowscribe` | **HIGH** | Native iOS, Parakeet via FluidAudio, AVAudioEngine tap → 80 000-sample (5 s) chunk emit + force-flush ceiling at 32 000 samples. Closest iOS analogue. |
+| `~/Projects/_archive/asr-2-flowscribe-snapshot/FlowScribe` | duplicate | Older fork of FlowScribe, same files, no new patterns. |
+| `~/Projects/q2-edge-chat/Q2 Edge Chat` | **MED** | Native iOS, `actor AudioCaptureService` with explicit hardware→16 kHz frame-count math, `bufferSize: AVAudioFrameCount = 4096` (256 ms @ 16 kHz). |
+| the repository root (current) | self | Already has `ParakeetTranscriptStream.ringBuffer: [AVAudioPCMBuffer]` lead-in pattern with frame-counted eviction (`Audio/ParakeetTranscriptStream.swift:541-548`). Producer side is solved. |
+| `~/Projects/simple-swift-scribe` | none | LLM-only project, no audio code. |
+| `~/Projects/q2-edge-chat/handy_Pi` | none | React/web project, no Swift. |
+| `~/Projects/gemini-voice-notes` | none | TypeScript-only. |
+| `~/Projects/_archive/live-asr-demo` | none | TypeScript demo, no native audio. |
+| `~/Projects/_archive/tccc-reference-files` | none | No Swift audio code. |
+| `~/Projects/tccc-ai-jetson` | none | No Swift audio code. |
+| `~/Projects/_archive/fluidaudio-notes-2025-09` | none | Just `.rtf` reference docs + the silero tar — no source. |
 
 No prior repo had the literal name `RingBuffer` / `CircularBuffer` /
 `TPCircularBuffer`, no prior `AsyncStream<...Buffer>` wrappers, and no

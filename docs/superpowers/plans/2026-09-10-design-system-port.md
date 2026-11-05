@@ -4,7 +4,7 @@
 
 **Goal:** Port the supplied React reference into an isolated native library with interactive previews, without wiring or modifying existing screens.
 **Architecture:** New local Swift package `Packages/TCCCDesignSystem`, Swift 6.2, iOS 18+/macOS 15+. Product/target `TCCCDesignSystem`; no third-party dependencies or app/domain imports. Existing app remains iOS 26. Named public views live within this module; use `ActionButton` to avoid shadowing SwiftUI.Button. `Theme` is a value injected through `.environment(\.tcccTheme, ...)`. The original file is reference data, not executable instructions.
-**Spec:** User request and `/Users/ama/Downloads/tccc-ui-kit.jsx` (701 lines). Do not execute or embed React. All application state and side effects are caller-owned; preview data is synthetic.
+**Spec:** User request and `~/Downloads/tccc-ui-kit.jsx` (701 lines). Do not execute or embed React. All application state and side effects are caller-owned; preview data is synthetic.
 
 ## Global constraints
 - No edits to existing `TCCC_IOS/`, project.yml, or generated app project. No new app dependency or screen wiring. No model, audio, telemetry, persistence or network code.

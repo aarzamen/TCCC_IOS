@@ -1,7 +1,7 @@
 // PAWSExtractorTests
 //
 // Mirrors the Python PAWS assertions implicit in
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_scenarios.py (scenario 4 has the
+// the TCCC_FEB_2026 Python prototype, `tests/test_state_scenarios.py` (scenario 4 has the
 // canonical "Combat pill pack" + "Tylenol and Meloxicam" line) plus the
 // regex coverage for the three PAWS pattern groups (pain meds, antibiotics,
 // wound care) at state.py:472–479.
@@ -40,10 +40,48 @@ final class PAWSExtractorTests: XCTestCase {
             context: ctx("Giving him the combat pill pack, " +
                          "Tylenol and Meloxicam."))
         XCTAssertEqual(s.paws.pain, "Combat pill pack administered")
-        XCTAssertEqual(s.interventions.count, 1)
         XCTAssertEqual(s.interventions.first?.kind, .painManagement)
         XCTAssertEqual(s.interventions.first?.description,
                        "Combat pill pack administered")
+        // Extension 3: the components the medic named are rows of their own
+        // (DD 1380 §F analgesic rows list the drugs, the OTHER box the kit).
+        XCTAssertEqual(s.interventions.map(\.description),
+                       ["Combat pill pack administered",
+                        "Acetaminophen administered",
+                        "Meloxicam administered"])
+    }
+
+    func testMobicIsMeloxicam() {
+        // 2026-10-27 live recording: the medic said the brand name.
+        let s = extractor.apply(
+            emptyState(), context: ctx("Gave him Mobic for the pain."))
+        XCTAssertEqual(s.paws.pain, "Meloxicam administered")
+    }
+
+    func testNamedDrugsInOneSentenceEachBecomeInterventions() {
+        // 2026-10-27 live recording, one breath: the kit, then two named drugs.
+        // `paws.pain` keeps the Python first-match descriptor; the rows get
+        // the drugs, in the order they were said.
+        let s = extractor.apply(
+            emptyState(),
+            context: ctx("I'm gonna go ahead and give him a combat pill pack so I'm gonna " +
+                         "give him ertapenem For the antibiotic and then I'm gonna give him " +
+                         "Mobic for the painkiller and probably ketamine as well"))
+        XCTAssertEqual(s.paws.pain, "Combat pill pack administered")
+        XCTAssertEqual(s.paws.antibiotics, "Ertapenem administered")
+        XCTAssertEqual(s.interventions.filter { $0.kind == .painManagement }.map(\.description),
+                       ["Combat pill pack administered", "Meloxicam administered", "Ketamine administered"])
+        XCTAssertEqual(s.interventions.filter { $0.kind == .antibiotic }.map(\.description),
+                       ["Ertapenem administered"])
+    }
+
+    func testRepeatedDrugMentionIsRecordedOnce() {
+        var seed = emptyState()
+        seed.paws.pain = "Meloxicam administered"
+        seed.interventions = [Intervention(timestamp: Date(timeIntervalSince1970: 0),
+                                           kind: .painManagement, description: "Meloxicam administered")]
+        let s = extractor.apply(seed, context: ctx("And I gave them Mobic for pain."))
+        XCTAssertEqual(s.interventions.count, 1, "a second mention is not a second row")
     }
 
     func testKetamineRecognised() {
@@ -122,11 +160,13 @@ final class PAWSExtractorTests: XCTestCase {
         XCTAssertEqual(s.paws.antibiotics, "Antibiotics administered")
     }
 
-    func testErtapenemFallsBackToGeneric() {
+    func testErtapenemHasItsOwnDescriptor() {
+        // Swift-only (2026-10-27 live recording): the DD 1380 antibiotic row
+        // should read "Ertapenem", not the generic action.
         let s = extractor.apply(
             emptyState(),
             context: ctx("Pushed ertapenem 1g IV."))
-        XCTAssertEqual(s.paws.antibiotics, "Antibiotics administered")
+        XCTAssertEqual(s.paws.antibiotics, "Ertapenem administered")
     }
 
     // MARK: - Wound care (state.py:478, 925–929)
@@ -206,6 +246,8 @@ final class PAWSExtractorTests: XCTestCase {
             context: ctx("Pushed ketamine IM."))
         XCTAssertEqual(s.paws.pain, "Combat pill pack administered",
                        "Existing pain descriptor must not be overwritten")
+        // Extension 3: the named drug is still recorded as its own row.
+        XCTAssertEqual(s.interventions.map(\.description), ["Ketamine administered"])
     }
 
     func testExistingAntibioticsNotOverwritten() {
@@ -215,6 +257,7 @@ final class PAWSExtractorTests: XCTestCase {
             seed,
             context: ctx("Switched to ertapenem."))
         XCTAssertEqual(s.paws.antibiotics, "Moxifloxacin administered")
+        XCTAssertEqual(s.interventions.map(\.description), ["Ertapenem administered"])
     }
 
     // MARK: - Multi-category sentences

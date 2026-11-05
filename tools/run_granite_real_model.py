@@ -113,9 +113,10 @@ def require_model_dir() -> Path:
 
 
 def results_root() -> Path:
+    # Default: <repo>/artifacts/granite-runs (ignored by git), derived from this file.
     raw = os.environ.get(
         "TCCC_REAL_MODEL_RESULTS_DIR",
-        "/Users/ama/.codex/worktrees/b727/TCCC_IOS/artifacts/granite-runs",
+        str(Path(__file__).resolve().parents[1] / "artifacts" / "granite-runs"),
     )
     return Path(raw).expanduser()
 

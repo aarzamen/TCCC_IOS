@@ -1,7 +1,7 @@
 // NegationDetector
 //
 // Faithful Swift port of `has_negated_finding` and the `NEGATION_PREFIXES`
-// table from /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 11–35).
+// table from the TCCC_FEB_2026 Python prototype, `src/state.py` (lines 11–35).
 //
 // The Python implementation:
 //
