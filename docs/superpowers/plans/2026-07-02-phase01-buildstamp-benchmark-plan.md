@@ -14,10 +14,10 @@
 - **Never hand-edit `TCCC_IOS.xcodeproj`** — edit `project.yml`, then run `xcodegen generate`.
 - **No logic in the app target** beyond views/plumbing — scorers live in TCCCKit (`TCCCBench`); the runner/mapper are DevTools plumbing (precedent: `GraniteAudioBenchmarkRunner`).
 - **RF Ghost:** no network calls anywhere in this plan. `requiresOnDeviceRecognition = true` stays mandatory.
-- CLI builds need `-skipMacroValidation`. Package tests: `cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test`.
+- CLI builds need `-skipMacroValidation`. Package tests: `cd Packages/TCCCKit && swift test`.
 - Commit messages: `feat(...)`/`fix(...)`/`docs(...)` style, ending with:
   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>` (plus the session trailer used earlier in this sprint).
-- Working directory for all commands: `/Users/ama/Projects/tccc-ai-ios` unless stated.
+- Working directory for all commands: the repository root unless stated.
 
 ## File Structure (locked by this plan)
 
@@ -178,7 +178,7 @@ final class BuildStampTests: XCTestCase {
 - [ ] **Step 5: Regenerate + build + run app tests**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
+xcodegen generate
 xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation \
@@ -321,7 +321,7 @@ final class TokenNormalizerTests: XCTestCase {
 - [ ] **Step 3: Run to verify failure**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test --filter TCCCBenchTests 2>&1 | tail -5
+cd Packages/TCCCKit && swift test --filter TCCCBenchTests 2>&1 | tail -5
 ```
 Expected: compile error — `TokenNormalizer` not found.
 
@@ -413,14 +413,14 @@ public enum TokenNormalizer {
 - [ ] **Step 5: Run tests to verify pass**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test --filter TokenNormalizerTests 2>&1 | tail -3
+cd Packages/TCCCKit && swift test --filter TokenNormalizerTests 2>&1 | tail -3
 ```
 Expected: `Test Suite 'TokenNormalizerTests' passed` (6 tests). Note: `testExtraFoldsMergeRuns` expects `"one"` → `"1"` — that comes from step 2's number folding, not the fold list.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add Packages/TCCCKit/Package.swift Packages/TCCCKit/Sources/TCCCBench/ Packages/TCCCKit/Tests/TCCCBenchTests/
 git commit -m "feat(bench): TCCCBench module + deterministic TokenNormalizer (TDD)"
 ```
@@ -483,7 +483,7 @@ final class WERScorerTests: XCTestCase {
 - [ ] **Step 2: Run to verify failure**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test --filter WERScorerTests 2>&1 | tail -3
+cd Packages/TCCCKit && swift test --filter WERScorerTests 2>&1 | tail -3
 ```
 Expected: compile error — `WERScorer` not found.
 
@@ -556,14 +556,14 @@ public enum WERScorer {
 - [ ] **Step 4: Run tests to verify pass**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test --filter WERScorerTests 2>&1 | tail -3
+cd Packages/TCCCKit && swift test --filter WERScorerTests 2>&1 | tail -3
 ```
 Expected: 5 tests pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add Packages/TCCCKit/Sources/TCCCBench/WERScorer.swift Packages/TCCCKit/Tests/TCCCBenchTests/WERScorerTests.swift
 git commit -m "feat(bench): WERScorer — Levenshtein alignment with S/I/D backtrace (TDD)"
 ```
@@ -630,7 +630,7 @@ final class ScorerTests: XCTestCase {
 - [ ] **Step 2: Run to verify failure**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test --filter ScorerTests 2>&1 | tail -3
+cd Packages/TCCCKit && swift test --filter ScorerTests 2>&1 | tail -3
 ```
 Expected: compile error.
 
@@ -758,14 +758,14 @@ public enum ExtractionScorer {
 - [ ] **Step 4: Run the full TCCCBench suite**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test --filter TCCCBenchTests 2>&1 | tail -3
+cd Packages/TCCCKit && swift test --filter TCCCBenchTests 2>&1 | tail -3
 ```
 Expected: all TokenNormalizer + WERScorer + Scorer tests pass (14 total).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 git add Packages/TCCCKit/Sources/TCCCBench/ Packages/TCCCKit/Tests/TCCCBenchTests/ScorerTests.swift
 git commit -m "feat(bench): KeywordRecallScorer + ExtractionScorer (TDD)"
 ```
@@ -818,7 +818,7 @@ Pickup site is secure, no enemy in the area. Marking with green smoke. Casualty 
 - [ ] **Step 3: Verify xcodegen bundles them as resources**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate && \
+xcodegen generate && \
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO -skipMacroValidation | tail -2 && \
@@ -887,7 +887,7 @@ At `:328-331` (inside `handleFinalResult`) replace the identical four lines with
 - [ ] **Step 3: Build + run existing app tests (regression gate)**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
+xcodegen generate
 xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation 2>&1 | tail -3
@@ -1344,7 +1344,7 @@ final class BenchStateMapperTests: XCTestCase {
 - [ ] **Step 8: Regenerate, build, run tests**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
+xcodegen generate
 xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -configuration Debug CODE_SIGNING_ALLOWED=NO -skipMacroValidation 2>&1 | tail -3
@@ -1366,13 +1366,13 @@ git commit -m "feat(bench): transcription benchmark runner — file-ingestion Ap
 - Create: `docs/research/<run-date>-transcription-baseline.md` (use the actual date, e.g. `2026-07-02-transcription-baseline.md`)
 
 **Interfaces:**
-- Consumes: everything above, plus the fixture audio at `/Users/ama/Desktop/recent tccc.ai media/Valdez Alley.m4a`.
+- Consumes: everything above, plus the fixture audio at `~/Desktop/recent tccc.ai media/Valdez Alley.m4a`.
 - Produces: the sprint's baseline numbers. **Phase 2/3 A/Bs are meaningless without this — do not skip.**
 
 - [ ] **Step 1: Build + install on the iPhone 17 Pro**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination 'generic/platform=iOS' \
   -configuration Debug -skipMacroValidation -allowProvisioningUpdates \
   -derivedDataPath /tmp/tccc-device-dd build | tail -2
@@ -1387,7 +1387,7 @@ Expected: `** BUILD SUCCEEDED **`, install completes ("No provider" warnings are
 ```bash
 xcrun devicectl device copy to --device "$DEV" \
   --domain-type appDataContainer --domain-identifier com.aarzamen.TCCCai \
-  --source "/Users/ama/Desktop/recent tccc.ai media/Valdez Alley.m4a" \
+  --source "$HOME/Desktop/recent tccc.ai media/Valdez Alley.m4a" \
   --destination Documents/TranscriptionBenchmark/fixtures/"Valdez Alley.m4a"
 ```
 If the destination directory doesn't exist yet, launch the app once with the benchmark arg (step 3) — it creates the tree — then re-copy and relaunch.
@@ -1419,7 +1419,7 @@ Expected: one summary line for `valdez_alley` with WER/keywords/extraction/laten
    facing the Mac, 50 cm from the MacBook speakers. Mac volume 60%.
 2. Launch the app normally (no benchmark arg). Start capture on Live
    Capture. Play "Valdez Alley.m4a" on the Mac
-   (`afplay "/Users/ama/Desktop/recent tccc.ai media/Valdez Alley.m4a"`).
+   (`afplay "$HOME/Desktop/recent tccc.ai media/Valdez Alley.m4a"`).
 3. Stop capture ≥10 s after playback ends. Export/pull the transcript;
    score with the same reference via the file-mode scorer pathway.
 4. Three runs per configuration arm; report per-run WER and the median.
@@ -1429,8 +1429,8 @@ Expected: one summary line for `valdez_alley` with WER/keywords/extraction/laten
 - [ ] **Step 6: Commit + phase gate**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test 2>&1 | tail -2   # full TCCCKit suite green
-cd /Users/ama/Projects/tccc-ai-ios
+cd Packages/TCCCKit && swift test 2>&1 | tail -2   # full TCCCKit suite green
+cd "$(git rev-parse --show-toplevel)"
 git add docs/research/
 git commit -m "docs(bench): Apple Speech baseline on Valdez Alley fixture (file mode) + acoustic replay procedure"
 ```

@@ -1,7 +1,7 @@
 // ClassificationExtractor
 //
 // Faithful Swift port of `_extract_classification` AND `infer_classification`
-// from /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py:
+// from the TCCC_FEB_2026 Python prototype, `src/state.py`:
 //
 //   - `_extract_classification`  : lines 822–855
 //   - `infer_classification`     : lines 931–1028

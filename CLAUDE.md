@@ -28,7 +28,8 @@ offline. Voice intake → on-device ASR → deterministic state extraction
 
 ## Source materials
 
-- **Python prototype** (reference, not a dep): `/Users/ama/Projects/tccc-ai-feb2026-prototype`.
+- **Python prototype** (reference, not a dep): the TCCC_FEB_2026 Python prototype
+  (a private repository, kept outside this one).
   Authoritative for state extraction + report generation (`src/state.py`,
   `src/reports.py`, `tests/scenarios/*.txt`). Python tests are the
   correctness contract — copy assertions verbatim into Swift XCTest. Its
@@ -158,13 +159,13 @@ simulator.
 
 ```bash
 # regenerate the project + build for simulator
-cd /Users/ama/Projects/tccc-ai-ios && xcodegen generate
+xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO -skipMacroValidation
 
 # package logic tests in isolation (fast, no simulator)
-cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit && swift test
+cd Packages/TCCCKit && swift test
 ```
 
 `-skipMacroValidation` is **required** for CLI builds: `huggingface/AnyLanguageModel`
@@ -311,8 +312,8 @@ Priority order; each item is roughly its own session.
 
 `git log --oneline -20` (descriptive `feat(...)`/`fix(...)` subjects),
 `docs/superpowers/{specs,plans}/`, the `RESEARCH_*.md` files (alt-backend
-license/perf/integration), and memory notes at
-`/Users/ama/.claude/projects/-Users-ama-TCCC-IOS/memory/` carry the state.
+license/perf/integration), and the operator's
+local agent memory notes (outside this repository) carry the state.
 
 <!-- apple-developer-kit:pointer:start -->
 ## Apple signing — read `APPLE_DEVELOPER_WARNING.md` first

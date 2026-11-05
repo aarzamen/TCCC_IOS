@@ -70,7 +70,7 @@ Same `project.yml`, in the `targets.TCCC_IOS.dependencies` block (find with `gre
 - [ ] **Step 3: Regenerate + resolve**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -resolvePackageDependencies 2>&1 | tail -10
 ```
@@ -260,7 +260,7 @@ Same pattern. Model id: `mlx-community/Qwen3-1.7B-4bit`. Display name: `"Qwen 3 
 - [ ] **Step 6: Build + 724 tests still pass**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 swift test --package-path Packages/TCCCKit 2>&1 | tail -5
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
@@ -390,7 +390,7 @@ If the user later wants a hard "are you sure?" modal, that's a one-line addition
 - [ ] **Step 5: Build + manual sim verify**
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
@@ -418,7 +418,7 @@ git commit -m "feat(slm): Settings download affordance for LFM2 + Qwen weights"
 - [ ] **Step 1: Build for device**
 
 ```bash
-xcodebuild -project /Users/ama/Projects/tccc-ai-ios/TCCC_IOS.xcodeproj -scheme TCCC_IOS \
+xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination "platform=iOS,id=$DEVICE_ID" \
   -configuration Debug \
   -derivedDataPath /tmp/TCCC_IOS-device-build build 2>&1 | tail -10

@@ -1,7 +1,7 @@
 // RespirationExtractor
 //
 // Faithful Swift port of `_extract_respiration` from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 683–728), together with the
+// the TCCC_FEB_2026 Python prototype, `src/state.py` (lines 683–728), together with the
 // `respiration_patterns` table at lines 398–408.
 //
 // Behaviour preserved verbatim from the Python source:

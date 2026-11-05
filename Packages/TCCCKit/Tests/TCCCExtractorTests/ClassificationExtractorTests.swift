@@ -1,7 +1,7 @@
 // ClassificationExtractorTests
 //
 // Mirrors the Python classification assertions from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_negation.py (TestClassificationNegation)
+// the TCCC_FEB_2026 Python prototype, `tests/test_state_negation.py` (TestClassificationNegation)
 // and tests/test_state_scenarios.py (the four scenario classification cases).
 //
 // Covers both code paths inside ClassificationExtractor:

@@ -25,9 +25,9 @@ Native SwiftUI port of the TCCC_FEB_2026 Python prototype. Combat-medic document
 
 ## Working home (2026-09-18)
 
-Use `/Users/ama/Projects/tccc-ai-ios` as the single working home for iOS development,
+Use the repository root as the single working home for iOS development,
 planning, builds and tests. The former
-`/Users/ama/Projects/_archive/tccc-project-chatgpt/ios-capture-reliability` path is a
+`~/Projects/_archive/tccc-project-chatgpt/ios-capture-reliability` path is a
 compatibility symlink to this checkout. Its already-merged worktree and ignored
 worker evidence are preserved in the old workspace under
 `preservation/workspace-consolidation-20260918/ios-capture-reliability`.
@@ -44,7 +44,7 @@ specifications and plans remain in `docs/superpowers/`.
 
 ## Source materials
 
-- **Python prototype** (reference, not a dep): `/Users/ama/Projects/tccc-ai-feb2026-prototype`. Authoritative for state extraction + report generation. State engine: `src/state.py`. Reports: `src/reports.py`. Scenario fixtures: `tests/scenarios/*.txt`. Python tests are the correctness contract — copy assertions verbatim into Swift XCTest. The Python `AGENTS.md` describes a v1.1 roadmap (pywebview, sounddevice, SPEC_V1_1.md) that was never implemented — ignore it.
+- **Python prototype** (reference, not a dep): the TCCC_FEB_2026 Python prototype (a private repository, kept outside this one). Authoritative for state extraction + report generation. State engine: `src/state.py`. Reports: `src/reports.py`. Scenario fixtures: `tests/scenarios/*.txt`. Python tests are the correctness contract — copy assertions verbatim into Swift XCTest. The Python `AGENTS.md` describes a v1.1 roadmap (pywebview, sounddevice, SPEC_V1_1.md) that was never implemented — ignore it.
 - **Design brief**: `reference/design_mockup/design_handoff_tccc_ios/README.md`. Open `reference/.../design/TCCC.ai standalone.html` in a desktop browser, navigate the 5 screens with arrow keys. Treat as load-bearing for visual structure and the hard constraints below. Some functionality in the prototype was speculatively assumed (ANT+ sensors, ATAK/MEDHUB, MDM radio kill) — those are aspirational, not blocking.
 - **Port notes**: `reference/python_source_notes.md` (created during Phase 0) — line-by-line map from Python source to Swift port targets.
 
@@ -146,7 +146,7 @@ App layer:
 ## Verifying the build
 
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios
+cd "$(git rev-parse --show-toplevel)"
 xcodegen generate
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
@@ -160,7 +160,7 @@ builds need the flag.
 
 For the package alone (faster iteration):
 ```bash
-cd /Users/ama/Projects/tccc-ai-ios/Packages/TCCCKit
+cd Packages/TCCCKit
 swift test
 ```
 
@@ -433,8 +433,7 @@ compaction:
   finished sprints and explicit deferrals.
 - `RESEARCH_*.md` files cover license, performance, and
   integration paths for the alt backends.
-- Memory notes at
-  `/Users/ama/.Codex/projects/-Users-ama-TCCC-IOS/memory/`
+- The operator's local agent memory notes (outside this repository)
   point at this state.
 
 Apple Speech ASR + Apple Foundation Models remain the runtime

@@ -1,7 +1,7 @@
 # TCCC_IOS — Granite Speech Foundation Sprint Spec (v3, Sprint 1)
 
 **Sprint owner:** Mike (LCDR, NMCB-4 Battalion Surgeon)
-**Repo root:** `/Users/ama/Projects/tccc-ai-ios` (private GitHub)
+**Repo root:** the repository root (private GitHub)
 **Target device:** physical iPhone 17 Pro (iOS 26)
 **Working branch:** `main` (single trunk; no feature branches; no Lane B)
 **Sprint scope:** Granite Speech transcribes on physical iPhone with sane memory. **Hot-seat integration is Sprint 2.**
@@ -125,7 +125,7 @@ If the agent finds itself writing any of the above, halt and reconcile against t
    ```
 6. Run the build:
    ```bash
-   cd /Users/ama/Projects/tccc-ai-ios
+   cd "$(git rev-parse --show-toplevel)"
    xcodegen generate
    xcodebuild -project TCCC_IOS.xcodeproj \
      -scheme TCCC_IOS \
@@ -521,4 +521,4 @@ Single trunk on `main`. End every phase with `git push origin main`.
 
 ---
 
-*End of v3 (Sprint 1) spec. Hand to one Claude Code instance in `/Users/ama/Projects/tccc-ai-ios`. Single trunk. G0–G4 in order. Sprint 2 spec is written when Sprint 1 lands.*
+*End of v3 (Sprint 1) spec. Hand to one Claude Code instance in the repository root. Single trunk. G0–G4 in order. Sprint 2 spec is written when Sprint 1 lands.*

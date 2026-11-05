@@ -1,7 +1,7 @@
 // HemorrhageExtractor
 //
 // Faithful Swift port of `_extract_hemorrhage` from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 579–661) — the M of MARCH.
+// the TCCC_FEB_2026 Python prototype, `src/state.py` (lines 579–661) — the M of MARCH.
 //
 // Source-of-truth Python pattern definitions live around lines 361–387 inside
 // `_compile_patterns`. The extractor mirrors the same dispatch:

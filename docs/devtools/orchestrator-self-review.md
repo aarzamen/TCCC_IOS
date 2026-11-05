@@ -20,7 +20,7 @@
   Fix: integrated `DevToolsRootView` with a real `.sender` route and passed `onOpenSender` into `DevToolsLandingView`.
 - Issue: the first integrated build exposed SwiftUI `frame` argument ordering in new card views.
   Fix: reordered `minHeight` before `maxHeight` in the affected cards and rebuilt.
-- Issue: acceptance criteria originally required native Kokoro playback, but the local `/Users/ama/Projects/_reference/kokoro-82m` clone is PyTorch-only and ChoiceVoice/Qwen is too memory-heavy for the phone path.
+- Issue: acceptance criteria originally required native Kokoro playback, but the local `~/Projects/_reference/kokoro-82m` clone is PyTorch-only and ChoiceVoice/Qwen is too memory-heavy for the phone path.
   Fix: after user approval to use any compatible TTS engine, wired FluidAudio Kokoro CoreML as the preferred renderer and kept iOS speech as a real-audio fallback. Both paths preserve the metered playback pipeline.
 - Issue: the original spec requested simulator validation, but the user later assigned Codex to the plugged-in iPhone 15.
   Fix: used `Default15` / `<iPhone 15 Pro UDID>` for the integrated device build and left the iPhone 17 identifiers alone.

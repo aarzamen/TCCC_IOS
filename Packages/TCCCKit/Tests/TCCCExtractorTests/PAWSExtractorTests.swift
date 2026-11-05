@@ -1,7 +1,7 @@
 // PAWSExtractorTests
 //
 // Mirrors the Python PAWS assertions implicit in
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_scenarios.py (scenario 4 has the
+// the TCCC_FEB_2026 Python prototype, `tests/test_state_scenarios.py` (scenario 4 has the
 // canonical "Combat pill pack" + "Tylenol and Meloxicam" line) plus the
 // regex coverage for the three PAWS pattern groups (pain meds, antibiotics,
 // wound care) at state.py:472–479.

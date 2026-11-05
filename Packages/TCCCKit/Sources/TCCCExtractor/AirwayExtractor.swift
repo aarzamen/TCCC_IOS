@@ -1,7 +1,7 @@
 // AirwayExtractor
 //
 // Faithful Swift port of `_extract_airway` from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 663–681). The A of MARCH.
+// the TCCC_FEB_2026 Python prototype, `src/state.py` (lines 663–681). The A of MARCH.
 //
 // Pattern definitions live in `_compile_patterns` around lines 390–395:
 //

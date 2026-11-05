@@ -1,7 +1,7 @@
 // PatientSwitcher
 //
 // Faithful Swift port of `_check_new_patient` from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 530–567). The Python helper:
+// the TCCC_FEB_2026 Python prototype, `src/state.py` (lines 530–567). The Python helper:
 //
 //     def _check_new_patient(self, text, timestamp):
 //         # PATIENT_3 check first (most specific)

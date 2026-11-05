@@ -1,7 +1,7 @@
 // PatientStateEngine
 //
 // Faithful Swift port of `PatientStateEngine` from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 320–528).
+// the TCCC_FEB_2026 Python prototype, `src/state.py` (lines 320–528).
 //
 // Per-sentence dispatch order from `update_from_transcript` (state.py:481–528):
 //

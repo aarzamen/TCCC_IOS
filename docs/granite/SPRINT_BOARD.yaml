@@ -1,7 +1,7 @@
 version: "0.1"
 name: granite_hot_seat_sprint_board
 date: "2026-05-07"
-workspace: /Users/ama/.codex/worktrees/b727/TCCC_IOS
+workspace: the repository root
 status: sprint_2_in_progress
 
 goal: >

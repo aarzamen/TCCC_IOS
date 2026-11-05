@@ -30,7 +30,7 @@ boundary:
 The sprint setup was created in the worktree:
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS
+cd "$(git rev-parse --show-toplevel)"
 ```
 
 Important existing changes in the worktree include the review-hardening
@@ -82,7 +82,7 @@ hot-seat contract has to exist before a model can safely sit behind it.
 Use these exact commands for the sprint unless a task narrows the scope:
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS
+cd "$(git rev-parse --show-toplevel)"
 xcodegen generate
 xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' \
@@ -93,14 +93,14 @@ xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
 For TCCCKit-only changes:
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS/Packages/TCCCKit
+cd Packages/TCCCKit
 swift test
 ```
 
 For docs/spec hygiene:
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS
+cd "$(git rev-parse --show-toplevel)"
 ruby -ryaml -e 'ARGV.each { |path| YAML.load_file(path); puts "#{path}: ok" }' docs/granite/specs/*.yaml docs/granite/SPRINT_BOARD.yaml
 git diff --check
 ```

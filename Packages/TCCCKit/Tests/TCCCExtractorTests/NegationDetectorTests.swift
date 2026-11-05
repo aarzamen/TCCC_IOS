@@ -1,10 +1,10 @@
 // NegationDetectorTests
 //
 // Parity tests for `NegationDetector` against `has_negated_finding` from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py:24–35.
+// the TCCC_FEB_2026 Python prototype, `src/state.py:24–35`.
 //
 // Most assertions are ported verbatim from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_negation.py:TestHasNegatedFinding.
+// the TCCC_FEB_2026 Python prototype, `tests/test_state_negation.py`:TestHasNegatedFinding.
 
 import XCTest
 @testable import TCCCExtractor

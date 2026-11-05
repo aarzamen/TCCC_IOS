@@ -23,8 +23,8 @@
 
 - Initial sandboxed build was blocked by Simulator/cache permissions:
   `CoreSimulatorService connection became invalid`, plus denied access to
-  `/Users/ama/.cache/clang/ModuleCache` and
-  `/Users/ama/Library/Caches/org.swift.swiftpm`.
+  `~/.cache/clang/ModuleCache` and
+  `~/Library/Caches/org.swift.swiftpm`.
 - `xcodegen generate` was required so the generated project included the new
   Splash and DevTools files.
 - Final verification passed:

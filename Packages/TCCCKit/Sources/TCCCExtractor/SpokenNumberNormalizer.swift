@@ -1,7 +1,7 @@
 // SpokenNumberNormalizer
 //
 // Faithful Swift port of `_normalise_spoken_numbers` from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/state.py (lines 98–233).
+// the TCCC_FEB_2026 Python prototype, `src/state.py` (lines 98–233).
 //
 // Converts spoken-form vital-sign numbers in TCCC transcripts into digit form
 // so downstream regex extractors can use simple numeric patterns.

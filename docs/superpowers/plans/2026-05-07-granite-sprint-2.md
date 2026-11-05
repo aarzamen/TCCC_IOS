@@ -121,7 +121,7 @@ Acceptance:
 Run before claiming Sprint 2 work is ready:
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS
+cd "$(git rev-parse --show-toplevel)"
 xcodegen generate
 xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' \
@@ -132,6 +132,6 @@ xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
 For package-only changes:
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS/Packages/TCCCKit
+cd Packages/TCCCKit
 swift test
 ```
