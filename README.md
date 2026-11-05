@@ -292,13 +292,8 @@ assertions verbatim and builds the event-sourcing and UI layers on top.
 
 ## Licence
 
-MIT; see [LICENSE](LICENSE). Third-party terms that apply to a build: the Swift
-packages pulled in through SwiftPM (FluidAudio, AnyLanguageModel, mlx-swift,
-mlx-swift-lm, mlx-audio-swift, swift-transformers and their dependencies) are
-MIT or Apache-2.0, and swift-syntax carries the Apache-2.0 runtime library
-exception. DD Form 1380 is a United States government form; the bundled
-template is a repaired, field-renamed copy of the official JUL 2025 PDF, and the
-TCCC guideline and form extracts in `reference/rubric/extracted/` come from
-Joint Trauma System / CoTCCC publications, which are US government works. Model
-weights are not in this repository; Qwen3-ASR weights are Apache-2.0, and any
-other weights the code still references carry their own terms.
+MIT; see [LICENSE](LICENSE). Third-party terms are listed in
+[THIRD_PARTY.md](THIRD_PARTY.md): the SwiftPM dependencies are MIT or
+Apache-2.0, DD Form 1380 is a United States government form, the rubric
+extracts are US government works, and model weights are not in this repository
+(the planned Qwen3-ASR weights are Apache-2.0).
