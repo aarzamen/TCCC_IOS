@@ -95,8 +95,8 @@ stay bounded while the model is consuming chunks.
 This pass used four kinds of evidence.
 
 First, I read the three Sprint 1 resumption documents in the required order:
-`SPRINT_1_ACCEPTANCE.md`, `Packages/TCCCAudio/CLAUDE.md`, and
-`PRIOR_AUDIO_PATTERNS.md`.
+`docs/history/SPRINT_1_ACCEPTANCE.md`, `Packages/TCCCAudio/CLAUDE.md`, and
+`docs/history/PRIOR_AUDIO_PATTERNS.md`.
 
 Second, I inspected the current production code that owns Granite transcription and
 live capture:
@@ -119,18 +119,18 @@ as design memory, not copy-paste sources.
 The strongest measured evidence remains Sprint 1's physical iPhone 17 Pro runs.
 | Observation | Sprint 1 value | Source |
 | --- | ---: | --- |
-| Validation device | iPhone 17 Pro, iOS 26.2, UDID `<iPhone 17 Pro UDID>` | `SPRINT_1_ACCEPTANCE.md` |
-| Cold Granite prime | 1.99 s | `SPRINT_1_ACCEPTANCE.md` |
-| Cold-prime footprint delta | +2196.3 MB | `SPRINT_1_ACCEPTANCE.md` |
-| Post-load resident | 2.16 GB | `SPRINT_1_ACCEPTANCE.md` |
-| Available after model load | 3.84 GB | `SPRINT_1_ACCEPTANCE.md` |
-| Effective runtime cap | about 6.0 GB | `SPRINT_1_ACCEPTANCE.md` |
-| 14 s file transcribe time | 5.78 s | `SPRINT_1_ACCEPTANCE.md` |
-| 14 s decode speed | about 2.4 audio-seconds per wall-second | `SPRINT_1_ACCEPTANCE.md` |
-| 14 s peak `phys_footprint` | 2.46 GB | `SPRINT_1_ACCEPTANCE.md` |
-| Warm reprime | 1.04 s, +49 MB | `SPRINT_1_ACCEPTANCE.md` |
-| Long fixture failure | about 100 s fixture jetsam-killed about 3 s into transcribe | `SPRINT_1_ACCEPTANCE.md` |
-| Live capture failure | `phys_footprint` 2.16 GB to 4.46 GB in about 30 s, then jetsam | `SPRINT_1_ACCEPTANCE.md` |
+| Validation device | iPhone 17 Pro, iOS 26.2, UDID `<iPhone 17 Pro UDID>` | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Cold Granite prime | 1.99 s | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Cold-prime footprint delta | +2196.3 MB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Post-load resident | 2.16 GB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Available after model load | 3.84 GB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Effective runtime cap | about 6.0 GB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| 14 s file transcribe time | 5.78 s | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| 14 s decode speed | about 2.4 audio-seconds per wall-second | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| 14 s peak `phys_footprint` | 2.46 GB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Warm reprime | 1.04 s, +49 MB | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Long fixture failure | about 100 s fixture jetsam-killed about 3 s into transcribe | `docs/history/SPRINT_1_ACCEPTANCE.md` |
+| Live capture failure | `phys_footprint` 2.16 GB to 4.46 GB in about 30 s, then jetsam | `docs/history/SPRINT_1_ACCEPTANCE.md` |
 
 These numbers are not a substitute for the Strategy A/B/C sweep. They do establish
 that Granite itself can run under the 6 GB entitlement cap for short audio, and that
@@ -699,7 +699,7 @@ streaming classes for another ASR model.
 
 ---
 ## 7. Prior-Art Synthesis
-### 7.1 `PRIOR_AUDIO_PATTERNS.md`
+### 7.1 `docs/history/PRIOR_AUDIO_PATTERNS.md`
 
 The existing prior-art document remains the right starting point. It was scoped narrowly
 to ring-buffer and chunking patterns, not to final Granite architecture decisions.

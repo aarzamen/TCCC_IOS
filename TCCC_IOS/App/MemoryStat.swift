@@ -2,7 +2,7 @@ import Foundation
 import Darwin
 
 /// Foreground-app memory headroom probe. Per night-pass A3
-/// (2026-05-05) and RESEARCH_RAM_API.md.
+/// (2026-05-05) and docs/history/RESEARCH_RAM_API.md.
 ///
 /// `os_proc_available_memory()` returns the bytes the process can
 /// still allocate before iOS jetsam-kills it. Apple recommends this

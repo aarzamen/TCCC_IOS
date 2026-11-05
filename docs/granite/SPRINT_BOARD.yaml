@@ -22,7 +22,7 @@ source_of_truth:
   device_profile_protocol: docs/granite/specs/device_profile_protocol.yaml
   report_critique_contract: docs/granite/specs/report_critique_contract.yaml
   real_model_results: docs/granite/REAL_MODEL_RESULTS.md
-  research_note: RESEARCH_GRANITE_SPEECH.md
+  research_note: docs/history/RESEARCH_GRANITE_SPEECH.md
 
 guardrails:
   - no_runtime_cloud_inference

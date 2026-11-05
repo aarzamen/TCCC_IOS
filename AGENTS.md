@@ -282,14 +282,14 @@ download button + gain slider.
 **Reference docs on disk** (all from sprint research):
   - `reference/rubric/extracted/dd1380_field_inventory.json`
   - `reference/rubric/extracted/march_paws_vocabulary_2026.json`
-  - `RESEARCH_PARAKEET.md` — FluidInference/FluidAudio path
-  - `RESEARCH_LLAMA32B.md` — Llama 3.2 3B does NOT fit on iPhone
+  - `docs/history/RESEARCH_PARAKEET.md` — FluidInference/FluidAudio path
+  - `docs/history/RESEARCH_LLAMA32B.md` — Llama 3.2 3B does NOT fit on iPhone
     17 Pro under MLX; AUP forbids medical/military use
-  - `RESEARCH_LLM_SMALL.md` — LFM2.5-1.2B-Instruct primary,
+  - `docs/history/RESEARCH_LLM_SMALL.md` — LFM2.5-1.2B-Instruct primary,
     Qwen 3 1.7B fallback
-  - `RESEARCH_MGRS.md` + `MGRS_VALIDATION.md`
-  - `RESEARCH_RAM_API.md`
-  - `OVERNIGHT_QUEUE.md`, `NIGHT_PLAN.md` — execution logs
+  - `docs/history/RESEARCH_MGRS.md` + `docs/history/MGRS_VALIDATION.md`
+  - `docs/history/RESEARCH_RAM_API.md`
+  - `docs/history/OVERNIGHT_QUEUE.md`, `docs/history/NIGHT_PLAN.md` — execution logs
 
 `xcodebuild build -scheme TCCC_IOS` is green. **697 TCCCKit
 tests, 0 failures.**
@@ -342,7 +342,7 @@ session.
    stubs throw `.notImplemented`. Bundling MLX-Swift +
    AnyLanguageModel (or LocalLLMClient), a model file, and the
    import affordance is the bulk of this work. Per
-   `RESEARCH_LLM_SMALL.md` recommend LFM2.5 first
+   `docs/history/RESEARCH_LLM_SMALL.md` recommend LFM2.5 first
    (LFM Open License, 660 MB MLX 4-bit, 59.7 tok/s on iPhone
    17 Pro).
 8. **Parakeet on-device verification.** The integration is
@@ -429,7 +429,7 @@ If a future session needs to pick up mid-stream after context
 compaction:
 - `git log --oneline -20` shows commits with descriptive
   subjects (e.g. `feat(asr):`, `fix(audio):`, `feat(ui):`).
-- `OVERNIGHT_QUEUE.md` and `NIGHT_PLAN.md` document the two
+- `docs/history/OVERNIGHT_QUEUE.md` and `docs/history/NIGHT_PLAN.md` document the two
   finished sprints and explicit deferrals.
 - `RESEARCH_*.md` files cover license, performance, and
   integration paths for the alt backends.

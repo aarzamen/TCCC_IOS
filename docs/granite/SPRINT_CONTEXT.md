@@ -40,7 +40,7 @@ the current working diff and should not be reverted.
 
 The Granite sprint setup adds only docs and specs:
 
-- `RESEARCH_GRANITE_SPEECH.md`
+- `docs/history/RESEARCH_GRANITE_SPEECH.md`
 - `docs/granite/README.md`
 - `docs/granite/GRANITE_HOT_SEAT_ARCHETYPE.md`
 - `docs/granite/INSTRUCTIONS_FOR_AGENTS.md`

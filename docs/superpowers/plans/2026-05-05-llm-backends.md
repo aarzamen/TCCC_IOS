@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 6.2 / iOS 17+ / SwiftUI / `huggingface/AnyLanguageModel >= 0.8.0` (with `MLX` trait) / `mlx-community/LFM2-1.2B-4bit` (660 MB) + `mlx-community/Qwen3-1.7B-4bit` (968 MB) downloaded on demand.
 
-**Reference research:** `RESEARCH_LLM_SMALL.md` covers license, benchmarks, iPhone 17 Pro perf, integration alternatives, and the validator/diagnostics roadmap.
+**Reference research:** `docs/history/RESEARCH_LLM_SMALL.md` covers license, benchmarks, iPhone 17 Pro perf, integration alternatives, and the validator/diagnostics roadmap.
 
 ---
 
@@ -225,7 +225,7 @@ import Foundation
 
 /// Liquid AI LFM2.5-1.2B-Instruct backend (MLX 4-bit, ~660 MB on disk).
 ///
-/// Per `RESEARCH_LLM_SMALL.md`, LFM2.5-1.2B is the recommended primary
+/// Per `docs/history/RESEARCH_LLM_SMALL.md`, LFM2.5-1.2B is the recommended primary
 /// alternative to Apple Foundation Models:
 ///   - LFM Open License v1.0 — no AUP-style medical/military prohibition
 ///   - 59.7 tok/s on iPhone 17 Pro (vs 39.5 for Qwen 3 1.7B)
