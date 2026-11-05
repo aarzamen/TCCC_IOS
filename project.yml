@@ -64,6 +64,9 @@ targets:
       properties:
         CFBundleDisplayName: "Swift TCCC"
         CFBundleShortVersionString: "1.0"
+        # Placeholder: the post-build stamp below sets CFBundleVersion to the
+        # commit count, so two installs of different commits differ in build
+        # number, not only in SHA. CFBundleShortVersionString stays the release.
         CFBundleVersion: "1"
         ITSAppUsesNonExemptEncryption: false
         LSRequiresIPhoneOS: true
@@ -134,12 +137,17 @@ targets:
           GIT_BRANCH=$(git -C "${SRCROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)
           if [ -n "$(git -C "${SRCROOT}" status --porcelain 2>/dev/null)" ]; then GIT_SHA="${GIT_SHA}+"; fi
           BUILD_DATE=$(date "+%Y-%m-%d %H:%M")
+          # Build number = commits reachable from HEAD (monotonic per branch);
+          # falls back to the build minute when git is unavailable.
+          BUILD_NUMBER=$(git -C "${SRCROOT}" rev-list --count HEAD 2>/dev/null || date "+%Y%m%d%H%M")
           for KEY in TCCCGitSHA TCCCGitBranch TCCCBuildDate; do
             /usr/libexec/PlistBuddy -c "Delete :${KEY}" "$PLIST" 2>/dev/null || true
           done
           /usr/libexec/PlistBuddy -c "Add :TCCCGitSHA string ${GIT_SHA}" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :TCCCGitBranch string ${GIT_BRANCH}" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :TCCCBuildDate string ${BUILD_DATE}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${BUILD_NUMBER}" "$PLIST"
   TCCC_IOSTests:
     type: bundle.unit-test
     platform: iOS

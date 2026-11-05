@@ -3,7 +3,9 @@ import Foundation
 /// Build-identity stamp injected into the product Info.plist by the
 /// "Stamp build identity" post-build script in project.yml. Standing
 /// rule: every installed revision must be visually identifiable
-/// in-app (version + git SHA + branch + build date).
+/// in-app (version + build number + git SHA + branch + build date).
+/// `build` is CFBundleVersion, set by the same script to the commit count
+/// (a dirty tree shows as a trailing "+" on the SHA).
 struct BuildStamp {
     let version: String
     let build: String
@@ -22,8 +24,8 @@ struct BuildStamp {
         )
     }()
 
-    /// e.g. "v1.0 (48b4ac2) main · 2026-07-02 14:31"
+    /// e.g. "v1.0 (412) 48b4ac2 main · 2026-07-02 14:31"
     var display: String {
-        "v\(version) (\(gitSHA)) \(gitBranch) · \(buildDate)"
+        "v\(version) (\(build)) \(gitSHA) \(gitBranch) · \(buildDate)"
     }
 }
