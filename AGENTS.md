@@ -445,5 +445,5 @@ changes until the alt path is field-validated.
 
 <!-- apple-developer-kit:pointer:start -->
 ## Apple signing — read `APPLE_DEVELOPER_WARNING.md` first
-Team ID is `XM6E4PUXTU` (paid membership; `434HG698U6` is a certificate ID, not a team). Do not change signing, certificates, profiles, App IDs, or run `-allowProvisioningUpdates` without the user's explicit OK. Canonical facts: `~/apple-developer-kit/APPLE_DEVELOPER_ACCOUNT.md`.
+The development team ID is not in git: it lives in the untracked `Config/Signing.xcconfig` (copy `Config/Signing.xcconfig.example`). The 10-character ID inside an "Apple Development: Name (…)" certificate name is a certificate user ID, never a team. Do not change signing, certificates, profiles, App IDs, or run `-allowProvisioningUpdates` without the user's explicit OK. Canonical facts: `~/apple-developer-kit/APPLE_DEVELOPER_ACCOUNT.md` (local, outside this repository).
 <!-- apple-developer-kit:pointer:end -->

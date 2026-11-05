@@ -1,0 +1,15 @@
+// Copy this file to Config/Signing.xcconfig (ignored by git) and fill in your
+// Apple Developer team ID. project.yml references Config/Signing.xcconfig for
+// both configurations; xcodegen generates the project with or without it
+// (options.disabledValidations: missingConfigFiles), and CI builds with
+// CODE_SIGNING_ALLOWED=NO, so the file is only needed for device builds and
+// for scripts/archive_and_export.sh.
+//
+// The team ID is the 10-character identifier shown under Membership details
+// at developer.apple.com. It is NOT the 10-character ID that appears inside an
+// "Apple Development: Name (XXXXXXXXXX)" certificate name; that is a
+// certificate user ID and Xcode rejects it as a team.
+//
+// Never commit the filled-in copy. See APPLE_DEVELOPER_WARNING.md.
+
+DEVELOPMENT_TEAM = YOUR_TEAM_ID

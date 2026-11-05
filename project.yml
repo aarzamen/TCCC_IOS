@@ -4,6 +4,16 @@ options:
   deploymentTarget:
     iOS: "26.0"
   createIntermediateGroups: true
+  # Config/Signing.xcconfig is untracked (it holds DEVELOPMENT_TEAM); generate
+  # the project with or without it. CI builds with CODE_SIGNING_ALLOWED=NO.
+  disabledValidations:
+    - missingConfigFiles
+# Signing identity comes from an untracked xcconfig, never from a literal in a
+# public repository. Copy Config/Signing.xcconfig.example to
+# Config/Signing.xcconfig and set DEVELOPMENT_TEAM there.
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
 packages:
   TCCCKit:
     path: Packages/TCCCKit
@@ -35,7 +45,6 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    DEVELOPMENT_TEAM: "XM6E4PUXTU"
     CODE_SIGN_STYLE: Automatic
     # Xcode 15 user-script sandboxing blocks the git reads the build-stamp
     # post-build script needs (.git/HEAD, refs, index). Offline local

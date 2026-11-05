@@ -38,3 +38,7 @@ PROJECT.gdu
 # Model binaries are privately staged, embedded at build time, never source.
 *.safetensors
 OfflineModels-Staging/
+
+# Apple signing: the team ID and machine-specific signing facts stay local.
+Config/Signing.xcconfig
+APPLE_DEVELOPER_WARNING.local.md
