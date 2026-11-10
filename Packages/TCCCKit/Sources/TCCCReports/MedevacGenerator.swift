@@ -1,7 +1,7 @@
 // MedevacGenerator
 //
 // Produces the state-derived 9-Line MEDEVAC fallback. Mirrors
-// `generate_medevac_from_state` in /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py
+// `generate_medevac_from_state` in the TCCC_FEB_2026 Python prototype, `src/reports.py`
 // (lines 335–384) for *logic*. The output text layout follows the iOS port
 // contract specified in CLAUDE.md / Phase 5 task — a more compact line-prefixed
 // block intended for on-screen display rather than the verbose Python

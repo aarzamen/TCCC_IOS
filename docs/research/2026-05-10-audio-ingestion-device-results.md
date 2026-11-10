@@ -103,7 +103,7 @@ Build and install succeeded on the connected physical iPhone:
 
 ```bash
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS -destination "platform=iOS,id=$DEVICE_UDID" -configuration Debug build -skipMacroValidation
-xcrun devicectl device install app --device $DEVICE_UDID /Users/ama/Library/Developer/Xcode/DerivedData/TCCC_IOS-geqmlzqchxawxuhlardjkbquwppr/Build/Products/Debug-iphoneos/TCCC_IOS.app --timeout 120
+xcrun devicectl device install app --device $DEVICE_UDID ~/Library/Developer/Xcode/DerivedData/TCCC_IOS-geqmlzqchxawxuhlardjkbquwppr/Build/Products/Debug-iphoneos/TCCC_IOS.app --timeout 120
 ```
 
 The model resolver used the existing bookmark source in every run. Prime deltas stayed

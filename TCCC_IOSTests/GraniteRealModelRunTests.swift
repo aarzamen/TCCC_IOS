@@ -123,9 +123,12 @@ final class GraniteRealModelRunTests: XCTestCase {
         let report = GraniteLocalModelAssetGate.validate(modelDirectory: modelDirectory)
         XCTAssertTrue(report.isUsable, report.failures.map(\.description).joined(separator: "\n"))
 
+        // Default: <repo>/artifacts/granite-runs (ignored by git), derived from this file.
+        let defaultRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("artifacts/granite-runs", isDirectory: true).path
         let resultRoot = URL(
-            fileURLWithPath: Self.environmentValue("TCCC_REAL_MODEL_RESULTS_DIR", in: environment)
-                ?? "/Users/ama/.codex/worktrees/b727/TCCC_IOS/artifacts/granite-runs",
+            fileURLWithPath: Self.environmentValue("TCCC_REAL_MODEL_RESULTS_DIR", in: environment) ?? defaultRoot,
             isDirectory: true
         )
         let backend = GraniteLocalTextLLMBackend(modelDirectory: modelDirectory)

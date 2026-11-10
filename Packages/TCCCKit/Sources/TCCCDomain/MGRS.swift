@@ -17,7 +17,7 @@
 //   - 100km grid square letter pairs per the AA / AL scheme.
 //   - 5-digit easting/northing precision (1m).
 //
-// References (extracted into RESEARCH_MGRS.md):
+// References (extracted into docs/history/RESEARCH_MGRS.md):
 //   - NGA Geospatial Sciences Division "TM 8358.1" UTM/MGRS technical
 //     manual.
 //   - https://en.wikipedia.org/wiki/Military_Grid_Reference_System

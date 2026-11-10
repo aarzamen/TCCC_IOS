@@ -1,0 +1,11 @@
+// Tracked and public: this file carries no identity. Xcode requires the base
+// configuration file a project references to exist (the first CI run failed
+// with "Unable to open base configuration reference file"), so this file is
+// the stable reference, and the team ID lives in an ignored local file:
+//
+//   Config/Signing.local.xcconfig   (copy Config/Signing.local.xcconfig.example)
+//   DEVELOPMENT_TEAM = XXXXXXXXXX
+//
+// The include is optional: fresh clones and CI build with
+// CODE_SIGNING_ALLOWED=NO and no local file at all.
+#include? "Signing.local.xcconfig"

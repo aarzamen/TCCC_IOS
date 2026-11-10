@@ -6,7 +6,7 @@
 
 - Per user direction on 2026-05-07, Codex targets `Default15` / iPhone 15 Pro (`<iPhone 15 Pro UDID>`, CoreDevice `<iPhone 15 Pro devicectl id>`). Claude owns the iPhone 17 lane.
 - The integrated app builds for the iPhone 15 physical destination with `CODE_SIGNING_ALLOWED=NO`.
-- A signed Debug build also succeeded for iPhone 15 using `Apple Development: Aaron Arzamendi (434HG698U6)` and `iOS Team Provisioning Profile: *`.
+- A signed Debug build also succeeded for iPhone 15 using the Apple Development certificate and `iOS Team Provisioning Profile: *`.
 - The signed app installed on iPhone 15 as `com.aarzamen.TCCCai` and launched successfully via `devicectl`; launch output reported PID `4036`.
 - No automated on-device tap-walk is recorded here. The device tooling verified install and foreground launch, not visual inspection of each button state.
 

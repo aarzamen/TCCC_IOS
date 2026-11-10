@@ -91,7 +91,7 @@ final class TranscriptSegmentLedgerTests: XCTestCase {
 - [ ] **Step 2: Run tests and confirm failure**
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS
+cd "$(git rev-parse --show-toplevel)"
 xcodegen generate
 xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' \
@@ -695,7 +695,7 @@ git commit -m "feat(app): queue granite patches for review"
 - [ ] **Step 1: Run TCCCKit tests**
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS/Packages/TCCCKit
+cd Packages/TCCCKit
 swift test
 ```
 
@@ -704,7 +704,7 @@ Expected: all tests pass.
 - [ ] **Step 2: Run app test target**
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS
+cd "$(git rev-parse --show-toplevel)"
 xcodegen generate
 xcodebuild test -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'id=DE7116A4-74E0-40EA-85C2-0D19C290BD0E' \
@@ -717,7 +717,7 @@ Expected: all tests pass.
 - [ ] **Step 3: Run simulator build**
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS
+cd "$(git rev-parse --show-toplevel)"
 xcodebuild -project TCCC_IOS.xcodeproj -scheme TCCC_IOS \
   -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build CODE_SIGNING_ALLOWED=NO \
@@ -729,7 +729,7 @@ Expected: `BUILD SUCCEEDED`.
 - [ ] **Step 4: Launch on simulator**
 
 ```bash
-cd /Users/ama/.codex/worktrees/b727/TCCC_IOS
+cd "$(git rev-parse --show-toplevel)"
 APP_PATH="$HOME/Library/Developer/Xcode/DerivedData/TCCC_IOS-enngakophzkayebwopqwbumrovzw/Build/Products/Debug-iphonesimulator/TCCC_IOS.app"
 xcrun simctl install DE7116A4-74E0-40EA-85C2-0D19C290BD0E "$APP_PATH"
 xcrun simctl launch DE7116A4-74E0-40EA-85C2-0D19C290BD0E com.aarzamen.TCCCai

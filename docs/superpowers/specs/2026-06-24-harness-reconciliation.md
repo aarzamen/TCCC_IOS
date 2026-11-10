@@ -41,7 +41,7 @@ There are **two parallel "Sprint 1 / Sprint 2" lineages** in the repo; conflatin
 | Lineage | Source of truth | What it is | State |
 |---|---|---|---|
 | **Granite hot-seat** | `docs/granite/SPRINT_BOARD.yaml`, `docs/superpowers/plans/2026-05-07-granite-hot-seat*.md` | ledger → packet → validator → review queue → candidate patch (the *structure* side) | GHS-01…05 + GHS2-01…06 mostly `implemented`. **This is where the harness architecture already lives.** |
-| **Granite *Speech*** | `docs/specs/v3_sprint_1_granite_foundation.md`, `SPRINT_1_ACCEPTANCE.md` | replace ASR placeholder with on-device `mlx-audio-swift` transcription (the *audio* side) | Sprint 1 signed off 2026-05-10 (7 PASS / 1 PARTIAL / 1 DEFERRED). Sprint 2 = chunked-encode, **in flight, Codex's lane.** |
+| **Granite *Speech*** | `docs/specs/v3_sprint_1_granite_foundation.md`, `docs/history/SPRINT_1_ACCEPTANCE.md` | replace ASR placeholder with on-device `mlx-audio-swift` transcription (the *audio* side) | Sprint 1 signed off 2026-05-10 (7 PASS / 1 PARTIAL / 1 DEFERRED). Sprint 2 = chunked-encode, **in flight, Codex's lane.** |
 
 Everywhere below, "the hot-seat sprint" = the structure lineage. "[CODEX/AUDIO]" = the speech lineage.
 

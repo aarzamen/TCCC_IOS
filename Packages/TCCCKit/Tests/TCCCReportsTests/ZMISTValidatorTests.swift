@@ -1,13 +1,13 @@
 // ZMISTValidatorTests
 //
 // Mirrors the contract of `validate_zmist_against_state` in
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py (lines 584–710) plus its
+// the TCCC_FEB_2026 Python prototype, `src/reports.py` (lines 584–710) plus its
 // helpers (_validate_zmist_section, _get_verified_signs,
 // _get_verified_injuries, _get_verified_treatments,
 // _get_verified_evacuation, _strip_slm_wrapper).
 //
 // Includes ports of the four Python tests in
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_reports_validation.py.
+// the TCCC_FEB_2026 Python prototype, `tests/test_reports_validation.py`.
 
 import XCTest
 @testable import TCCCReports

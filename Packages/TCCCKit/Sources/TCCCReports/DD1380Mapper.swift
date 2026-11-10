@@ -36,8 +36,9 @@ public enum DD1380Mapper {
         card.medications = medications(from: p)
         card.otherTreatments = otherTreatments(from: p)
 
-        // §G — notes (structured leftovers only)
-        card.notes = notes(from: p, mechanism: card.mechanisms)
+        // §G — notes (structured leftovers only; nothing already on the card)
+        card.notes = notes(from: p, mechanism: card.mechanisms,
+                           medications: card.medications, other: card.otherTreatments)
 
         // §H — first responder (operator identity)
         card.firstResponderName = input.operatorName
@@ -230,8 +231,15 @@ public enum DD1380Mapper {
 
     // MARK: - §F meds + other
 
+    /// §F MEDS rows, one per recorded medication intervention, in order. The
+    /// row carries the drug the medic named ("Meloxicam"), not the engine's
+    /// action phrase ("Combat pill pack administered"). An action-only
+    /// descriptor makes a placeholder row only while no named drug of its
+    /// category is on the card: the combat pill pack already has its §F OTHER
+    /// checkbox, and "antibiotics" followed by "ertapenem" is one drug, not two.
     static func medications(from p: PatientState) -> [DD1380MedicationEntry] {
-        var meds: [DD1380MedicationEntry] = []
+        struct Row { let entry: DD1380MedicationEntry; let isGeneric: Bool }
+        var rows: [Row] = []
         for iv in p.interventions {
             let category: DD1380MedCategory
             switch iv.kind {
@@ -240,15 +248,61 @@ public enum DD1380Mapper {
             case .medication:     category = .other
             default:              continue
             }
-            let name = iv.description.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !name.isEmpty else { continue }
-            // dose/route are not structured in the domain → left blank, never invented.
-            meds.append(DD1380MedicationEntry(
-                category: category, name: name, dose: nil, route: nil,
-                timeHHMM: timeFormatter.string(from: iv.timestamp)
-            ))
+            let description = iv.description.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !description.isEmpty else { continue }
+            let time = timeFormatter.string(from: iv.timestamp)
+            if let placeholder = genericRowName(for: description) {
+                rows.append(Row(entry: DD1380MedicationEntry(
+                    category: category, name: placeholder, timeHHMM: time), isGeneric: true))
+                continue
+            }
+            let row = medicationRow(from: description)
+            // route is not structured in the domain → left blank, never invented.
+            rows.append(Row(entry: DD1380MedicationEntry(
+                category: category, name: row.name, dose: row.dose, route: nil, timeHHMM: time),
+                isGeneric: false))
         }
-        return meds
+        let namedCategories = Set(rows.filter { !$0.isGeneric }.map(\.entry.category))
+        return rows.filter { !$0.isGeneric || !namedCategories.contains($0.entry.category) }.map(\.entry)
+    }
+
+    /// Row text for an engine descriptor that names an action rather than a
+    /// drug; nil when the descriptor names a drug (or is operator-typed text).
+    static func genericRowName(for description: String) -> String? {
+        switch description.lowercased() {
+        case "combat pill pack administered": return "Combat pill pack"
+        case "pain medication administered":  return "Pain medication (name not recorded)"
+        case "antibiotics administered":      return "Antibiotic (name not recorded)"
+        default:                              return nil
+        }
+    }
+
+    /// Row name and dose from an engine descriptor. Engine descriptors read
+    /// "<drug> [dose] administered [(qualifier)]"; the row carries the drug and
+    /// any qualifier, with the dose in its own column. Text without the word
+    /// "administered" (operator-typed entries) is kept verbatim: nothing is
+    /// parsed out of it.
+    static func medicationRow(from description: String) -> (name: String, dose: String?) {
+        guard let administered = try? NSRegularExpression(
+                pattern: #"\s*\badministered\b\s*"#, options: [.caseInsensitive]),
+              administered.firstMatch(in: description, options: [],
+                  range: NSRange(location: 0, length: (description as NSString).length)) != nil
+        else { return (description, nil) }
+        let stripped = administered.stringByReplacingMatches(
+            in: description, options: [],
+            range: NSRange(location: 0, length: (description as NSString).length), withTemplate: " ")
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        // "Acetaminophen 1000 mg" / "Acetaminophen 1300 mg (two 650 mg)" → dose column.
+        if let doseRegex = try? NSRegularExpression(
+                pattern: #"^(.+?)\s+(\d{2,4}\s*mg(?:\s*\([^)]*\))?)$"#, options: [.caseInsensitive]),
+           let match = doseRegex.firstMatch(in: stripped, options: [],
+               range: NSRange(location: 0, length: (stripped as NSString).length)),
+           let nameRange = Range(match.range(at: 1), in: stripped),
+           let doseRange = Range(match.range(at: 2), in: stripped) {
+            return (String(stripped[nameRange]), String(stripped[doseRange]))
+        }
+        return (stripped, nil)
     }
 
     static func otherTreatments(from p: PatientState) -> DD1380OtherTreatmentFlags {
@@ -272,7 +326,9 @@ public enum DD1380Mapper {
 
     // MARK: - §G notes
 
-    static func notes(from p: PatientState, mechanism: DD1380MechanismFlags) -> String {
+    static func notes(from p: PatientState, mechanism: DD1380MechanismFlags,
+                      medications: [DD1380MedicationEntry] = [],
+                      other: DD1380OtherTreatmentFlags = DD1380OtherTreatmentFlags()) -> String {
         // Deterministic, structured leftovers only — no LLM prose, no GPS/MGRS.
         var lines: [String] = []
         appendIf(&lines, "Hemorrhage", p.march.hemorrhageLocation)
@@ -288,9 +344,18 @@ public enum DD1380Mapper {
         appendIf(&lines, "Pupils", p.march.pupilResponse)
         appendIf(&lines, "Wounds", p.paws.wounds)
         appendIf(&lines, "Splint", p.paws.splinting)
-        appendIf(&lines, "Antibiotics", p.paws.antibiotics)
-        appendIf(&lines, "Pain mgmt", p.paws.pain)
-        appendIf(&lines, "Hypothermia", p.march.hypothermiaPrevention)
+        // Antibiotics, pain management and hypothermia prevention print on the
+        // §F rows and OTHER checkboxes; Notes repeat them only when nothing on
+        // the card carries them (first live export, 2026-10-27, had all three twice).
+        if !medications.contains(where: { $0.category == .antibiotic }) {
+            appendIf(&lines, "Antibiotics", p.paws.antibiotics)
+        }
+        if !medications.contains(where: { $0.category == .analgesic }) && !other.combatPillPack {
+            appendIf(&lines, "Pain mgmt", p.paws.pain)
+        }
+        if !other.hypothermiaPrevention {
+            appendIf(&lines, "Hypothermia", p.march.hypothermiaPrevention)
+        }
         // Recorded interventions with no box on the card (IV/IO access, TQ
         // conversion, other) are listed with their time rather than dropped.
         for iv in p.interventions where [.ivAccess, .ioAccess, .tourniquetConversion, .other].contains(iv.kind) {

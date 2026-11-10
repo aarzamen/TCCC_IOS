@@ -3,8 +3,8 @@
 // End-to-end tests for `PatientStateEngine` exercising the Lane-A extractors:
 // hemorrhage, airway, head/hypothermia. These tests mirror the relevant
 // assertions from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_scenarios.py and
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_negation.py — but limited to the
+// the TCCC_FEB_2026 Python prototype, `tests/test_state_scenarios.py` and
+// the TCCC_FEB_2026 Python prototype, `tests/test_state_negation.py` — but limited to the
 // fields owned by Lane A. Other-lane assertions (vitals, fractures,
 // classification, etc.) are out of scope here.
 

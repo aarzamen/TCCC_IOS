@@ -94,7 +94,7 @@ Sources: [NVIDIA Open Model License](https://www.nvidia.com/en-us/agreements/ent
 
 ## 5. Integration Sketch — `ParakeetTranscriptStream`
 
-The existing `TranscriptStream` protocol in `/Users/ama/Projects/tccc-ai-ios/TCCC_IOS/Audio/TranscriptStream.swift`:
+The existing `TranscriptStream` protocol in `TCCC_IOS/Audio/TranscriptStream.swift`:
 
 ```swift
 protocol TranscriptStream: Sendable {

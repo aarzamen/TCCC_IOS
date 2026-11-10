@@ -15,7 +15,7 @@ import Foundation
 /// Why both LFM2 and Qwen as stubs (not just the recommended LFM2):
 ///   - LFM Open License v1.0 (Liquid AI) has no AUP-style restrictions
 ///     on medical or military use; only a $10M revenue cap. Per
-///     RESEARCH_LLM_SMALL.md it benches above Qwen 3 1.7B on IFEval
+///     docs/history/RESEARCH_LLM_SMALL.md it benches above Qwen 3 1.7B on IFEval
 ///     and runs faster on iPhone 17 Pro (59.7 vs 39.5 tok/s).
 ///   - Qwen 3 1.7B is the Apache-2.0 fallback if Liquid's license
 ///     turns out to have a clause we can't accept; keeping its stub
@@ -24,7 +24,7 @@ import Foundation
 /// Llama 3.2 deliberately NOT a backend option: its AUP forbids
 /// "military, warfare" and "unauthorized practice of … medical/health"
 /// — TCCC.ai is on both forks of that prohibition. (Per
-/// RESEARCH_LLAMA32B.md.)
+/// docs/history/RESEARCH_LLAMA32B.md.)
 protocol TCCCLLMBackend: Sendable {
     /// Single-shot prompt → response. Instructions and prompt are
     /// separated so the wrapper can apply backend-specific system

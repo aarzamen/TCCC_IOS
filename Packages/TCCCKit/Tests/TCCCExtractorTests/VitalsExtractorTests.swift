@@ -1,8 +1,8 @@
 // VitalsExtractorTests
 //
 // Mirrors the Python vital-sign assertions from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_scenarios.py and
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/tests/test_state_negation.py, plus exhaustive
+// the TCCC_FEB_2026 Python prototype, `tests/test_state_scenarios.py` and
+// the TCCC_FEB_2026 Python prototype, `tests/test_state_negation.py`, plus exhaustive
 // regex-pattern coverage for HR / BP / SpO2 / RR variants.
 //
 // VitalsExtractor operates on the post-normalised sentence, so the tests

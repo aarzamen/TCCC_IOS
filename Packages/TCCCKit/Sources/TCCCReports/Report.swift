@@ -2,7 +2,7 @@
 //
 // Output type for the fallback report generators in TCCCReports. This module
 // only ports the *state-derived fallback* path from
-// /Users/ama/Projects/tccc-ai-feb2026-prototype/src/reports.py — the SLM validators
+// the TCCC_FEB_2026 Python prototype, `src/reports.py` — the SLM validators
 // (`validate_medevac_against_state`, `validate_zmist_against_state`) are
 // intentionally deferred until the on-device LLM integration phase lands. When
 // SLM output exists, validators will clean it up; until then `MedevacGenerator`

@@ -5,7 +5,7 @@
 The streaming-ASR tentative→permanent commit pipeline currently de-dupes the
 `forceFinalize()` echo with a lexical heuristic in `AppState.appendFinal`
 (EXACT match + `hasPrefix` SUPERSET truncation). The 2026-06-26 multi-agent
-code review (`CODE_REVIEW_FINDINGS_2026-06-26.md`) found that heuristic both
+code review (`docs/history/CODE_REVIEW_FINDINGS_2026-06-26.md`) found that heuristic both
 lossy and false-positive-prone, and recommended a **loss-safe-first
 provisional-replace** redesign (its Section C). This spec is that redesign,
 built against the post-consolidation `main` (`0d77d1a`).

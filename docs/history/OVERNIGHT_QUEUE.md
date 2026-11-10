@@ -287,7 +287,7 @@ When you're back at the keyboard:
 
 1. Read `RESEARCH_PARAKEET.md` and `RESEARCH_LLAMA32B.md`. Decide
    between Architecture A vs B (or both).
-2. Run `cd /Users/ama/Projects/tccc-ai-ios && git log --oneline -15` to see
+2. Run `git log --oneline -15` to see
    what landed overnight.
 3. Run `cd Packages/TCCCKit && swift test` to confirm everything
    is still green (it should be — I'll verify before stopping).
